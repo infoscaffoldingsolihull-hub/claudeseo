@@ -1,0 +1,13 @@
+{
+  "name": "digital-giza-pm-simulator",
+  "version": "1.0.0",
+  "description": "Digital Giza Project Management Simulator — an interactive Three.js digital twin of the Giza Necropolis with a full PMBOK-aligned construction project simulation.",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "serve": "node tools/serve.mjs",
+    "test": "node tools/smoke-test.mjs"
+  }
+}
