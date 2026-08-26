@@ -123,6 +123,53 @@ async function run() {
   }
   await page.evaluate(() => window.__giza.closePanels());
 
+  console.log('> touch / mobile controls');
+  const touch = await page.evaluate(() => {
+    window.__giza.sim.setMode('archaeologist');
+    const forced = window.__giza.setTouchControls(true);
+    const stick = window.__giza.touchStick(0.7, -0.7);
+    const jump = window.__giza.touchButton('jump');
+    const crouch = window.__giza.touchButton('crouch');
+    window.__giza.touchButton('crouch');   // toggle back off
+    window.__giza.touchStick(0, 0);
+    window.__giza.setTouchControls(false);
+    return { ...forced, stick, jump, crouch };
+  });
+  console.log('> touch:', JSON.stringify(touch));
+  if (!touch.enabled || touch.buttons.length !== 4 || !touch.jump.down || touch.jump.stillDown) {
+    errors.push(`touch controls did not behave: ${JSON.stringify(touch)}`);
+  }
+  if (Math.abs(touch.stick.x - 0.7) > 0.01 || Math.abs(touch.stick.y + 0.7) > 0.01) {
+    errors.push(`virtual stick axes wrong: ${JSON.stringify(touch.stick)}`);
+  }
+
+  console.log('> responsive layout check');
+  const layouts = [];
+  for (const [label, width, height] of [['phone', 412, 915], ['tablet', 1024, 768], ['landscape-phone', 844, 390]]) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate(() => window.__giza.setTouchControls(true));
+    await page.waitForTimeout(320);
+    const m = await page.evaluate(() => {
+      window.__giza.openPanel('cost');
+      const panel = document.querySelector('.panel.open');
+      return {
+        scrollW: document.documentElement.scrollWidth,
+        innerW: window.innerWidth,
+        panelW: panel ? Math.round(panel.getBoundingClientRect().width) : 0,
+        panelRight: panel ? Math.round(panel.getBoundingClientRect().right) : 0,
+      };
+    });
+    await page.evaluate(() => window.__giza.closePanels());
+    layouts.push({ label, ...m });
+    console.log(`  ${label.padEnd(16)} panel=${m.panelW}px right=${m.panelRight} viewport=${m.innerW} scroll=${m.scrollW}`);
+    if (m.scrollW > m.innerW + 1) errors.push(`${label}: page scrolls horizontally (${m.scrollW} > ${m.innerW})`);
+    if (m.panelRight > m.innerW + 1) errors.push(`${label}: dashboard overflows the viewport`);
+    if (wantShots) await page.screenshot({ path: join(SHOT_DIR, `mobile-${label}.jpg`), type: 'jpeg', quality: 82 });
+  }
+  await page.evaluate(() => window.__giza.setTouchControls(false));
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.waitForTimeout(400);
+
   console.log('> walker / collision check');
   const walk = await page.evaluate(() =>
     window.__giza.walkTest([[0, -260], [210, -206], [268, 300], [336, 620], [300, 900], [-252, 620], [1100, 300], [-800, 400]])
@@ -147,6 +194,7 @@ async function run() {
   console.log('\n================ SMOKE TEST SUMMARY ================');
   console.log(`scenarios      : ${results.length}`);
   console.log(`panels         : ${panels.length}`);
+  console.log(`viewports      : ${layouts.length} (${layouts.map((l) => l.label).join(', ')})`);
   console.log(`min fps        : ${minFps.toFixed(1)} (SwiftShader software rasteriser)`);
   console.log(`console errors : ${errors.length}`);
   console.log(`console warns  : ${warnings.length}`);

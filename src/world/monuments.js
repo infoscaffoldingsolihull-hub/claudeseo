@@ -218,6 +218,7 @@ export class MonumentSystem {
     scene.add(this.group);
     this.collision = collision;
     this.torchSites = [];
+    this.pennantSites = [];
 
     const lime = textures.limestone();
     const gran = textures.granite();
@@ -367,6 +368,9 @@ export class MonumentSystem {
       // Torches flank every temple gate.
       this.torchSites.push({ x: spec.x + spec.w / 2 + 2.4, y: spec.y + 2.4, z: spec.z - 3.4, scale: 1.1 });
       this.torchSites.push({ x: spec.x + spec.w / 2 + 2.4, y: spec.y + 2.4, z: spec.z + 3.4, scale: 1.1 });
+      // Cedar flagstaffs outside them, streaming east on the prevailing wind.
+      this.pennantSites.push({ x: spec.x + spec.w / 2 + 5.6, y: spec.y, z: spec.z - 7.2, height: 14.5, yaw: 0 });
+      this.pennantSites.push({ x: spec.x + spec.w / 2 + 5.6, y: spec.y, z: spec.z + 7.2, height: 14.5, yaw: 0 });
     }
   }
 

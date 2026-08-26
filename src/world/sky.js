@@ -240,6 +240,12 @@ export class SkySystem {
     this.sunElevation = 0.6;
     this.moonElevation = -0.6;
     this.sunWorld = new THREE.Vector3();
+    this._shadowCorners = Array.from({ length: 8 }, () => new THREE.Vector3());
+    this._shadowCentre = new THREE.Vector3();
+    this._shadowUp = new THREE.Vector3(0, 1, 0);
+    this._shadowAltUp = new THREE.Vector3(0, 0, 1);
+    this._shadowRight = new THREE.Vector3();
+    this._shadowTrueUp = new THREE.Vector3();
     this.horizonColor = new THREE.Color(0xd8c39a);
     this.state = { phase: 'day', dayFactor: 1, nightFactor: 0, torchFactor: 0 };
 
@@ -331,14 +337,89 @@ export class SkySystem {
       this.sunLight.shadow.map.dispose();
       this.sunLight.shadow.map = null;
     }
+    // The extents are re-fitted every frame in `_fitShadowCamera`; these are
+    // just sane defaults for the first frame.
     const d = s.shadowDistance;
     const cam = this.sunLight.shadow.camera;
     cam.left = -d;
     cam.right = d;
     cam.top = d;
     cam.bottom = -d;
+    cam.near = 1;
     cam.far = d * 6;
     cam.updateProjectionMatrix();
+  }
+
+  /**
+   * Fit the shadow frustum to the slice of the view frustum that can actually
+   * cast visible shadows.
+   *
+   * Centring a fixed box on the camera wastes roughly half its area behind the
+   * viewer. Fitting to the frustum slice instead roughly doubles the effective
+   * shadow resolution for no extra cost. The extents come from the slice's
+   * bounding SPHERE rather than a tight box, because a sphere is invariant to
+   * camera rotation — a tight box would make the shadow edges crawl as the
+   * player turns. The centre is then snapped to whole shadow-map texels, which
+   * removes the remaining shimmer when the player walks.
+   */
+  _fitShadowCamera(camera) {
+    const s = this.quality.settings;
+    const far = Math.min(s.shadowDistance, camera.far);
+    const near = camera.near;
+    const tanV = Math.tan(((camera.fov * Math.PI) / 180) / 2);
+    const tanH = tanV * camera.aspect;
+
+    camera.updateMatrixWorld();
+    const corners = this._shadowCorners;
+    let i = 0;
+    for (const dist of [near, far]) {
+      const h = tanV * dist;
+      const w = tanH * dist;
+      for (const sx of [-1, 1]) {
+        for (const sy of [-1, 1]) {
+          corners[i++].set(sx * w, sy * h, -dist).applyMatrix4(camera.matrixWorld);
+        }
+      }
+    }
+
+    const centre = this._shadowCentre.set(0, 0, 0);
+    for (const c of corners) centre.add(c);
+    centre.multiplyScalar(1 / corners.length);
+
+    let radius = 0;
+    for (const c of corners) radius = Math.max(radius, c.distanceTo(centre));
+    radius = Math.ceil(radius);
+
+    // Snap the centre to the shadow-map texel grid, in the light's own basis.
+    const mapSize = s.shadowMapSize;
+    const texelWorld = (radius * 2) / mapSize;
+    const up = Math.abs(this.sunDirection.y) > 0.98 ? this._shadowAltUp : this._shadowUp;
+    const right = this._shadowRight.crossVectors(up, this.sunDirection).normalize();
+    const trueUp = this._shadowTrueUp.crossVectors(this.sunDirection, right).normalize();
+    const alongRight = Math.round(centre.dot(right) / texelWorld) * texelWorld;
+    const alongUp = Math.round(centre.dot(trueUp) / texelWorld) * texelWorld;
+    const alongDir = centre.dot(this.sunDirection);
+    centre
+      .copy(right).multiplyScalar(alongRight)
+      .addScaledVector(trueUp, alongUp)
+      .addScaledVector(this.sunDirection, alongDir);
+
+    const back = radius + 120;
+    this.sunTarget.position.copy(centre);
+    this.sunTarget.updateMatrixWorld();
+    this.sunLight.position.copy(centre).addScaledVector(this.sunDirection, back);
+    this.sunLight.updateMatrixWorld();
+
+    const cam = this.sunLight.shadow.camera;
+    if (cam.right !== radius || cam.far !== back + radius + 120) {
+      cam.left = -radius;
+      cam.right = radius;
+      cam.top = radius;
+      cam.bottom = -radius;
+      cam.near = 1;
+      cam.far = back + radius + 120;
+      cam.updateProjectionMatrix();
+    }
   }
 
   /** Keep the sky dome and shadow frustum centred on the viewer. */
@@ -353,13 +434,17 @@ export class SkySystem {
     this.moon.lookAt(camera.position);
 
     const d = this.quality ? this.quality.settings.shadowDistance : 400;
-    this.sunTarget.position.set(camera.position.x, 0, camera.position.z);
-    this.sunTarget.updateMatrixWorld();
-    this.sunLight.position.copy(this.sunTarget.position).addScaledVector(this.sunDirection, d * 2.6);
-    this.sunLight.updateMatrixWorld();
-    this.moonTarget.position.copy(this.sunTarget.position);
+    if (this.quality && this.quality.settings.shadows) {
+      this._fitShadowCamera(camera);
+    } else {
+      this.sunTarget.position.set(camera.position.x, 0, camera.position.z);
+      this.sunTarget.updateMatrixWorld();
+      this.sunLight.position.copy(this.sunTarget.position).addScaledVector(this.sunDirection, d * 2.6);
+      this.sunLight.updateMatrixWorld();
+    }
+    this.moonTarget.position.set(camera.position.x, 0, camera.position.z);
     this.moonTarget.updateMatrixWorld();
-    this.moonLight.position.copy(this.sunTarget.position).addScaledVector(this.moonDirection, d * 2.6);
+    this.moonLight.position.copy(this.moonTarget.position).addScaledVector(this.moonDirection, d * 2.6);
 
     this.sunWorld.copy(camera.position).addScaledVector(this.sunDirection, far * 0.85);
   }

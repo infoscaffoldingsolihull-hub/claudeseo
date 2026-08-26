@@ -10,7 +10,7 @@ estimates, earned-value analysis, a quantified risk register, resource levelling
 quality control, procurement, stakeholder engagement, and Monte Carlo forecasting.
 
 **Everything runs from a single HTML file, offline, with no build step, no server and no network
-access.**
+access** — on a desktop, a laptop, a tablet or a phone.
 
 ---
 
@@ -79,6 +79,10 @@ The 3D world is not decoration: the pyramid's built height, its casing coverage,
 scaffolding, the number of workers on site and the size of the stone stockpile are all driven by
 the simulation state.
 
+Sessions save and resume — four slots, one of them automatic, plus export and import as text — and
+a restored run continues on exactly the same random stream, so a scenario built at your desk can be
+presented from another machine.
+
 ---
 
 ## Documentation
@@ -106,7 +110,7 @@ src/
   engine/                     renderer, post-processing, controls, input, quality, noise, textures
   world/                      terrain, sky, pyramids, monuments, site, interior, workers, props
   pm/                         the project simulation: model, CPM, EVM, Monte Carlo, advisor
-  ui/                         dashboard panels, charts, HUD, guided tour, stylesheet
+  ui/                         dashboard panels, charts, HUD, guided tour, touch layer, stylesheet
 tools/
   build.mjs                   the single-file bundler
   serve.mjs                   zero-dependency dev server

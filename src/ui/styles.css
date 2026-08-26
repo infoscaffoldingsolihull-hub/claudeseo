@@ -974,7 +974,7 @@ svg.chart .label { fill: var(--papyrus-dim); }
 .touch-hint {
   position: absolute;
   left: 50%;
-  bottom: 18px;
+  top: 92px;
   transform: translateX(-50%);
   font-size: 11px;
   color: var(--papyrus-dim);
@@ -982,7 +982,134 @@ svg.chart .label { fill: var(--papyrus-dim); }
   padding: 6px 13px;
   border-radius: 20px;
   display: none;
+  pointer-events: none;
+  white-space: nowrap;
+  max-width: 92vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
+/* ------------------------------------------------ touch / mobile controls */
+
+.touch-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: none;
+  z-index: 4;
+}
+.touch-layer.on { display: block; }
+.touch-layer.dim { opacity: 0.14; pointer-events: none; }
+.touch-layer.dim .touch-pad,
+.touch-layer.dim .touch-utility { pointer-events: none; }
+
+.touch-stick {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 136px;
+  height: 136px;
+  margin: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(212, 169, 47, 0.42);
+  background: radial-gradient(circle at 50% 50%, rgba(20, 17, 11, 0.30), rgba(20, 17, 11, 0.62));
+  display: none;
+  opacity: 0.85;
+}
+.touch-stick.on { display: block; }
+.touch-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 58px;
+  height: 58px;
+  margin: -29px 0 0 -29px;
+  border-radius: 50%;
+  background: rgba(212, 169, 47, 0.34);
+  border: 1.5px solid rgba(236, 224, 198, 0.55);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+
+.touch-pad {
+  position: absolute;
+  right: 16px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: auto;
+}
+.touch-btn {
+  appearance: none;
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(212, 169, 47, 0.42);
+  background: rgba(20, 17, 11, 0.66);
+  color: var(--papyrus);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-family: var(--font-ui);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  user-select: none;
+  transition: background 90ms linear, transform 90ms linear;
+}
+.touch-btn b { font-size: 21px; line-height: 1; color: var(--gold-soft); font-weight: 400; }
+.touch-btn span { font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--papyrus-dim); }
+.touch-btn.held, .touch-btn.hit {
+  background: rgba(212, 169, 47, 0.28);
+  transform: scale(0.94);
+}
+.touch-btn:nth-child(n + 3) { width: 62px; height: 62px; }
+.touch-btn:nth-child(n + 3) b { font-size: 17px; }
+
+.touch-utility {
+  position: absolute;
+  right: 16px;
+  top: 60px;
+  display: flex;
+  gap: 7px;
+  pointer-events: auto;
+}
+.touch-util {
+  appearance: none;
+  width: 40px;
+  height: 36px;
+  border-radius: 9px;
+  border: 1px solid rgba(212, 169, 47, 0.3);
+  background: rgba(20, 17, 11, 0.72);
+  color: var(--gold-soft);
+  font-size: 14px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* With the pad on screen the bottom-left corner belongs to the thumb, so the
+   ticker moves right and up, the rail scrolls rather than running off the
+   bottom of the screen, and every target grows. */
+body.touch-mode .ticker {
+  left: auto;
+  right: 12px;
+  bottom: 112px;
+  width: min(420px, calc(100vw - 90px));
+}
+body.touch-mode .advisor { bottom: 112px; }
+body.touch-mode .mission-hud { display: none !important; }
+body.touch-mode .rail button { height: 48px; }
+body.touch-mode .rail {
+  max-height: calc(100vh - 250px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+}
+body.touch-mode .rail::-webkit-scrollbar { display: none; }
+body.touch-mode .rail button .tip { display: none; }
 
 @media (max-width: 780px) {
   .hud-top { height: 46px; }
@@ -998,5 +1125,60 @@ svg.chart .label { fill: var(--papyrus-dim); }
   .advisor { width: calc(100vw - 16px); right: 8px; bottom: 8px; }
   .codex { width: calc(100vw - 16px); right: 8px; }
   .mission-hud { display: none !important; }
-  .touch-hint { display: block; }
+  .touch-btn { width: 64px; height: 64px; }
+  .touch-btn:nth-child(n + 3) { width: 54px; height: 54px; }
+  .touch-pad { right: 10px; bottom: 14px; gap: 9px; }
+  .touch-utility { top: 52px; right: 10px; }
+  body.touch-mode .ticker { width: min(320px, calc(100vw - 78px)); }
+  body.touch-mode .ticker .event:nth-last-child(n + 3) { display: none; }
+  .help-card { padding: 18px; max-height: 84vh; overflow: auto; }
+  .keys { grid-template-columns: 1fr; }
+}
+
+/* Portrait phones. The bar keeps only what cannot be reached another way:
+   the mode arrows and the speed control live on the touch layer, so the
+   wordmark, the mode switch and two of the five metrics stand down. */
+@media (max-width: 560px) {
+  .hud-top { overflow: hidden; }
+  .hud-top > * { flex: 0 0 auto; }
+  .hud-top > .hud-spacer { flex: 1 1 auto; }
+  body.touch-mode .mode-switch.modes { display: none; }
+  .brand > div { display: none; }
+  .brand { padding: 0 9px; }
+  .metric[data-metric='clock'], .metric[data-metric='date'] { display: none; }
+  .metric { min-width: 52px; padding: 4px 6px; }
+  .metric b { font-size: 12.5px; }
+  .metric span { font-size: 8.5px; }
+  .hud-metrics { padding-right: 4px; }
+  .compass { width: 176px; }
+  .toast-stack { max-width: 74vw; }
+  .poi-prompt { font-size: 11px; }
+  .wide-only { display: none; }
+  body.panel-open .ticker,
+  body.panel-open .compass,
+  body.panel-open .toast-stack { display: none; }
+}
+
+/* Tablets: the dashboard is the point of the thing, so it keeps the screen,
+   but every control grows to a finger-sized target. */
+@media (max-width: 1100px) and (pointer: coarse) {
+  .panel { left: 58px; width: calc(100vw - 68px); }
+  .panel.wide { width: calc(100vw - 68px); }
+  .panel-body { padding: 13px; }
+  .panel-tabs button { padding: 11px 13px; font-size: 12px; }
+  .wbs-row { padding: 9px 7px; }
+  .rail button { height: 50px; }
+  table { font-size: 12px; }
+  input[type='range'] { height: 26px; }
+}
+
+/* Landscape phones have almost no vertical room: shrink the chrome so the
+   plateau still gets most of the screen. */
+@media (max-height: 460px) {
+  .hud-top { height: 40px; }
+  .rail { top: 46px; }
+  .rail button { height: 34px; }
+  .ticker { display: none; }
+  .touch-pad { bottom: 8px; }
+  .touch-btn { width: 56px; height: 56px; }
 }

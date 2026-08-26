@@ -7,7 +7,10 @@ import { MonumentSystem } from './monuments.js';
 import { SiteSystem } from './site.js';
 import { WorkerSystem } from './workers.js';
 import { InteriorSystem } from './interior.js';
-import { RockField, Vegetation, Footprints, ParticleField, TorchSystem, buildTorchPosts } from './props.js';
+import {
+  RockField, Vegetation, Footprints, ParticleField, TorchSystem, buildTorchPosts, DustPuffs, BirdFlock,
+  Pennants,
+} from './props.js';
 import { PYRAMIDS, POINTS_OF_INTEREST, KHUFU_INTERIOR } from './layout.js';
 
 /**
@@ -110,6 +113,9 @@ export class World {
       size: 1.7,
       opacity: 0.34,
     });
+    this.dustPuffs = new DustPuffs(this.scene, { capacity: 160 });
+    this.birds = new BirdFlock(this.scene, { count: this.quality.settings.birdCount });
+    this.pennants = new Pennants(this.scene, this.monuments.pennantSites, this.site.materials.timber);
   }
 
   _buildInterior() {
@@ -124,6 +130,7 @@ export class World {
       opacity: 0.5,
       blending: THREE.AdditiveBlending,
     });
+    this.interiorPuffs = new DustPuffs(this.interior.scene, { capacity: 48, color: 0xe6d8bc, opacity: 0.42 });
     this.interiorTorches = new TorchSystem(this.interior.scene, this.textures, this.quality, { capacity: 140 });
     for (const t of this.interior.torchSites) {
       this.interiorTorches.add(t.x, t.y, t.z, { scale: t.scale, interior: true, alwaysLit: true });
@@ -145,6 +152,15 @@ export class World {
 
   _buildWorkers() {
     this.workers = new WorkerSystem(this.scene, this.textures, this.quality, this.pyramids);
+    this.workers.onDust = (x, y, z, strength, dx, dz) => {
+      if (this.dustPuffs) this.dustPuffs.emit(x, y, z, strength, dx, dz);
+    };
+  }
+
+  /** A footfall or a sledge runner kicking up the plateau's dust. */
+  kickDust(x, y, z, strength = 1, driftX = 0, driftZ = 0) {
+    const field = this.inInterior ? this.interiorPuffs : this.dustPuffs;
+    if (field) field.emit(x, y, z, strength, driftX, driftZ);
   }
 
   _buildTorches() {
@@ -213,6 +229,7 @@ export class World {
       this.interior.update(dt, camera.position, this.sky);
       this.interiorTorches.update(dt, camera.position, 1, true);
       this.interiorDust.update(elapsed, camera.position, 0.5, this.quality.pixelRatio);
+      this.interiorPuffs.update(dt);
       return;
     }
 
@@ -221,6 +238,9 @@ export class World {
     this.workers.update(dt, this.pyramids.khufuBuiltHeight);
     this.torches.update(dt, camera.position, this.sky.state.torchFactor, false);
     this.sand.update(elapsed, camera.position, 0.14 + this.sky.state.dayFactor * 0.22, this.quality.pixelRatio);
+    this.dustPuffs.update(dt);
+    this.birds.update(dt, camera.position, this.sky.state.dayFactor);
+    this.pennants.update(dt, this.sky.state.dayFactor);
   }
 
   dispose() {
@@ -228,6 +248,7 @@ export class World {
     for (const sys of [
       this.terrain, this.pyramids, this.monuments, this.site, this.rocks,
       this.vegetation, this.footprints, this.sand, this.workers, this.torches,
+      this.dustPuffs, this.birds, this.pennants, this.interiorPuffs,
       this.interior, this.interiorTorches, this.interiorDust, this.sky,
     ]) {
       if (sys && sys.dispose) sys.dispose();

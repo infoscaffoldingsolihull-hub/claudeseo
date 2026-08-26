@@ -25,12 +25,15 @@ const LABOUR_SHARE = 0.55;      // fraction of budget that is labour, not materi
 const TARGET_PEAK_WORKFORCE = 21000;
 const ENGAGEMENT_LEVELS = ['Unaware', 'Resistant', 'Neutral', 'Supportive', 'Leading'];
 
-/** Deterministic PRNG so a given seed replays exactly. */
-function rng32(seed) {
-  let a = seed >>> 0;
+/**
+ * Deterministic PRNG. The state lives on the project rather than in a closure
+ * so a saved session resumes on exactly the same random stream it left on.
+ */
+function makeProjectRng(owner, seed) {
+  owner.rngState = seed >>> 0;
   return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
+    owner.rngState = (owner.rngState + 0x6d2b79f5) >>> 0;
+    let t = owner.rngState;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
@@ -67,7 +70,8 @@ export function formatEgyptianDate(day) {
 
 export class Project {
   constructor({ seed = 20250821 } = {}) {
-    this.rng = rng32(seed);
+    this.seed = seed;
+    this.rng = makeProjectRng(this, seed);
     this.packages = flattenWBS();
     this.wbs = WBS;
 
@@ -987,6 +991,147 @@ export class Project {
       workforceRatio: Math.min(1, this.workforceRatio),
       stoneRatio: this.stoneStock,
     };
+  }
+
+  /* ------------------------------------------------------ persistence */
+
+  /**
+   * A complete, replayable snapshot of the run.
+   *
+   * Everything the simulation reads each day is here, including the PRNG
+   * state, so a restored session continues on the same random stream rather
+   * than diverging from the one the player was watching.
+   */
+  serialise() {
+    return {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      seed: this.seed,
+      rngState: this.rngState,
+      day: this.day,
+      finished: this.finished,
+      eventSerial: this.eventSerial,
+      autoStaffing: this.autoStaffing,
+      inspectionLevel: this.inspectionLevel,
+      totals: {
+        ac: this.ac,
+        ev: this.ev,
+        pv: this.pv,
+        labourSpent: this.labourSpent,
+        materialSpent: this.materialSpent,
+        reworkCost: this.reworkCost,
+        riskSpent: this.riskSpent,
+        contingencyRemaining: this.contingencyRemaining,
+        managementRemaining: this.managementRemaining,
+      },
+      site: {
+        welfare: this.welfare,
+        safety: this.safety,
+        stoneStock: this.stoneStock,
+        toolStock: this.toolStock,
+        incidents: this.incidents,
+        recentIncidents: this.recentIncidents,
+        realisedRisks: this.realisedRisks,
+      },
+      tasks: this.tasks.map((t) => {
+        const st = this.state.get(t.id);
+        return {
+          id: t.id,
+          pct: st.pct,
+          actualStart: st.actualStart,
+          actualFinish: st.actualFinish,
+          actualCost: st.actualCost,
+          materialSpent: st.materialSpent,
+          remaining: st.remaining,
+          rework: st.rework,
+          crashed: st.crashed,
+        };
+      }),
+      resources: this.resources.map((r) => ({ id: r.id, assigned: r.assigned })),
+      risks: this.risks.map((r) => ({
+        id: r.id,
+        response: r.response,
+        currentProbability: r.currentProbability,
+        status: r.status,
+        occurrences: r.occurrences,
+        lastDay: r.lastDay,
+        activeUntil: r.activeUntil || null,
+        productivityFactor: r.productivityFactor || null,
+      })),
+      procurement: this.procurement.map((c) => ({
+        id: c.id, status: c.status, ordered: c.ordered, delivered: c.delivered,
+      })),
+      stakeholders: this.stakeholders.map((s) => ({ id: s.id, satisfaction: s.satisfaction, level: s.level })),
+      quality: { ...this.quality },
+      costOfQuality: { ...this.costOfQuality },
+      qualitySamples: this.qualitySamples.slice(-150),
+      missions: this.missions.map((m) => ({
+        id: m.id,
+        status: m.status,
+        objectives: m.objectives.map((o) => ({ id: o.id, done: o.done })),
+      })),
+      evmHistory: this.evmHistory.slice(-400),
+      events: this.events.slice(0, 40),
+    };
+  }
+
+  /** Restore a snapshot produced by `serialise`. Returns true on success. */
+  restore(data) {
+    if (!data || data.version !== 1 || !Array.isArray(data.tasks)) return false;
+
+    this.rngState = data.rngState >>> 0;
+    this.day = data.day;
+    this.finished = !!data.finished;
+    this.eventSerial = data.eventSerial || 0;
+    this.autoStaffing = !!data.autoStaffing;
+    this.inspectionLevel = data.inspectionLevel;
+
+    Object.assign(this, data.totals);
+    Object.assign(this, data.site);
+
+    for (const saved of data.tasks) {
+      const st = this.state.get(saved.id);
+      if (st) Object.assign(st, saved, { blocked: null });
+    }
+    for (const saved of data.resources) {
+      const r = this.resourceById.get(saved.id);
+      if (r) r.assigned = saved.assigned;
+    }
+    for (const saved of data.risks) {
+      const r = this.riskById.get(saved.id);
+      if (!r) continue;
+      Object.assign(r, saved);
+      if (!saved.activeUntil) r.activeUntil = null;
+    }
+    for (const saved of data.procurement) {
+      const c = this.procurement.find((x) => x.id === saved.id);
+      if (c) Object.assign(c, saved);
+    }
+    for (const saved of data.stakeholders) {
+      const s = this.stakeholders.find((x) => x.id === saved.id);
+      if (s) {
+        s.satisfaction = saved.satisfaction;
+        s.level = saved.level;
+        s.levelName = ENGAGEMENT_LEVELS[s.level - 1];
+      }
+    }
+    Object.assign(this.quality, data.quality);
+    Object.assign(this.costOfQuality, data.costOfQuality);
+    this.qualitySamples = data.qualitySamples || [];
+    for (const saved of data.missions || []) {
+      const m = this.missions.find((x) => x.id === saved.id);
+      if (!m) continue;
+      m.status = saved.status;
+      for (const so of saved.objectives) {
+        const o = m.objectives.find((x) => x.id === so.id);
+        if (o) o.done = so.done;
+      }
+    }
+    this.evmHistory = data.evmHistory || [];
+    this.events = data.events || [];
+
+    this._recomputeForecast();
+    return true;
   }
 
   /** Snapshot for the dashboard. */

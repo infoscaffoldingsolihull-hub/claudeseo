@@ -10,9 +10,11 @@ import { POINTS_OF_INTEREST } from './world/layout.js';
 import { Project } from './pm/project.js';
 import { Advisor } from './pm/advisor.js';
 import { runMonteCarlo } from './pm/montecarlo.js';
+import { writeSlot, readSlot } from './ui/storage.js';
 import { Dashboard } from './ui/panels.js';
 import { HUD } from './ui/hud.js';
 import { TourDirector } from './ui/tour.js';
+import { TouchControls } from './ui/touch.js';
 
 /**
  * Digital Giza — Project Management Simulator.
@@ -99,13 +101,26 @@ class Simulator {
     this.orbit = new OrbitController(this.engine.camera, this.input);
     this.drone = new DroneController(this.engine.camera, this.input);
     this.cinematic = new CinematicPlayer(this.engine.camera);
-    this.walker.onFootstep = (position) => {
-      if (!this.world.inInterior) this.world.footprints.stamp(position, this.walker.yaw);
+    this.walker.onFootstep = (position, sprinting) => {
+      const yaw = this.walker.yaw;
+      if (!this.world.inInterior) this.world.footprints.stamp(position, yaw);
+      // A puff of dust behind the trailing foot, drifting the way you came.
+      const feet = position.y - this.walker.height;
+      const strength = sprinting ? 1.0 : this.walker.crouching ? 0.45 : 0.7;
+      this.world.kickDust(
+        position.x + Math.sin(yaw) * 0.28,
+        feet + 0.1,
+        position.z + Math.cos(yaw) * 0.28,
+        strength,
+        Math.sin(yaw) * 0.55,
+        Math.cos(yaw) * 0.55
+      );
     };
 
     this.dashboard = new Dashboard(this.uiRoot, this);
     this.hud = new HUD(this.uiRoot, this);
     this.tour = new TourDirector(this);
+    this.touch = new TouchControls(this.uiRoot, this);
     this.hud.applySpeed();
 
     this.orbit.frame(new THREE.Vector3(-40, 50, 240), 820, Math.PI * 0.30, Math.PI * 0.83);
@@ -151,6 +166,9 @@ class Simulator {
           else this.input.exitPointerLock();
           break;
         case 'h': case 'H': this.hud.toggleAdvisor(); break;
+        case 't': case 'T':
+          this.hud.toast(this.touch.toggle() ? 'Touch controls on' : 'Touch controls off');
+          break;
         case 'f': case 'F': this.hud.toggleStats(); break;
         case 'm': case 'M': this.dashboard.toggle('missions'); break;
         case '?': this.hud.toggleHelp(); break;
@@ -213,6 +231,37 @@ class Simulator {
       this.tour.start(0);
     }
     this.hud.toast(`${mode.charAt(0).toUpperCase() + mode.slice(1)} mode`);
+  }
+
+  /* --------------------------------------------------------- session */
+
+  /**
+   * Charter a fresh project. `restore` mutates in place so loading needs no
+   * rewiring, but a new project is a new object and the advisor, dashboard and
+   * HUD all hold a reference to it.
+   */
+  newProject(seed) {
+    this.project = new Project(seed === undefined ? {} : { seed });
+    this.advisor = new Advisor(this.project);
+    this.dashboard.project = this.project;
+    this.hud.project = this.project;
+    this.dashboard.monteCarloResult = null;
+    this.dashboard.monteCarloRun = null;
+    this.dashboard.selectedTask = null;
+    this.hud.eventCount = 0;
+    this.hud.lastRenderedEvent = null;
+    this._autosaveDay = 0;
+    this.syncWorld(true);
+    return this.project;
+  }
+
+  /** Autosave to the reserved slot at a fixed project-day cadence. */
+  _maybeAutosave() {
+    if (this.mode === 'tour') return;
+    if (this._autosaveDay === undefined) this._autosaveDay = 0;
+    if (this.project.day - this._autosaveDay < 500) return;
+    this._autosaveDay = this.project.day;
+    writeSlot('auto', this.project.serialise());
   }
 
   /* ------------------------------------------------------------ world sync */
@@ -284,7 +333,10 @@ class Simulator {
         this.simAccumulator -= 1;
         steps++;
       }
-      if (steps > 0) this.syncWorld();
+      if (steps > 0) {
+        this.syncWorld();
+        this._maybeAutosave();
+      }
     }
 
     // --- camera ---
@@ -306,6 +358,7 @@ class Simulator {
     if (this.mode !== 'tour') this._updateProximity();
     else this.hud.setPrompt(null);
     this.hud.update(dt);
+    this.touch.update(dt);
     this.dashboard.tick();
     if (this._advisorTimer === undefined) this._advisorTimer = 0;
     this._advisorTimer += dt;
@@ -504,6 +557,52 @@ window.__giza = {
       probabilityOnTime: Number(r.probabilityOnTime.toFixed(3)),
       topDriver: r.tornado[0] ? `${r.tornado[0].code} (r=${r.tornado[0].correlation.toFixed(2)})` : null,
     };
+  },
+  saveSession() {
+    return sim.project.serialise();
+  },
+  restoreSession(data) {
+    const ok = sim.project.restore(data);
+    if (ok) sim.syncWorld(true);
+    return ok;
+  },
+  autosaveSlot() {
+    return readSlot('auto');
+  },
+  newProject(seed) {
+    sim.newProject(seed);
+    return sim.project.snapshot();
+  },
+  /** Force the on-screen touch layer on or off, for QA on a desktop browser. */
+  setTouchControls(on) {
+    sim.touch.setEnabled(on);
+    sim.touch.update(0);
+    return {
+      enabled: sim.touch.enabled,
+      buttons: sim.touch.buttons.map((b) => b.spec.id),
+      mode: sim.touch.mode,
+    };
+  },
+  /** Drive the virtual stick directly, as a thumb would. */
+  touchStick(dx, dy) {
+    const s = sim.input.stick;
+    s.active = dx !== 0 || dy !== 0;
+    s.baseX = 140;
+    s.baseY = window.innerHeight - 140;
+    s.knobX = s.baseX + dx * s.radius;
+    s.knobY = s.baseY + dy * s.radius;
+    sim.input.touch.moveX = dx;
+    sim.input.touch.moveY = dy;
+    return sim.input.axes();
+  },
+  /** Press an on-screen button by its id and report the resulting key state. */
+  touchButton(id) {
+    const entry = sim.touch.buttons.find((b) => b.spec.id === id);
+    if (!entry) return { ok: false };
+    entry.node.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    const down = sim.input.isDown(entry.spec.code);
+    entry.node.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    return { ok: true, code: entry.spec.code, down, stillDown: sim.input.isDown(entry.spec.code) };
   },
   advisorReport() {
     return { headline: sim.advisor.headline(), advice: sim.advisor.analyse() };

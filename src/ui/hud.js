@@ -41,7 +41,7 @@ export class HUD {
 
   _buildTopBar() {
     this.modeButtons = new Map();
-    const modeSwitch = el('div', { class: 'mode-switch' });
+    const modeSwitch = el('div', { class: 'mode-switch modes' });
     for (const m of MODES) {
       const b = el('button', { class: 'mode-btn', title: m.hint, onclick: () => this.sim.setMode(m.id) }, [
         el('span', { text: m.label }),
@@ -55,7 +55,7 @@ export class HUD {
     const metrics = el('div', { class: 'hud-metrics' });
     const addMetric = (id, label) => {
       const value = el('b', { text: '—' });
-      const box = el('div', { class: 'metric' }, [value, el('span', { text: label })]);
+      const box = el('div', { class: 'metric', dataset: { metric: id } }, [value, el('span', { text: label })]);
       this.metricNodes[id] = { box, value };
       metrics.appendChild(box);
       return box;
@@ -83,7 +83,10 @@ export class HUD {
       el('div', { class: 'hud-spacer' }),
       el('div', { class: 'mode-switch' }, [
         this.speedButton,
-        el('button', { class: 'mode-btn', title: 'Advisor (H)', onclick: () => this.toggleAdvisor() }, [icon('advisor', 15), el('span', { text: 'Hemiunu' })]),
+        el('button', { class: 'mode-btn', title: 'Advisor (H)', onclick: () => this.toggleAdvisor() }, [
+          icon('advisor', 15),
+          el('span', { class: 'wide-only', text: 'Hemiunu' }),
+        ]),
         el('button', { class: 'mode-btn', title: 'Renderer statistics (F)', onclick: () => this.toggleStats() }, [icon('stats', 15)]),
         el('button', { class: 'mode-btn', title: 'Help & controls (?)', onclick: () => this.toggleHelp() }, [icon('help', 15)]),
       ]),
@@ -148,6 +151,15 @@ export class HUD {
       ['G', 'Toggle the construction ramp'],
       ['N', 'Toggle night'],
       ['?', 'This card'],
+      ['T', 'Show / hide the touch controls'],
+    ];
+    const touchKeys = [
+      ['Left thumb', 'Virtual stick — it appears wherever you press'],
+      ['Right side', 'Drag to look'],
+      ['Two fingers', 'Pinch to zoom (Project Manager and Drone)'],
+      ['◀ ▶', 'Previous / next mode'],
+      ['⏱', 'Simulation speed'],
+      ['Jump · Run · Crouch · Enter', 'On-screen actions, bottom right'],
     ];
     const card = el('div', { class: 'help-card' }, [
       el('h2', { text: 'DIGITAL GIZA' }),
@@ -156,6 +168,8 @@ export class HUD {
         'the construction of the Great Pyramid. Walk it, fly it, or manage it.' }),
       el('h3', { class: 'section', text: 'Controls' }),
       el('div', { class: 'keys' }, keys.map(([k, d]) => el('div', {}, [el('kbd', { text: k }), el('span', { text: d })]))),
+      el('h3', { class: 'section', text: 'On a phone or tablet' }),
+      el('div', { class: 'keys' }, touchKeys.map(([k, d]) => el('div', {}, [el('kbd', { text: k }), el('span', { text: d })]))),
       el('h3', { class: 'section', text: 'The four modes' }),
       el('div', { class: 'grid c2' }, MODES.map((m) => el('div', { class: 'kpi' }, [
         el('div', { class: 'label', text: m.label }),

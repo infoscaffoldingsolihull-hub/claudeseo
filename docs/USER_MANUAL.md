@@ -66,10 +66,39 @@ headroom and stand up again when there is; you do not need to hold a key.
 | `G` | Show or hide the construction ramp and scaffolding |
 | `←` `→` | Previous / next beat in Tour Guide mode |
 
+| `T` | Show or hide the on-screen touch controls |
+
 ### Touch devices
 
-Drag on the **left half** of the screen to move, on the **right half** to look. Pinch is not used.
-The dashboard is fully usable on a tablet; the rail collapses on narrow screens.
+The touch layer appears by itself on a phone or tablet, and the first time a finger touches the
+canvas on anything else. `T` forces it on or off — useful when you are presenting from a
+touch-enabled laptop or projector.
+
+| Gesture | Action |
+|---|---|
+| **Left thumb** | Virtual stick. It appears wherever you press; push past the ring and it follows your thumb |
+| **Drag the right side** | Look |
+| **Pinch, two fingers** | Zoom (Project Manager and Drone) |
+| **Bottom-right buttons** | Jump, Run, Crouch and Enter on foot; Rise, Dive and Boost in the drone |
+| **◀ ▶ at the top right** | Previous / next mode |
+| **⏱ at the top right** | Simulation speed |
+
+Crouch latches — tap it once to duck, again to stand. Everything else is momentary.
+
+The dashboard is fully usable on a tablet: every control grows to a finger-sized target and the
+panel takes the full width. On a phone the wordmark, the mode switch and the date and clock
+metrics stand down to make room, because the mode arrows and the speed button on the touch layer
+already do that job. In landscape the chrome shrinks again so the plateau keeps the screen.
+
+### Saving and resuming
+
+Open the **Session** panel from the rail. There are four slots — one automatic, three manual — and
+the automatic slot is written every 500 simulated days. A save is a complete snapshot: the project
+day, every work package, the resources, the risk register, the procurement contracts, the event
+log and the random seed, so a restored run continues on exactly the same random stream it would
+have followed. You can also copy a save out as text, or download it as a file, and paste or load it
+back on another machine — useful if you build a scenario at your desk and present it from another
+laptop.
 
 ---
 
@@ -115,7 +144,7 @@ the model. `Shift` boosts, `Alt` slows for fine framing.
 
 ## 4. The dashboard
 
-Press `Tab`, or use the icon rail down the left edge. Eleven panels:
+Press `Tab`, or use the icon rail down the left edge. Twelve panels:
 
 | Panel | What it shows |
 |---|---|
@@ -130,6 +159,7 @@ Press `Tab`, or use the icon rail down the left edge. Eleven panels:
 | **Stakeholders** | The power/interest grid with live engagement levels, the register and the engagement strategies |
 | **Monte Carlo Forecast** | Run four thousand iterations over the remaining network. P50/P80/P90 dates and costs, the distribution with its cumulative curve, and a tornado sensitivity chart |
 | **Missions** | Six missions with objectives and success criteria |
+| **Session** | Save, load, export, import and start a new project on a chosen seed |
 
 ---
 

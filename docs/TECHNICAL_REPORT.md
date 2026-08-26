@@ -99,13 +99,14 @@ Output: `dist/GizaDigitalTwin.html`, about 1.7 MB, of which 1.27 MB is three.js.
 ### 4.1 Frame structure
 
 ```
-scene → HDR render target (RGBA16F, MSAA 0–4 by tier)
+scene → HDR render target (RGBA16F, MSAA 0–4 by tier, + depth texture)
+      → SSAO           (16-sample hemisphere from depth, 4×4 box blur, medium tier and up)
       → bright pass    (soft-knee threshold, half resolution)
       → gaussian bloom (two separable passes at quarter resolution, run twice)
       → god rays       (24-tap radial blur from the sun's screen position)
-      → composite      ACES tonemap → bloom + rays → heat haze → lift/gain/saturation
-                       → filmic contrast → chromatic aberration → vignette
-                       → film grain → manual sRGB encode
+      → composite      ACES tonemap → AO × ambient → bloom + rays → heat haze
+                       → lift/gain/saturation → filmic contrast → chromatic aberration
+                       → vignette → film grain → manual sRGB encode
 ```
 
 The chain is written directly against `WebGLRenderTarget` rather than using three's `EffectComposer`
@@ -120,6 +121,21 @@ Two details that are easy to get wrong and are handled explicitly:
 
 God rays use the bright-pass buffer, so objects occluding the sun mask the rays for free — no
 occlusion pre-pass is needed.
+
+**Ambient occlusion without a second scene pass.** The scene target carries a `DepthTexture`, so
+SSAO reads the depth three.js already resolved — three r160 includes `DEPTH_BUFFER_BIT` in the
+multisample blit, so the depth survives MSAA. View-space normals are reconstructed from four depth
+taps (choosing the nearer neighbour on each axis, which keeps silhouettes crisp) rather than from
+derivatives, so the pass compiles under GLSL ES 1.00 without extensions. Sixteen hemisphere samples
+are rotated per pixel by a hash, and the result is blurred with a 4×4 box before it reaches the
+composite. Depth precision collapses near the far plane, so occlusion fades out between 240 m and
+420 m; without that fade the horizon speckles.
+
+**Shadow fit.** The directional light's orthographic camera is fitted every frame to the bounding
+**sphere** of the visible frustum slice — a sphere rather than a box because it is rotation
+invariant, so turning the camera cannot change the fit and make the shadow edges crawl. The centre
+is then snapped to the shadow map's texel grid in the light's own basis, which removes the last of
+the shimmer.
 
 ### 4.2 Atmosphere
 
@@ -251,6 +267,39 @@ Gangs haul sledges along real routes (quarry to ramp, harbour to granite yard, t
 quarrymen work the benches, masons ring the current working course at its live height, and the
 number of figures on site tracks the project's assigned workforce.
 
+Each sledge is towed on two ropes running from its towing posts to the shoulders of the front rank,
+five and a half metres ahead. All the ropes on the plateau live in one `LineSegments` whose position
+buffer is rewritten each frame — for ten gangs that is 240 floats — and each rope sags under a
+quadratic that grows with its span. The runners grinding through the sand throw a dust puff every
+couple of metres.
+
+### 4.8 Dust, birds and standards
+
+Three small systems give the plateau its sense of life, and none of them costs the CPU anything per
+frame:
+
+- **Dust puffs.** A ring buffer of billboarded quads. Growth, drift, spin and fade are all functions
+  of a per-instance spawn time evaluated in the vertex shader, so emitting a puff is four attribute
+  writes and retiring one is nothing at all. Footfalls, sprints and sledge runners all feed the same
+  pool; the pyramid's interior has its own, dimmer one.
+- **Birds.** Ibis and egret flocks work the Nile margin on slow circuits at different radii and
+  heights. Each bird is a three-triangle glider; only the wingtip vertex carries a wing id, so the
+  beat pivots about the shoulder instead of translating the panel. They are drawn as near-black
+  silhouettes whose opacity follows the sky's day factor, because a white bird against a bright sky
+  is an invisible bird.
+- **Temple standards.** Old Kingdom temple gates carried cedar masts with coloured linen streamers —
+  the hieroglyph for *nṯr*, "god", is one of them. Each streamer is a strip of quads displaced by a
+  travelling wave whose amplitude grows with distance from the mast, with a slow gust cycle on top.
+  Every standard on the plateau is one draw call.
+
+### 4.9 Walking on sand
+
+The walker's speed is scaled by the ground gradient in its direction of travel, sampled from the
+collision world's own ground function two lookups at a time. Climbing costs `1 / (1 + 3.2·g²)` —
+about half pace on a 1-in-2 slope and a fifth on the steepest ground the plateau has — while a
+descent returns a little, capped at 18%. Nothing about this is specific to the terrain: any ground
+function gets the same treatment.
+
 ---
 
 ## 5. Performance engineering
@@ -267,10 +316,12 @@ or rises above 88 fps, with a cooldown to prevent oscillation.
 | Shadows | off | 1024 | 2048 | 4096 |
 | MSAA | 0 | 2 | 4 | 4 |
 | Bloom / god rays | off / off | on / off | on / on | on / on |
+| SSAO | off | on | on | on |
 | Courses per block | 5 | 3 | 2 | 1 |
 | Terrain subdivisions | 128 | 208 | 288 | 384 |
 | View distance | 3.6 km | 5.2 km | 7 km | 9 km |
 | Workers | 44 | 90 | 150 | 230 |
+| Birds | 24 | 44 | 70 | 96 |
 | Torch lights | 2 | 3 | 4 | 6 |
 
 `?quality=` pins a tier for a presentation.
@@ -285,6 +336,11 @@ or rises above 88 fps, with a cooldown to prevent oscillation.
   torches by partial selection — no full sort.
 - **Shader-side particle advection**: wind-blown sand and interior dust wrap inside a box that
   follows the camera, with zero per-frame CPU cost.
+- **Time-parameterised effects**: dust puffs and temple standards are entirely functions of a spawn
+  time or a phase evaluated in the vertex shader, so they cost nothing per frame and nothing to
+  retire.
+- **Distance gating**: the Nile bird flocks skip their matrix update entirely when the camera is
+  more than 3.2 km away.
 - **Throttled rebuilds**: the ramp rebuilds only when the built height moves >2 m, the scaffolding
   >4 m, the core frustum >0.15%.
 - **Uniform-grid broad phase** for collision, so the ~950 registered colliders cost a handful of
@@ -293,7 +349,7 @@ or rises above 88 fps, with a cooldown to prevent oscillation.
 ### 5.3 Measured
 
 On the CI machine, in headless Chromium using the **SwiftShader software rasteriser** (no GPU at
-all), the simulator holds 12–26 fps across all seven QA scenarios at 1600 × 900. That is the floor.
+all), the simulator holds 13–26 fps across all eight QA scenarios at 1600 × 900. That is the floor.
 On real hardware with a GPU, the medium tier renders 50–60 draw calls and 120 000–260 000 triangles
 per frame, comfortably inside a 60 fps budget.
 
@@ -319,7 +375,7 @@ The world-facing test API on `window.__giza` also exposes `findBadGeometries()`,
 scenes looking for empty geometry, NaN vertices or NaN bounding spheres. It found the horizon-ring
 indexing bug described in §4.4.
 
-Current status: **7 scenarios, 11 panels, 0 console errors, 0 console warnings.**
+Current status: **8 scenarios, 12 panels, 3 viewports, 0 console errors, 0 console warnings.**
 
 ---
 
@@ -337,16 +393,48 @@ its render targets on restore.
 
 ---
 
-## 8. What would come next
+## 8. Input and the touch layer
+
+One `InputManager` merges four sources — keyboard, pointer-lock mouse, wheel, and touch — into a
+single set of axes, a look delta and a key set. Everything downstream reads only that, so no
+controller, panel or mission knows whether the player is at a desk or on a train.
+
+The touch layer adds three things on top:
+
+- **A stick that comes to the thumb.** The first finger to land in the left 40% of the screen
+  becomes the stick, and the base is drawn there. Push past the ring and the base is dragged along
+  behind the thumb, so the control never runs out of travel.
+- **Buttons that press keys.** `setVirtualKey` and `tapVirtualKey` inject into the same key set the
+  keyboard writes to, with virtual presses tracked separately so a physical key release cannot
+  clear a held button. The pad is rebuilt per mode: jump/run/crouch/enter on foot, rise/dive/boost
+  in the drone, inspect in the dashboard.
+- **Pinch to zoom.** Two fingers on the look side stop turning the camera and drive the wheel
+  instead, which the orbit and drone controllers already understand.
+
+The layer reveals itself when the device reports a coarse pointer *or* the first time a finger
+touches the canvas — so a laptop with a touchscreen gets it only if it is actually used — and `T`
+forces it on or off for testing and for presenting on a touch-enabled projector.
+
+Layout follows at three breakpoints. Below 1100 px with a coarse pointer every target grows to a
+finger-sized one. Below 780 px the dashboard goes full width and the ticker moves out of the
+bottom-left corner, which belongs to the thumb. Below 560 px the wordmark, the mode switch and two
+of the five metrics stand down, because the mode arrows and the speed control live on the touch
+layer instead. Under 460 px of height — a landscape phone — the chrome shrinks again so the plateau
+keeps the screen. The QA harness asserts at all three that nothing scrolls horizontally and the
+dashboard stays inside the viewport.
+
+---
+
+## 9. What would come next
 
 Honest technical debt, in priority order:
 
-1. **Screen-space ambient occlusion.** The blocks would gain enormous depth from contact shadows;
-   the pipeline has the depth buffer available but no SSAO pass yet.
-2. **Cascaded shadow maps.** A single shadow cascade at 460 m limits shadow resolution on the
-   pyramid faces at long range.
-3. **A Web Worker for Monte Carlo.** Four thousand iterations take about 250 ms on the main thread;
-   acceptable, but it does drop frames.
-4. **Baked ambient occlusion for the interior.** The chambers currently rely on fill lights where
-   AO would be more truthful.
-5. **Compressed textures.** KTX2/Basis would cut GPU memory, at the cost of vendoring a transcoder.
+1. **Cascaded shadow maps.** A single fitted cascade limits shadow resolution on the pyramid faces
+   at long range; the fit and the texel snapping remove the shimmer but not the softness.
+2. **A Web Worker for Monte Carlo.** The run is now chunked across frames, so it no longer stalls
+   the renderer, but it still competes with it for the main thread.
+3. **Baked ambient occlusion for the interior.** SSAO covers the contact shadows; the chambers would
+   still read better with baked AO than with fill lights.
+4. **Compressed textures.** KTX2/Basis would cut GPU memory, at the cost of vendoring a transcoder.
+5. **Horizontal shadow-map jitter for the sun at low elevation.** At sunrise and sunset the fitted
+   cascade covers a very long, thin volume; a second cascade would pay for itself there.

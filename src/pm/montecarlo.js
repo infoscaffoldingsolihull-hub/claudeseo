@@ -105,12 +105,17 @@ function pearson(xs, ys) {
 }
 
 /**
- * Run the analysis.
+ * Create a Monte Carlo run that can be advanced in batches.
+ *
+ * The UI drives this a few hundred iterations at a time from the animation
+ * frame callback, so four thousand full network simulations never block the
+ * main thread during a live demonstration. `runMonteCarlo` below is the
+ * synchronous wrapper used by tests and by the headless API.
  *
  * @param {Project} project
- * @param {object} opts { iterations, seed, includeRisks, onProgress }
+ * @param {object} opts { iterations, seed, includeRisks }
  */
-export function runMonteCarlo(project, opts = {}) {
+export function createMonteCarlo(project, opts = {}) {
   const iterations = opts.iterations || 2000;
   const rng = mcRng(opts.seed || 987654321);
   const includeRisks = opts.includeRisks !== false;
@@ -139,15 +144,15 @@ export function runMonteCarlo(project, opts = {}) {
   for (const s of specs) durationSamples.set(s.id, new Float64Array(iterations));
 
   const riskYears = Math.max(0.5, (project.baselineDuration - project.day) / 365);
-  const scratch = specs.map((s) => ({
-    id: s.id,
-    duration: 0,
-    predecessors: s.predecessors,
-  }));
+  const scratch = specs.map((s) => ({ id: s.id, duration: 0, predecessors: s.predecessors }));
+  const remainingBudget = specs.reduce((sum, s) => sum + (s.done ? 0 : s.budget * (s.m > 0 ? 1 : 0)), 0);
+  const bump = new Map();
 
-  for (let i = 0; i < iterations; i++) {
+  let completed = 0;
+
+  function runOne(i) {
     let extraCost = 0;
-    const bump = new Map();
+    bump.clear();
 
     if (includeRisks) {
       for (const risk of project.risks) {
@@ -170,63 +175,88 @@ export function runMonteCarlo(project, opts = {}) {
 
     const result = computeCPM(scratch);
     finishes[i] = project.day + result.duration;
-
-    // Cost: material to go plus labour over the sampled duration, plus risk.
-    const remainingBudget = specs.reduce((sum, s) => sum + (s.done ? 0 : s.budget * (s.m > 0 ? 1 : 0)), 0);
     const labour = project.baselineDailyLabour * result.duration * (0.92 + rng() * 0.2);
     costs[i] = project.ac + remainingBudget * 0.45 * (0.94 + rng() * 0.18) + labour + extraCost;
-
-    if (opts.onProgress && (i & 255) === 0) opts.onProgress(i / iterations);
   }
-
-  const sortedFinish = Array.from(finishes).sort((a, b) => a - b);
-  const sortedCost = Array.from(costs).sort((a, b) => a - b);
-
-  // ---- tornado: correlation of each package's duration with the finish ----
-  const finishArr = Array.from(finishes);
-  const tornado = [];
-  for (const s of specs) {
-    if (s.done) continue;
-    const r = pearson(Array.from(durationSamples.get(s.id)), finishArr);
-    if (Math.abs(r) > 0.02) tornado.push({ id: s.id, code: s.code, name: s.name, correlation: r });
-  }
-  tornado.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
-
-  // ---- histogram ----
-  const bins = 34;
-  const min = sortedFinish[0];
-  const max = sortedFinish[sortedFinish.length - 1];
-  const width = (max - min) / bins || 1;
-  const histogram = new Array(bins).fill(0);
-  for (const f of finishes) histogram[Math.min(bins - 1, Math.floor((f - min) / width))]++;
-
-  const baseline = project.baselineDuration;
-  let onTime = 0;
-  for (const f of finishes) if (f <= baseline) onTime++;
 
   return {
     iterations,
-    finish: {
-      min,
-      max,
-      p10: percentile(sortedFinish, 0.1),
-      p50: percentile(sortedFinish, 0.5),
-      p80: percentile(sortedFinish, 0.8),
-      p90: percentile(sortedFinish, 0.9),
-      mean: sortedFinish.reduce((a, b) => a + b, 0) / iterations,
+    get completed() {
+      return completed;
     },
-    cost: {
-      p10: percentile(sortedCost, 0.1),
-      p50: percentile(sortedCost, 0.5),
-      p80: percentile(sortedCost, 0.8),
-      p90: percentile(sortedCost, 0.9),
-      mean: sortedCost.reduce((a, b) => a + b, 0) / iterations,
+    get progress() {
+      return completed / iterations;
     },
-    probabilityOnTime: onTime / iterations,
-    probabilityOnBudget: sortedCost.filter((c) => c <= project.bac).length / iterations,
-    histogram: { bins, min, width, counts: histogram },
-    tornado: tornado.slice(0, 12),
-    baseline,
-    bac: project.bac,
+    get done() {
+      return completed >= iterations;
+    },
+    /** Advance the run by up to `batch` iterations. Returns true when finished. */
+    step(batch = 250) {
+      const end = Math.min(iterations, completed + batch);
+      while (completed < end) {
+        runOne(completed);
+        completed++;
+      }
+      return completed >= iterations;
+    },
+    /** Build the summary once every iteration has run. */
+    finish() {
+      const sortedFinish = Array.from(finishes).sort((a, b) => a - b);
+      const sortedCost = Array.from(costs).sort((a, b) => a - b);
+
+      // Tornado: correlation of each package's duration with the finish date.
+      const finishArr = Array.from(finishes);
+      const tornado = [];
+      for (const s of specs) {
+        if (s.done) continue;
+        const r = pearson(Array.from(durationSamples.get(s.id)), finishArr);
+        if (Math.abs(r) > 0.02) tornado.push({ id: s.id, code: s.code, name: s.name, correlation: r });
+      }
+      tornado.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
+
+      const bins = 34;
+      const min = sortedFinish[0];
+      const max = sortedFinish[sortedFinish.length - 1];
+      const width = (max - min) / bins || 1;
+      const histogram = new Array(bins).fill(0);
+      for (const f of finishes) histogram[Math.min(bins - 1, Math.floor((f - min) / width))]++;
+
+      const baseline = project.baselineDuration;
+      let onTime = 0;
+      for (const f of finishes) if (f <= baseline) onTime++;
+
+      return {
+        iterations,
+        finish: {
+          min,
+          max,
+          p10: percentile(sortedFinish, 0.1),
+          p50: percentile(sortedFinish, 0.5),
+          p80: percentile(sortedFinish, 0.8),
+          p90: percentile(sortedFinish, 0.9),
+          mean: sortedFinish.reduce((a, b) => a + b, 0) / iterations,
+        },
+        cost: {
+          p10: percentile(sortedCost, 0.1),
+          p50: percentile(sortedCost, 0.5),
+          p80: percentile(sortedCost, 0.8),
+          p90: percentile(sortedCost, 0.9),
+          mean: sortedCost.reduce((a, b) => a + b, 0) / iterations,
+        },
+        probabilityOnTime: onTime / iterations,
+        probabilityOnBudget: sortedCost.filter((c) => c <= project.bac).length / iterations,
+        histogram: { bins, min, width, counts: histogram },
+        tornado: tornado.slice(0, 12),
+        baseline,
+        bac: project.bac,
+      };
+    },
   };
+}
+
+/** Synchronous convenience wrapper. */
+export function runMonteCarlo(project, opts = {}) {
+  const run = createMonteCarlo(project, opts);
+  while (!run.step(1000));
+  return run.finish();
 }

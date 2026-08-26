@@ -4,15 +4,16 @@ import {
   controlChart, monteCarloChart, tornadoChart, stakeholderGrid, CHART_COLORS,
 } from './charts.js';
 import { WBS } from '../pm/model.js';
-import { runMonteCarlo } from '../pm/montecarlo.js';
+import { createMonteCarlo } from '../pm/montecarlo.js';
+import { SLOTS, SLOT_LABELS, storageAvailable, writeSlot, readSlot, clearSlot, describeSlot } from './storage.js';
 
 /**
  * The project management dashboard.
  *
- * Eleven panels covering the PMBOK performance domains: scope (WBS), schedule
+ * Twelve panels covering the PMBOK performance domains: scope (WBS), schedule
  * (Gantt, CPM network, PERT), cost (earned value), risk, resources, quality,
- * procurement, stakeholders, uncertainty (Monte Carlo), the mission layer, and
- * the project charter itself.
+ * procurement, stakeholders, uncertainty (Monte Carlo), the mission layer, the
+ * project charter itself, and session persistence.
  */
 
 const PANELS = [
@@ -27,6 +28,7 @@ const PANELS = [
   { id: 'stakeholders', title: 'Stakeholders', sub: 'Power / interest and engagement', icon: 'crown', wide: true },
   { id: 'montecarlo', title: 'Monte Carlo Forecast', sub: 'Probabilistic schedule and cost', icon: 'dice', wide: true },
   { id: 'missions', title: 'Missions', sub: 'Objectives and success criteria', icon: 'flag' },
+  { id: 'session', title: 'Session', sub: 'Save, load and export a run', icon: 'save' },
 ];
 
 const ICONS = {
@@ -44,6 +46,7 @@ const ICONS = {
   advisor: 'M12 3a5 5 0 0 1 5 5c0 2-1 3-2 4s-1.5 1.5-1.5 3h-3c0-1.5-.5-2-1.5-3s-2-2-2-4a5 5 0 0 1 5-5z M10 19h4M10.5 21.5h3',
   help: 'M9 9a3 3 0 1 1 4 2.8c-.8.4-1 1-1 1.7v.5 M12 17.5v.1 M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z',
   camera: 'M4 8h3l1.5-2h7L17 8h3v11H4z M12 16a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z',
+  save: 'M5 4h11l3 3v13H5z M8 4v5h7V4 M8 19v-6h8v6',
   stats: 'M4 20V10 M10 20V4 M16 20v-7 M22 20H2',
 };
 
@@ -120,6 +123,7 @@ export class Dashboard {
     this.openId = id;
     this.panel.classList.add('open');
     this.panel.classList.toggle('wide', !!spec.wide);
+    document.body.classList.add('panel-open');
     clear(this.headIcon).appendChild(icon(spec.icon, 20));
     this.headTitle.textContent = spec.title;
     this.headSub.textContent = spec.sub;
@@ -130,6 +134,7 @@ export class Dashboard {
   close() {
     this.openId = null;
     this.panel.classList.remove('open');
+    document.body.classList.remove('panel-open');
     for (const b of this.rail.children) b.classList.remove('active');
   }
 
@@ -137,8 +142,9 @@ export class Dashboard {
     return PANELS.map((p) => p.id);
   }
 
-  /** Cheap refresh while the panel is open. */
+  /** Cheap refresh while the panel is open, plus any background analysis. */
   tick() {
+    this.advanceMonteCarlo();
     if (!this.openId) return;
     if (this._sinceRender === undefined) this._sinceRender = 0;
     this._sinceRender++;
@@ -695,18 +701,24 @@ export class Dashboard {
   _render_montecarlo(body) {
     const p = this.project;
     const runButton = el('button', {
-      class: 'action', text: 'Run 4 000 iterations',
-      onclick: () => {
-        runButton.disabled = true;
-        runButton.textContent = 'Running…';
-        setTimeout(() => {
-          this.monteCarloResult = runMonteCarlo(p, { iterations: 4000, seed: 12345 + p.day });
-          if (this.sim.advisor) this.sim.advisor.setForecast(this.monteCarloResult);
-          this.render();
-        }, 30);
-      },
+      class: 'action',
+      text: this.monteCarloRun ? 'Running…' : 'Run 4 000 iterations',
+      disabled: !!this.monteCarloRun,
+      onclick: () => this.startMonteCarlo(4000),
     });
     this.headExtra.appendChild(runButton);
+
+    if (this.monteCarloRun) {
+      body.appendChild(el('h3', { class: 'section', text: 'Simulating' }));
+      body.appendChild(el('p', { class: 'note', text:
+        'Running the full critical-path network once per iteration, a few hundred iterations per frame so the ' +
+        'simulator keeps drawing while it works.' }));
+      const fill = el('i', { style: { width: `${Math.round(this.monteCarloRun.progress * 100)}%` } });
+      body.appendChild(el('div', { class: 'boot-bar', style: { margin: '10px 0', width: '100%' } }, [fill]));
+      body.appendChild(el('p', { class: 'note', text:
+        `${this.monteCarloRun.completed.toLocaleString()} of ${this.monteCarloRun.iterations.toLocaleString()} iterations` }));
+      return;
+    }
 
     if (!this.monteCarloResult) {
       body.appendChild(el('p', { class: 'note', text:
@@ -714,7 +726,7 @@ export class Dashboard {
         'identified risk as a Bernoulli trial against its current probability, and re-runs the whole critical path ' +
         'network for every iteration. That captures the merge bias that PERT cannot: near-critical paths become ' +
         'critical in some outcomes, which is why the P50 finish is always later than the deterministic estimate.' }));
-      body.appendChild(el('button', { class: 'action', text: 'Run the analysis', onclick: () => runButton.click() }));
+      body.appendChild(el('button', { class: 'action', text: 'Run the analysis', onclick: () => this.startMonteCarlo(4000) }));
       return;
     }
 
@@ -754,6 +766,31 @@ export class Dashboard {
       `it is the price of the uncertainty we have already identified and written down.”` }));
   }
 
+  /** Kick off a chunked Monte Carlo run; `tick` advances it frame by frame. */
+  startMonteCarlo(iterations) {
+    if (this.monteCarloRun) return;
+    this.monteCarloRun = createMonteCarlo(this.project, {
+      iterations,
+      seed: 12345 + this.project.day,
+    });
+    if (this.openId === 'montecarlo') this.render();
+  }
+
+  /** Advance an in-flight Monte Carlo run. Called once per frame. */
+  advanceMonteCarlo() {
+    if (!this.monteCarloRun) return;
+    const finished = this.monteCarloRun.step(300);
+    if (finished) {
+      this.monteCarloResult = this.monteCarloRun.finish();
+      this.monteCarloRun = null;
+      if (this.sim.advisor) this.sim.advisor.setForecast(this.monteCarloResult);
+      if (this.openId === 'montecarlo') this.render();
+    } else if (this.openId === 'montecarlo') {
+      const bar = this.body.querySelector('.boot-bar i');
+      if (bar) bar.style.width = `${Math.round(this.monteCarloRun.progress * 100)}%`;
+    }
+  }
+
   /* ------------------------------------------------------------ missions */
 
   _render_missions(body) {
@@ -781,6 +818,153 @@ export class Dashboard {
       }
       card.appendChild(el('p', { class: 'note', style: { marginBottom: 0 }, html: `<em>Reward:</em> ${m.reward}` }));
       body.appendChild(card);
+    }
+  }
+
+  /* ------------------------------------------------------------- session */
+
+  _render_session(body) {
+    const p = this.project;
+    const canStore = storageAvailable();
+
+    body.appendChild(el('div', { class: 'grid c4' }, [
+      kpi('Project day', String(p.day), `${(p.day / 365).toFixed(1)} years elapsed`),
+      kpi('Earned', fmtPct(p.overallProgress, 1), `${fmtNum(p.ev)} of ${fmtNum(p.bac)} kdb`),
+      kpi('SPI / CPI', `${p.spi.toFixed(2)} / ${p.cpi.toFixed(2)}`, 'current performance'),
+      kpi('Missions', `${p.missions.filter((m) => m.status === 'complete').length} / ${p.missions.length}`, 'complete'),
+    ]));
+
+    body.appendChild(el('h3', { class: 'section', text: 'Save slots' }));
+    if (!canStore) {
+      body.appendChild(el('p', { class: 'note', html:
+        '<em>Browser storage is unavailable.</em> Opened straight from a file, some browsers give the page an opaque ' +
+        'origin and refuse local storage. Use the export and import boxes below instead — they work everywhere. ' +
+        'Serving the file over http (<em>npm run serve</em>) also restores slots.' }));
+    }
+
+    for (const slot of SLOTS) {
+      const info = canStore ? describeSlot(slot) : null;
+      const row = el('div', { class: 'row between', style: {
+        padding: '9px 11px', marginBottom: '6px', borderRadius: '8px',
+        background: 'rgba(236,224,198,0.04)', border: '1px solid rgba(236,224,198,0.08)',
+      } }, [
+        el('div', {}, [
+          el('b', { text: SLOT_LABELS[slot] }),
+          el('div', { style: { fontSize: '11.5px', color: 'var(--papyrus-dim)' },
+            text: info ? `Day ${info.day} · ${info.years} years · saved ${info.savedAt}` : 'empty' }),
+        ]),
+        el('div', { class: 'row' }, [
+          slot === 'auto' ? null : el('button', {
+            class: 'action', text: 'Save', disabled: !canStore,
+            onclick: () => this._saveTo(slot),
+          }),
+          el('button', {
+            class: 'action ghost', text: 'Load', disabled: !canStore || !info,
+            onclick: () => this._loadFrom(slot),
+          }),
+          el('button', {
+            class: 'action ghost', text: 'Clear', disabled: !canStore || !info,
+            onclick: () => { clearSlot(slot); this.render(); },
+          }),
+        ]),
+      ]);
+      body.appendChild(row);
+    }
+
+    body.appendChild(el('h3', { class: 'section', text: 'Export and import' }));
+    body.appendChild(el('p', { class: 'note', text:
+      'A save is a plain JSON document holding the whole run — the day, every package’s progress, actual cost, the ' +
+      'risk register, the reserves, quality samples, stakeholder satisfaction and the random-number state. Restoring ' +
+      'one resumes on exactly the same random stream, so a taught session picks up where it stopped.' }));
+
+    const area = el('textarea', {
+      rows: 6,
+      style: {
+        width: '100%', fontFamily: 'var(--font-mono)', fontSize: '11px', resize: 'vertical',
+        background: 'rgba(10,9,6,0.8)', color: 'var(--papyrus-dim)',
+        border: '1px solid rgba(236,224,198,0.16)', borderRadius: '6px', padding: '8px',
+      },
+      placeholder: 'Paste a saved session here, or press Export to fill this box.',
+    });
+    body.appendChild(area);
+    body.appendChild(el('div', { class: 'row', style: { marginTop: '9px' } }, [
+      el('button', { class: 'action', text: 'Export to box', onclick: () => {
+        area.value = JSON.stringify(p.serialise());
+        area.select();
+        this.sim.hud.toast('Session exported — copy the text to keep it', 'good');
+      } }),
+      el('button', { class: 'action ghost', text: 'Import from box', onclick: () => {
+        try {
+          const data = JSON.parse(area.value);
+          if (p.restore(data)) {
+            this._afterLoad();
+            this.sim.hud.toast(`Session restored to day ${p.day}`, 'good');
+          } else {
+            this.sim.hud.toast('That JSON is not a Digital Giza save', 'bad');
+          }
+        } catch {
+          this.sim.hud.toast('Could not parse that JSON', 'bad');
+        }
+      } }),
+      el('button', { class: 'action ghost', text: 'Download file', onclick: () => this._downloadSave() }),
+    ]));
+
+    body.appendChild(el('h3', { class: 'section', text: 'Start over' }));
+    body.appendChild(el('p', { class: 'note', text:
+      'A new project rebuilds the baseline from scratch. The seed changes the random stream — the risks that fire, the ' +
+      'accidents, the quality samples — while leaving the scope, the network and the budget exactly as they are.' }));
+    const seedInput = el('input', { type: 'number', value: String(p.seed), style: { width: '150px' } });
+    body.appendChild(el('div', { class: 'row' }, [
+      el('span', { class: 'note', text: 'Seed' }),
+      seedInput,
+      el('button', { class: 'action ghost', text: 'Random seed', onclick: () => {
+        seedInput.value = String(Math.floor(Math.random() * 2147483647));
+      } }),
+      el('button', { class: 'action danger', text: 'New project', onclick: () => {
+        this.sim.newProject(Number(seedInput.value) || undefined);
+        this.monteCarloResult = null;
+        this.render();
+        this.sim.hud.toast('New project chartered', 'good');
+      } }),
+    ]));
+  }
+
+  _saveTo(slot) {
+    const result = writeSlot(slot, this.project.serialise());
+    this.sim.hud.toast(result.ok ? `Saved to ${SLOT_LABELS[slot]}` : result.reason, result.ok ? 'good' : 'bad');
+    this.render();
+  }
+
+  _loadFrom(slot) {
+    const data = readSlot(slot);
+    if (!data || !this.project.restore(data)) {
+      this.sim.hud.toast('That slot could not be restored', 'bad');
+      return;
+    }
+    this._afterLoad();
+    this.sim.hud.toast(`Restored ${SLOT_LABELS[slot]} — day ${this.project.day}`, 'good');
+  }
+
+  _afterLoad() {
+    this.monteCarloResult = null;
+    this.monteCarloRun = null;
+    this.sim.syncWorld(true);
+    this.render();
+  }
+
+  _downloadSave() {
+    try {
+      const blob = new Blob([JSON.stringify(this.project.serialise(), null, 1)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `akhet-khufu-day-${this.project.day}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch {
+      this.sim.hud.toast('Download blocked here — use Export to box instead', 'bad');
     }
   }
 }

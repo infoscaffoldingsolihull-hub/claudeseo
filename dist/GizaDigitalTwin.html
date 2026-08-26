@@ -983,7 +983,7 @@ svg.chart .label { fill: var(--papyrus-dim); }
 .touch-hint {
   position: absolute;
   left: 50%;
-  bottom: 18px;
+  top: 92px;
   transform: translateX(-50%);
   font-size: 11px;
   color: var(--papyrus-dim);
@@ -991,7 +991,134 @@ svg.chart .label { fill: var(--papyrus-dim); }
   padding: 6px 13px;
   border-radius: 20px;
   display: none;
+  pointer-events: none;
+  white-space: nowrap;
+  max-width: 92vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
+/* ------------------------------------------------ touch / mobile controls */
+
+.touch-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: none;
+  z-index: 4;
+}
+.touch-layer.on { display: block; }
+.touch-layer.dim { opacity: 0.14; pointer-events: none; }
+.touch-layer.dim .touch-pad,
+.touch-layer.dim .touch-utility { pointer-events: none; }
+
+.touch-stick {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 136px;
+  height: 136px;
+  margin: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(212, 169, 47, 0.42);
+  background: radial-gradient(circle at 50% 50%, rgba(20, 17, 11, 0.30), rgba(20, 17, 11, 0.62));
+  display: none;
+  opacity: 0.85;
+}
+.touch-stick.on { display: block; }
+.touch-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 58px;
+  height: 58px;
+  margin: -29px 0 0 -29px;
+  border-radius: 50%;
+  background: rgba(212, 169, 47, 0.34);
+  border: 1.5px solid rgba(236, 224, 198, 0.55);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+
+.touch-pad {
+  position: absolute;
+  right: 16px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: auto;
+}
+.touch-btn {
+  appearance: none;
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(212, 169, 47, 0.42);
+  background: rgba(20, 17, 11, 0.66);
+  color: var(--papyrus);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-family: var(--font-ui);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  user-select: none;
+  transition: background 90ms linear, transform 90ms linear;
+}
+.touch-btn b { font-size: 21px; line-height: 1; color: var(--gold-soft); font-weight: 400; }
+.touch-btn span { font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--papyrus-dim); }
+.touch-btn.held, .touch-btn.hit {
+  background: rgba(212, 169, 47, 0.28);
+  transform: scale(0.94);
+}
+.touch-btn:nth-child(n + 3) { width: 62px; height: 62px; }
+.touch-btn:nth-child(n + 3) b { font-size: 17px; }
+
+.touch-utility {
+  position: absolute;
+  right: 16px;
+  top: 60px;
+  display: flex;
+  gap: 7px;
+  pointer-events: auto;
+}
+.touch-util {
+  appearance: none;
+  width: 40px;
+  height: 36px;
+  border-radius: 9px;
+  border: 1px solid rgba(212, 169, 47, 0.3);
+  background: rgba(20, 17, 11, 0.72);
+  color: var(--gold-soft);
+  font-size: 14px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* With the pad on screen the bottom-left corner belongs to the thumb, so the
+   ticker moves right and up, the rail scrolls rather than running off the
+   bottom of the screen, and every target grows. */
+body.touch-mode .ticker {
+  left: auto;
+  right: 12px;
+  bottom: 112px;
+  width: min(420px, calc(100vw - 90px));
+}
+body.touch-mode .advisor { bottom: 112px; }
+body.touch-mode .mission-hud { display: none !important; }
+body.touch-mode .rail button { height: 48px; }
+body.touch-mode .rail {
+  max-height: calc(100vh - 250px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+}
+body.touch-mode .rail::-webkit-scrollbar { display: none; }
+body.touch-mode .rail button .tip { display: none; }
 
 @media (max-width: 780px) {
   .hud-top { height: 46px; }
@@ -1007,7 +1134,62 @@ svg.chart .label { fill: var(--papyrus-dim); }
   .advisor { width: calc(100vw - 16px); right: 8px; bottom: 8px; }
   .codex { width: calc(100vw - 16px); right: 8px; }
   .mission-hud { display: none !important; }
-  .touch-hint { display: block; }
+  .touch-btn { width: 64px; height: 64px; }
+  .touch-btn:nth-child(n + 3) { width: 54px; height: 54px; }
+  .touch-pad { right: 10px; bottom: 14px; gap: 9px; }
+  .touch-utility { top: 52px; right: 10px; }
+  body.touch-mode .ticker { width: min(320px, calc(100vw - 78px)); }
+  body.touch-mode .ticker .event:nth-last-child(n + 3) { display: none; }
+  .help-card { padding: 18px; max-height: 84vh; overflow: auto; }
+  .keys { grid-template-columns: 1fr; }
+}
+
+/* Portrait phones. The bar keeps only what cannot be reached another way:
+   the mode arrows and the speed control live on the touch layer, so the
+   wordmark, the mode switch and two of the five metrics stand down. */
+@media (max-width: 560px) {
+  .hud-top { overflow: hidden; }
+  .hud-top > * { flex: 0 0 auto; }
+  .hud-top > .hud-spacer { flex: 1 1 auto; }
+  body.touch-mode .mode-switch.modes { display: none; }
+  .brand > div { display: none; }
+  .brand { padding: 0 9px; }
+  .metric[data-metric='clock'], .metric[data-metric='date'] { display: none; }
+  .metric { min-width: 52px; padding: 4px 6px; }
+  .metric b { font-size: 12.5px; }
+  .metric span { font-size: 8.5px; }
+  .hud-metrics { padding-right: 4px; }
+  .compass { width: 176px; }
+  .toast-stack { max-width: 74vw; }
+  .poi-prompt { font-size: 11px; }
+  .wide-only { display: none; }
+  body.panel-open .ticker,
+  body.panel-open .compass,
+  body.panel-open .toast-stack { display: none; }
+}
+
+/* Tablets: the dashboard is the point of the thing, so it keeps the screen,
+   but every control grows to a finger-sized target. */
+@media (max-width: 1100px) and (pointer: coarse) {
+  .panel { left: 58px; width: calc(100vw - 68px); }
+  .panel.wide { width: calc(100vw - 68px); }
+  .panel-body { padding: 13px; }
+  .panel-tabs button { padding: 11px 13px; font-size: 12px; }
+  .wbs-row { padding: 9px 7px; }
+  .rail button { height: 50px; }
+  table { font-size: 12px; }
+  input[type='range'] { height: 26px; }
+}
+
+/* Landscape phones have almost no vertical room: shrink the chrome so the
+   plateau still gets most of the screen. */
+@media (max-height: 460px) {
+  .hud-top { height: 40px; }
+  .rail { top: 46px; }
+  .rail button { height: 34px; }
+  .ticker { display: none; }
+  .touch-pad { bottom: 8px; }
+  .touch-btn { width: 56px; height: 56px; }
 }
 
 </style>
@@ -54175,12 +54357,111 @@ void main() {
 }
 `;
 
+const SSAO_FRAG = /* glsl */ `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D tDepth;
+uniform mat4 uProjection;
+uniform mat4 uInverseProjection;
+uniform vec2 uTexel;
+uniform float uRadius;
+uniform float uBias;
+uniform float uIntensity;
+uniform float uMaxDistance;
+uniform float uFadeStart;
+uniform vec3 uKernel[16];
+
+float sampleDepth(vec2 uv) {
+  return texture2D(tDepth, uv).x;
+}
+
+/** Unproject a depth-buffer sample back into view space. */
+vec3 viewFromUvDepth(vec2 uv, float d) {
+  vec4 clip = vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
+  vec4 view = uInverseProjection * clip;
+  return view.xyz / view.w;
+}
+
+float hash12(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+void main() {
+  float d = sampleDepth(vUv);
+  // Sky and far plane are never occluded.
+  if (d >= 0.99999) { gl_FragColor = vec4(1.0); return; }
+  vec3 P = viewFromUvDepth(vUv, d);
+
+  // Beyond a few hundred metres the occlusion is sub-pixel anyway, and the
+  // depth buffer has so little precision left that sampling it produces
+  // speckle along the horizon. Fade out and stop.
+  float viewDist = -P.z;
+  if (viewDist > uMaxDistance) { gl_FragColor = vec4(1.0); return; }
+  float distanceFade = 1.0 - smoothstep(uFadeStart, uMaxDistance, viewDist);
+
+  // Reconstruct the normal from the four nearest depth taps, choosing the
+  // closer neighbour on each axis so silhouettes do not smear. Doing it this
+  // way avoids needing derivatives, which are awkward under GLSL ES 1.00.
+  vec2 ex = vec2(uTexel.x, 0.0);
+  vec2 ey = vec2(0.0, uTexel.y);
+  vec3 pR = viewFromUvDepth(vUv + ex, sampleDepth(vUv + ex));
+  vec3 pL = viewFromUvDepth(vUv - ex, sampleDepth(vUv - ex));
+  vec3 pU = viewFromUvDepth(vUv + ey, sampleDepth(vUv + ey));
+  vec3 pD = viewFromUvDepth(vUv - ey, sampleDepth(vUv - ey));
+  vec3 dx = abs(pR.z - P.z) < abs(P.z - pL.z) ? (pR - P) : (P - pL);
+  vec3 dy = abs(pU.z - P.z) < abs(P.z - pD.z) ? (pU - P) : (P - pD);
+  vec3 N = normalize(cross(dx, dy));
+  if (N.z < 0.0) N = -N;
+
+  // Random tangent frame per pixel, so the 16 samples cover more directions.
+  float ang = hash12(gl_FragCoord.xy) * 6.2831853;
+  vec3 rvec = vec3(cos(ang), sin(ang), 0.0);
+  vec3 T = normalize(rvec - N * dot(rvec, N));
+  vec3 B = cross(N, T);
+  mat3 TBN = mat3(T, B, N);
+
+  float occlusion = 0.0;
+  for (int i = 0; i < 16; i++) {
+    vec3 samplePos = P + TBN * uKernel[i] * uRadius;
+    vec4 offset = uProjection * vec4(samplePos, 1.0);
+    vec2 sUv = (offset.xy / offset.w) * 0.5 + 0.5;
+    if (sUv.x < 0.0 || sUv.x > 1.0 || sUv.y < 0.0 || sUv.y > 1.0) continue;
+    vec3 occluder = viewFromUvDepth(sUv, sampleDepth(sUv));
+    // View space looks down -Z, so a larger z is nearer the camera.
+    float range = smoothstep(0.0, 1.0, uRadius / max(0.0001, abs(P.z - occluder.z)));
+    occlusion += (occluder.z >= samplePos.z + uBias ? 1.0 : 0.0) * range;
+  }
+
+  float ao = 1.0 - (occlusion / 16.0) * uIntensity * distanceFade;
+  gl_FragColor = vec4(clamp(ao, 0.0, 1.0));
+}
+`;
+
+const SSAO_BLUR_FRAG = /* glsl */ `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D tDiffuse;
+uniform vec2 uTexel;
+void main() {
+  // 4x4 box blur: enough to hide the per-pixel rotation noise.
+  float sum = 0.0;
+  for (int x = -2; x < 2; x++) {
+    for (int y = -2; y < 2; y++) {
+      sum += texture2D(tDiffuse, vUv + vec2(float(x) + 0.5, float(y) + 0.5) * uTexel).r;
+    }
+  }
+  gl_FragColor = vec4(sum / 16.0);
+}
+`;
+
 const COMPOSITE_FRAG = /* glsl */ `
 precision highp float;
 varying vec2 vUv;
 uniform sampler2D tDiffuse;
 uniform sampler2D tBloom;
 uniform sampler2D tRays;
+uniform sampler2D tAO;
+uniform float aoStrength;
 uniform float bloomStrength;
 uniform float raysStrength;
 uniform float exposure;
@@ -54226,6 +54507,11 @@ void main() {
     color = texture2D(tDiffuse, uv).rgb;
   }
 
+  if (aoStrength > 0.0) {
+    float ao = texture2D(tAO, uv).r;
+    color *= mix(1.0, ao, aoStrength);
+  }
+
   color += texture2D(tBloom, uv).rgb * bloomStrength;
   color += texture2D(tRays, uv).rgb * raysStrength;
   color *= exposure;
@@ -54264,8 +54550,10 @@ function fullscreenMesh(material) {
   return mesh;
 }
 
-function makeRT(w, h, samples) {
-  const rt = new THREE.WebGLRenderTarget(Math.max(1, w), Math.max(1, h), {
+function makeRT(w, h, samples, withDepthTexture = false) {
+  const width = Math.max(1, w);
+  const height = Math.max(1, h);
+  const options = {
     type: THREE.HalfFloatType,
     format: THREE.RGBAFormat,
     minFilter: THREE.LinearFilter,
@@ -54273,9 +54561,38 @@ function makeRT(w, h, samples) {
     depthBuffer: true,
     stencilBuffer: false,
     samples: samples || 0,
-  });
+  };
+  if (withDepthTexture) {
+    // three resolves depth as part of the multisample blit, so a sampleable
+    // depth texture works alongside MSAA and SSAO needs no extra scene pass.
+    const depth = new THREE.DepthTexture(width, height);
+    depth.type = THREE.UnsignedIntType;
+    depth.format = THREE.DepthFormat;
+    depth.minFilter = THREE.NearestFilter;
+    depth.magFilter = THREE.NearestFilter;
+    options.depthTexture = depth;
+  }
+  const rt = new THREE.WebGLRenderTarget(width, height, options);
   rt.texture.generateMipmaps = false;
   return rt;
+}
+
+/** Cosine-weighted hemisphere kernel, clustered toward the origin. */
+function makeSsaoKernel(count) {
+  const kernel = [];
+  let seed = 1;
+  const rand = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x7fffffff;
+  };
+  for (let i = 0; i < count; i++) {
+    const v = new THREE.Vector3(rand() * 2 - 1, rand() * 2 - 1, rand());
+    v.normalize();
+    const t = i / count;
+    v.multiplyScalar(0.1 + 0.9 * t * t);
+    kernel.push(v);
+  }
+  return kernel;
 }
 
 class PostFX {
@@ -54317,6 +54634,31 @@ class PostFX {
       depthTest: false,
       depthWrite: false,
     });
+    this.ssaoMat = new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: SSAO_FRAG,
+      uniforms: {
+        tDepth: { value: null },
+        uProjection: { value: new THREE.Matrix4() },
+        uInverseProjection: { value: new THREE.Matrix4() },
+        uTexel: { value: new THREE.Vector2() },
+        uRadius: { value: 1.15 },
+        uBias: { value: 0.035 },
+        uIntensity: { value: 1.0 },
+        uMaxDistance: { value: 420 },
+        uFadeStart: { value: 240 },
+        uKernel: { value: makeSsaoKernel(16) },
+      },
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.ssaoBlurMat = new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: SSAO_BLUR_FRAG,
+      uniforms: { tDiffuse: { value: null }, uTexel: { value: new THREE.Vector2() } },
+      depthTest: false,
+      depthWrite: false,
+    });
     this.compositeMat = new THREE.ShaderMaterial({
       vertexShader: FULLSCREEN_VERT,
       fragmentShader: COMPOSITE_FRAG,
@@ -54324,6 +54666,8 @@ class PostFX {
         tDiffuse: { value: null },
         tBloom: { value: null },
         tRays: { value: null },
+        tAO: { value: null },
+        aoStrength: { value: 0.85 },
         bloomStrength: { value: 0.55 },
         raysStrength: { value: 0.5 },
         exposure: { value: 1.0 },
@@ -54354,6 +54698,9 @@ class PostFX {
     this.blurRTA = null;
     this.blurRTB = null;
     this.raysRT = null;
+    this.ssaoRT = null;
+    this.ssaoBlurRT = null;
+    this.aoStrength = 0.85;
     this.setSize(1, 1);
   }
 
@@ -54365,14 +54712,23 @@ class PostFX {
     const half = [Math.ceil(this.width / 2), Math.ceil(this.height / 2)];
     const quarter = [Math.ceil(this.width / 4), Math.ceil(this.height / 4)];
 
-    for (const rt of [this.sceneRT, this.brightRT, this.blurRTA, this.blurRTB, this.raysRT]) {
+    for (const rt of [this.sceneRT, this.brightRT, this.blurRTA, this.blurRTB, this.raysRT, this.ssaoRT, this.ssaoBlurRT]) {
       if (rt) rt.dispose();
     }
-    this.sceneRT = makeRT(this.width, this.height, samples);
+    this.sceneRT = makeRT(this.width, this.height, samples, !!s.ssao);
     this.brightRT = makeRT(half[0], half[1], 0);
     this.blurRTA = makeRT(quarter[0], quarter[1], 0);
     this.blurRTB = makeRT(quarter[0], quarter[1], 0);
     this.raysRT = makeRT(half[0], half[1], 0);
+    if (s.ssao) {
+      this.ssaoRT = makeRT(half[0], half[1], 0);
+      this.ssaoBlurRT = makeRT(half[0], half[1], 0);
+      this.ssaoMat.uniforms.uTexel.value.set(1 / half[0], 1 / half[1]);
+      this.ssaoBlurMat.uniforms.uTexel.value.set(1 / half[0], 1 / half[1]);
+    } else {
+      this.ssaoRT = null;
+      this.ssaoBlurRT = null;
+    }
     this.compositeMat.uniforms.resolution.value.set(this.width, this.height);
   }
 
@@ -54388,10 +54744,27 @@ class PostFX {
   }
 
   /** Runs the chain over whatever was rendered into `sceneRT`. */
-  render(time, { sunScreen = null, sunVisibility = 0 } = {}) {
+  render(time, { sunScreen = null, sunVisibility = 0, camera = null } = {}) {
     const s = this.quality.settings;
     const u = this.compositeMat.uniforms;
     u.time.value = time;
+
+    if (s.ssao && this.ssaoRT && camera && this.sceneRT.depthTexture) {
+      const su = this.ssaoMat.uniforms;
+      su.tDepth.value = this.sceneRT.depthTexture;
+      su.uProjection.value.copy(camera.projectionMatrix);
+      su.uInverseProjection.value.copy(camera.projectionMatrixInverse);
+      this._blit(this.ssaoMat, this.ssaoRT);
+
+      this.ssaoBlurMat.uniforms.tDiffuse.value = this.ssaoRT.texture;
+      this._blit(this.ssaoBlurMat, this.ssaoBlurRT);
+
+      u.tAO.value = this.ssaoBlurRT.texture;
+      u.aoStrength.value = this.aoStrength;
+    } else {
+      u.tAO.value = null;
+      u.aoStrength.value = 0;
+    }
 
     if (s.bloom) {
       this.brightMat.uniforms.tDiffuse.value = this.sceneRT.texture;
@@ -54450,6 +54823,7 @@ class PostFX {
         lift: [0.008, 0.004, 0.0],
         gain: [1.05, 1.0, 0.945],
         bloomStrength: 0.55,
+        aoStrength: 0.8,
       },
       interior: {
         exposure: 1.12,
@@ -54462,6 +54836,7 @@ class PostFX {
         lift: [0.006, 0.005, 0.006],
         gain: [1.0, 0.985, 0.985],
         bloomStrength: 0.42,
+        aoStrength: 1.0,
       },
     };
   }
@@ -54471,6 +54846,7 @@ class PostFX {
     const u = this.compositeMat.uniforms;
     if (look.bloomStrength !== undefined) this.bloomStrength = look.bloomStrength;
     if (look.raysStrength !== undefined) this.raysStrength = look.raysStrength;
+    if (look.aoStrength !== undefined) this.aoStrength = look.aoStrength;
     for (const [key, value] of Object.entries(look)) {
       if (!u[key]) continue;
       if (u[key].value && u[key].value.isVector3) u[key].value.set(value[0], value[1], value[2]);
@@ -54480,13 +54856,15 @@ class PostFX {
   }
 
   dispose() {
-    for (const rt of [this.sceneRT, this.brightRT, this.blurRTA, this.blurRTB, this.raysRT]) {
+    for (const rt of [this.sceneRT, this.brightRT, this.blurRTA, this.blurRTB, this.raysRT, this.ssaoRT, this.ssaoBlurRT]) {
       if (rt) rt.dispose();
     }
     this.quad.geometry.dispose();
     this.brightMat.dispose();
     this.blurMat.dispose();
     this.raysMat.dispose();
+    this.ssaoMat.dispose();
+    this.ssaoBlurMat.dispose();
     this.compositeMat.dispose();
   }
 }
@@ -54515,11 +54893,13 @@ const QUALITY_TIERS = {
     grain: false,
     ssaa: false,
     msaa: 0,
+    ssao: false,
     anisotropy: 2,
     blockScale: 5,          // merge N stone courses per instanced block
     terrainSegments: 128,
     viewDistance: 3600,
     dustCount: 220,
+    birdCount: 24,
     sandCount: 400,
     workerCount: 44,
     vegetationCount: 90,
@@ -54537,11 +54917,13 @@ const QUALITY_TIERS = {
     grain: true,
     ssaa: false,
     msaa: 2,
+    ssao: true,
     anisotropy: 4,
     blockScale: 3,
     terrainSegments: 208,
     viewDistance: 5200,
     dustCount: 500,
+    birdCount: 44,
     sandCount: 900,
     workerCount: 90,
     vegetationCount: 180,
@@ -54559,11 +54941,13 @@ const QUALITY_TIERS = {
     grain: true,
     ssaa: false,
     msaa: 4,
+    ssao: true,
     anisotropy: 8,
     blockScale: 2,
     terrainSegments: 288,
     viewDistance: 7000,
     dustCount: 900,
+    birdCount: 70,
     sandCount: 1600,
     workerCount: 150,
     vegetationCount: 320,
@@ -54581,11 +54965,13 @@ const QUALITY_TIERS = {
     grain: true,
     ssaa: true,
     msaa: 4,
+    ssao: true,
     anisotropy: 16,
     blockScale: 1,
     terrainSegments: 384,
     viewDistance: 9000,
     dustCount: 1500,
+    birdCount: 96,
     sandCount: 2600,
     workerCount: 230,
     vegetationCount: 520,
@@ -54824,6 +55210,7 @@ class Engine {
     this.postfx.render(this.elapsed, {
       sunScreen: this._sunScreen,
       sunVisibility: this._sunVisibility,
+      camera: this.camera,
     });
     this.renderer.setRenderTarget(null);
   }
@@ -54873,6 +55260,18 @@ class InputManager {
     this.pointerLocked = false;
     this.buttons = new Set();
     this.touch = { active: false, moveX: 0, moveY: 0, lookX: 0, lookY: 0 };
+    /** Where the virtual stick is drawn, in client pixels. */
+    this.stick = { active: false, baseX: 0, baseY: 0, knobX: 0, knobY: 0, radius: 58 };
+    /** True once a finger has actually been used, so the touch pad can appear. */
+    this.touchUsed = false;
+    this.onTouchUsed = null;
+    this.hasTouch =
+      typeof window !== 'undefined' &&
+      (('ontouchstart' in window) ||
+        (navigator && navigator.maxTouchPoints > 0) ||
+        (window.matchMedia && window.matchMedia('(pointer: coarse)').matches));
+    this._virtualKeys = new Set();
+    this._pinchDistance = 0;
     this.enabled = true;
     this._pressedThisFrame = new Set();
     this._sticks = new Map();
@@ -54892,6 +55291,7 @@ class InputManager {
     this._bind(window, 'keyup', (e) => this.keys.delete(e.code));
     this._bind(window, 'blur', () => {
       this.keys.clear();
+      this._virtualKeys.clear();
       this.buttons.clear();
     });
 
@@ -54945,14 +55345,41 @@ class InputManager {
     return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable;
   }
 
+  /** The two look-side fingers, if there are exactly two of them. */
+  _lookPair() {
+    const look = [];
+    for (const s of this._sticks.values()) if (!s.left) look.push(s);
+    return look.length === 2 ? look : null;
+  }
+
   _touchStart(e) {
     if (!this.enabled) return;
     for (const t of e.changedTouches) {
-      const left = t.clientX < window.innerWidth * 0.42;
-      this._sticks.set(t.identifier, { left, ox: t.clientX, oy: t.clientY, x: t.clientX, y: t.clientY });
+      // The stick lives wherever the finger lands in the left third, so there
+      // is nothing to aim at - the control comes to the thumb.
+      const left = t.clientX < window.innerWidth * 0.4 && !this._hasLeftStick();
+      this._sticks.set(t.identifier, { left, ox: t.clientX, oy: t.clientY, x: t.clientX, y: t.clientY, dx: 0, dy: 0 });
+      if (left) {
+        this.stick.active = true;
+        this.stick.baseX = t.clientX;
+        this.stick.baseY = t.clientY;
+        this.stick.knobX = t.clientX;
+        this.stick.knobY = t.clientY;
+      }
     }
+    const pair = this._lookPair();
+    this._pinchDistance = pair ? Math.hypot(pair[0].x - pair[1].x, pair[0].y - pair[1].y) : 0;
     this.touch.active = true;
+    if (!this.touchUsed) {
+      this.touchUsed = true;
+      if (this.onTouchUsed) this.onTouchUsed();
+    }
     e.preventDefault();
+  }
+
+  _hasLeftStick() {
+    for (const s of this._sticks.values()) if (s.left) return true;
+    return false;
   }
 
   _touchMove(e) {
@@ -54961,16 +55388,53 @@ class InputManager {
       const s = this._sticks.get(t.identifier);
       if (!s) continue;
       if (s.left) {
-        const dx = (t.clientX - s.ox) / 64;
-        const dy = (t.clientY - s.oy) / 64;
-        this.touch.moveX = Math.max(-1, Math.min(1, dx));
-        this.touch.moveY = Math.max(-1, Math.min(1, dy));
+        const r = this.stick.radius;
+        let dx = t.clientX - s.ox;
+        let dy = t.clientY - s.oy;
+        const len = Math.hypot(dx, dy);
+        if (len > r) {
+          // Drag the base along once the thumb runs past the ring.
+          s.ox += (dx / len) * (len - r);
+          s.oy += (dy / len) * (len - r);
+          dx = (dx / len) * r;
+          dy = (dy / len) * r;
+        }
+        this.touch.moveX = dx / r;
+        this.touch.moveY = dy / r;
+        this.stick.baseX = s.ox;
+        this.stick.baseY = s.oy;
+        this.stick.knobX = s.ox + dx;
+        this.stick.knobY = s.oy + dy;
       } else {
-        this.mouseDelta.x += (t.clientX - s.x) * 1.6;
-        this.mouseDelta.y += (t.clientY - s.y) * 1.6;
+        s.dx = t.clientX - s.x;
+        s.dy = t.clientY - s.y;
         s.x = t.clientX;
         s.y = t.clientY;
       }
+    }
+
+    // Two fingers on the look side pinch to zoom instead of turning the camera.
+    const pair = this._lookPair();
+    if (pair) {
+      const d = Math.hypot(pair[0].x - pair[1].x, pair[0].y - pair[1].y);
+      if (this._pinchDistance > 0 && Math.abs(d - this._pinchDistance) > 6) {
+        this.wheel += d > this._pinchDistance ? -1 : 1;
+        this._pinchDistance = d;
+      } else if (this._pinchDistance === 0) {
+        this._pinchDistance = d;
+      }
+    } else {
+      this._pinchDistance = 0;
+      for (const t of e.changedTouches) {
+        const s = this._sticks.get(t.identifier);
+        if (!s || s.left) continue;
+        this.mouseDelta.x += (s.dx || 0) * 1.6;
+        this.mouseDelta.y += (s.dy || 0) * 1.6;
+      }
+    }
+    for (const s of this._sticks.values()) {
+      s.dx = 0;
+      s.dy = 0;
     }
     e.preventDefault();
   }
@@ -54981,10 +55445,35 @@ class InputManager {
       if (s && s.left) {
         this.touch.moveX = 0;
         this.touch.moveY = 0;
+        this.stick.active = false;
       }
       this._sticks.delete(t.identifier);
     }
+    this._pinchDistance = 0;
     if (this._sticks.size === 0) this.touch.active = false;
+  }
+
+  /**
+   * Press or release a key on behalf of an on-screen button.  Virtual keys are
+   * tracked separately so a physical key released while a button is held does
+   * not clear the button, and vice versa.
+   */
+  setVirtualKey(code, down) {
+    if (down) {
+      if (!this.keys.has(code)) this._pressedThisFrame.add(code);
+      this._virtualKeys.add(code);
+      this.keys.add(code);
+    } else {
+      this._virtualKeys.delete(code);
+      this.keys.delete(code);
+    }
+  }
+
+  /** Tap a key for exactly one frame - used by momentary on-screen buttons. */
+  tapVirtualKey(code) {
+    this.setVirtualKey(code, true);
+    this._releaseNextFrame = this._releaseNextFrame || new Set();
+    this._releaseNextFrame.add(code);
   }
 
   requestPointerLock() {
@@ -55041,6 +55530,10 @@ class InputManager {
 
   endFrame() {
     this._pressedThisFrame.clear();
+    if (this._releaseNextFrame && this._releaseNextFrame.size) {
+      for (const code of this._releaseNextFrame) this.setVirtualKey(code, false);
+      this._releaseNextFrame.clear();
+    }
   }
 
   dispose() {
@@ -55085,6 +55578,7 @@ class FirstPersonController {
     this.bobAmount = 0;
     this.stepDistance = 0;
     this.onFootstep = null;
+    this.grade = 0;
     this.flying = false;
     this.enabled = true;
     this._forward = new THREE.Vector3();
@@ -55098,6 +55592,28 @@ class FirstPersonController {
     this.yaw = yaw;
     this.pitch = pitch;
     this.grounded = false;
+  }
+
+  /**
+   * Speed multiplier for the ground gradient in the direction of travel.
+   *
+   * The plateau's sand slopes are genuinely hard work: climbing a 1-in-3 face
+   * costs roughly half your pace, while a shallow descent gives a little back.
+   * The gradient is sampled from the collision world's ground function, so it
+   * costs two height lookups and works on any terrain.
+   */
+  _slopeFactor(collision, direction) {
+    if (this.flying || !collision || typeof collision.groundFn !== 'function') return 1;
+    const probe = 1.6;
+    const x0 = this.position.x;
+    const z0 = this.position.z;
+    const h0 = collision.groundFn(x0, z0);
+    const h1 = collision.groundFn(x0 + direction.x * probe, z0 + direction.z * probe);
+    if (!Number.isFinite(h0) || !Number.isFinite(h1)) return 1;
+    const grade = (h1 - h0) / probe;
+    this.grade = grade;
+    if (grade > 0) return 1 / (1 + grade * grade * 3.2);
+    return Math.min(1.18, 1 - grade * 0.28);
   }
 
   update(dt, collision) {
@@ -55132,7 +55648,10 @@ class FirstPersonController {
       .set(0, 0, 0)
       .addScaledVector(this._forward, -axes.y)
       .addScaledVector(this._right, axes.x);
-    if (this._desired.lengthSq() > 1e-6) this._desired.normalize().multiplyScalar(speed);
+    if (this._desired.lengthSq() > 1e-6) {
+      this._desired.normalize();
+      this._desired.multiplyScalar(speed * this._slopeFactor(collision, this._desired));
+    }
 
     if (this.flying) {
       let vy = 0;
@@ -55229,6 +55748,28 @@ class OrbitController {
     this.distance = this._distanceGoal;
     this.phi = this._phiGoal;
     this.theta = this._thetaGoal;
+  }
+
+  /**
+   * Speed multiplier for the ground gradient in the direction of travel.
+   *
+   * The plateau's sand slopes are genuinely hard work: climbing a 1-in-3 face
+   * costs roughly half your pace, while a shallow descent gives a little back.
+   * The gradient is sampled from the collision world's ground function, so it
+   * costs two height lookups and works on any terrain.
+   */
+  _slopeFactor(collision, direction) {
+    if (this.flying || !collision || typeof collision.groundFn !== 'function') return 1;
+    const probe = 1.6;
+    const x0 = this.position.x;
+    const z0 = this.position.z;
+    const h0 = collision.groundFn(x0, z0);
+    const h1 = collision.groundFn(x0 + direction.x * probe, z0 + direction.z * probe);
+    if (!Number.isFinite(h0) || !Number.isFinite(h1)) return 1;
+    const grade = (h1 - h0) / probe;
+    this.grade = grade;
+    if (grade > 0) return 1 / (1 + grade * grade * 3.2);
+    return Math.min(1.18, 1 - grade * 0.28);
   }
 
   update(dt, collision) {
@@ -56731,6 +57272,12 @@ class SkySystem {
     this.sunElevation = 0.6;
     this.moonElevation = -0.6;
     this.sunWorld = new THREE.Vector3();
+    this._shadowCorners = Array.from({ length: 8 }, () => new THREE.Vector3());
+    this._shadowCentre = new THREE.Vector3();
+    this._shadowUp = new THREE.Vector3(0, 1, 0);
+    this._shadowAltUp = new THREE.Vector3(0, 0, 1);
+    this._shadowRight = new THREE.Vector3();
+    this._shadowTrueUp = new THREE.Vector3();
     this.horizonColor = new THREE.Color(0xd8c39a);
     this.state = { phase: 'day', dayFactor: 1, nightFactor: 0, torchFactor: 0 };
 
@@ -56822,14 +57369,89 @@ class SkySystem {
       this.sunLight.shadow.map.dispose();
       this.sunLight.shadow.map = null;
     }
+    // The extents are re-fitted every frame in `_fitShadowCamera`; these are
+    // just sane defaults for the first frame.
     const d = s.shadowDistance;
     const cam = this.sunLight.shadow.camera;
     cam.left = -d;
     cam.right = d;
     cam.top = d;
     cam.bottom = -d;
+    cam.near = 1;
     cam.far = d * 6;
     cam.updateProjectionMatrix();
+  }
+
+  /**
+   * Fit the shadow frustum to the slice of the view frustum that can actually
+   * cast visible shadows.
+   *
+   * Centring a fixed box on the camera wastes roughly half its area behind the
+   * viewer. Fitting to the frustum slice instead roughly doubles the effective
+   * shadow resolution for no extra cost. The extents come from the slice's
+   * bounding SPHERE rather than a tight box, because a sphere is invariant to
+   * camera rotation — a tight box would make the shadow edges crawl as the
+   * player turns. The centre is then snapped to whole shadow-map texels, which
+   * removes the remaining shimmer when the player walks.
+   */
+  _fitShadowCamera(camera) {
+    const s = this.quality.settings;
+    const far = Math.min(s.shadowDistance, camera.far);
+    const near = camera.near;
+    const tanV = Math.tan(((camera.fov * Math.PI) / 180) / 2);
+    const tanH = tanV * camera.aspect;
+
+    camera.updateMatrixWorld();
+    const corners = this._shadowCorners;
+    let i = 0;
+    for (const dist of [near, far]) {
+      const h = tanV * dist;
+      const w = tanH * dist;
+      for (const sx of [-1, 1]) {
+        for (const sy of [-1, 1]) {
+          corners[i++].set(sx * w, sy * h, -dist).applyMatrix4(camera.matrixWorld);
+        }
+      }
+    }
+
+    const centre = this._shadowCentre.set(0, 0, 0);
+    for (const c of corners) centre.add(c);
+    centre.multiplyScalar(1 / corners.length);
+
+    let radius = 0;
+    for (const c of corners) radius = Math.max(radius, c.distanceTo(centre));
+    radius = Math.ceil(radius);
+
+    // Snap the centre to the shadow-map texel grid, in the light's own basis.
+    const mapSize = s.shadowMapSize;
+    const texelWorld = (radius * 2) / mapSize;
+    const up = Math.abs(this.sunDirection.y) > 0.98 ? this._shadowAltUp : this._shadowUp;
+    const right = this._shadowRight.crossVectors(up, this.sunDirection).normalize();
+    const trueUp = this._shadowTrueUp.crossVectors(this.sunDirection, right).normalize();
+    const alongRight = Math.round(centre.dot(right) / texelWorld) * texelWorld;
+    const alongUp = Math.round(centre.dot(trueUp) / texelWorld) * texelWorld;
+    const alongDir = centre.dot(this.sunDirection);
+    centre
+      .copy(right).multiplyScalar(alongRight)
+      .addScaledVector(trueUp, alongUp)
+      .addScaledVector(this.sunDirection, alongDir);
+
+    const back = radius + 120;
+    this.sunTarget.position.copy(centre);
+    this.sunTarget.updateMatrixWorld();
+    this.sunLight.position.copy(centre).addScaledVector(this.sunDirection, back);
+    this.sunLight.updateMatrixWorld();
+
+    const cam = this.sunLight.shadow.camera;
+    if (cam.right !== radius || cam.far !== back + radius + 120) {
+      cam.left = -radius;
+      cam.right = radius;
+      cam.top = radius;
+      cam.bottom = -radius;
+      cam.near = 1;
+      cam.far = back + radius + 120;
+      cam.updateProjectionMatrix();
+    }
   }
 
   /** Keep the sky dome and shadow frustum centred on the viewer. */
@@ -56844,13 +57466,17 @@ class SkySystem {
     this.moon.lookAt(camera.position);
 
     const d = this.quality ? this.quality.settings.shadowDistance : 400;
-    this.sunTarget.position.set(camera.position.x, 0, camera.position.z);
-    this.sunTarget.updateMatrixWorld();
-    this.sunLight.position.copy(this.sunTarget.position).addScaledVector(this.sunDirection, d * 2.6);
-    this.sunLight.updateMatrixWorld();
-    this.moonTarget.position.copy(this.sunTarget.position);
+    if (this.quality && this.quality.settings.shadows) {
+      this._fitShadowCamera(camera);
+    } else {
+      this.sunTarget.position.set(camera.position.x, 0, camera.position.z);
+      this.sunTarget.updateMatrixWorld();
+      this.sunLight.position.copy(this.sunTarget.position).addScaledVector(this.sunDirection, d * 2.6);
+      this.sunLight.updateMatrixWorld();
+    }
+    this.moonTarget.position.set(camera.position.x, 0, camera.position.z);
     this.moonTarget.updateMatrixWorld();
-    this.moonLight.position.copy(this.sunTarget.position).addScaledVector(this.moonDirection, d * 2.6);
+    this.moonLight.position.copy(this.moonTarget.position).addScaledVector(this.moonDirection, d * 2.6);
 
     this.sunWorld.copy(camera.position).addScaledVector(this.sunDirection, far * 0.85);
   }
@@ -59211,6 +59837,7 @@ class MonumentSystem {
     scene.add(this.group);
     this.collision = collision;
     this.torchSites = [];
+    this.pennantSites = [];
 
     const lime = textures.limestone();
     const gran = textures.granite();
@@ -59360,6 +59987,9 @@ class MonumentSystem {
       // Torches flank every temple gate.
       this.torchSites.push({ x: spec.x + spec.w / 2 + 2.4, y: spec.y + 2.4, z: spec.z - 3.4, scale: 1.1 });
       this.torchSites.push({ x: spec.x + spec.w / 2 + 2.4, y: spec.y + 2.4, z: spec.z + 3.4, scale: 1.1 });
+      // Cedar flagstaffs outside them, streaming east on the prevailing wind.
+      this.pennantSites.push({ x: spec.x + spec.w / 2 + 5.6, y: spec.y, z: spec.z - 7.2, height: 14.5, yaw: 0 });
+      this.pennantSites.push({ x: spec.x + spec.w / 2 + 5.6, y: spec.y, z: spec.z + 7.2, height: 14.5, yaw: 0 });
     }
   }
 
@@ -59938,6 +60568,9 @@ class SiteSystem {
  * assigned workforce, so a labour shortage is visible from the ground.
  */
 
+/** Distance from the sledge's centre to the front rank of the hauling gang. */
+const GANG_LEAD = 5.6;
+
 const LIMB_BODY = 0;
 const LIMB_LEG_L = 1;
 const LIMB_LEG_R = 2;
@@ -60099,6 +60732,9 @@ class WorkerSystem {
     this.time = 0;
     this.activityScale = 1;
     this.paused = false;
+    /** Called as (x, y, z, strength, driftX, driftZ) when a sledge kicks dust. */
+    this.onDust = null;
+    this.sledgeDust = 0;
 
     const wood = textures.wood();
     const lime = textures.limestone();
@@ -60133,6 +60769,7 @@ class WorkerSystem {
     this.mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
 
     this._buildSledges();
+    this._buildRopes();
     this._buildRoutes();
     this._buildAgents();
 
@@ -60145,14 +60782,21 @@ class WorkerSystem {
   }
 
   _buildSledges() {
+    // The sledge is modelled with its runners along local +Z, which is the
+    // direction of travel once the route heading is applied - the gang is out
+    // in front on the ropes, not alongside.
     const parts = [];
     const L = 4.6;
     const W = 2.2;
+    this.sledgeLength = L;
+    this.sledgeWidth = W;
     for (const side of [-1, 1]) {
-      parts.push(box(L, 0.32, 0.32, 0, 0.16, side * (W / 2 - 0.2)));
-      parts.push(box(0.5, 0.46, 0.32, L / 2 - 0.1, 0.33, side * (W / 2 - 0.2)));
+      parts.push(box(0.32, 0.32, L, side * (W / 2 - 0.2), 0.16, 0));
+      parts.push(box(0.32, 0.46, 0.5, side * (W / 2 - 0.2), 0.33, L / 2 - 0.1));
+      // Towing post the rope is lashed to.
+      parts.push(box(0.14, 0.5, 0.14, side * (W / 2 - 0.2), 0.62, L / 2 - 0.25));
     }
-    for (let i = 0; i < 4; i++) parts.push(box(0.3, 0.2, W, -L / 2 + 0.7 + i * 1.1, 0.42, 0));
+    for (let i = 0; i < 4; i++) parts.push(box(W, 0.2, 0.3, 0, 0.42, -L / 2 + 0.7 + i * 1.1));
     const geo = mergeGeometries(parts);
     scaleUvByWorldSize(geo, 0.8);
     this.sledgeGeometry = geo;
@@ -60163,7 +60807,7 @@ class WorkerSystem {
     this.sledges.count = 0;
     this.group.add(this.sledges);
 
-    const load = box(2.5, 1.15, 1.6, 0, 0.58, 0);
+    const load = box(1.6, 1.15, 2.5, 0, 0.58, 0);
     scaleUvByWorldSize(load, 1.0);
     this.loadGeometry = load;
     this.loads = new THREE.InstancedMesh(load, this.loadMaterial, this.sledgeCapacity);
@@ -60171,6 +60815,50 @@ class WorkerSystem {
     this.loads.frustumCulled = false;
     this.loads.count = 0;
     this.group.add(this.loads);
+  }
+
+  /**
+   * Haul ropes.
+   *
+   * Two ropes per sledge, each drawn as a short polyline so it can sag under
+   * its own weight between the towing post and the front rank's shoulders.
+   * One LineSegments carries every rope on the plateau; the geometry is
+   * rewritten in place each frame, which for ten gangs is 240 floats.
+   */
+  _buildRopes() {
+    this.ropeSegments = 5;
+    this.ropesPerSledge = 2;
+    const verts = this.sledgeCapacity * this.ropesPerSledge * this.ropeSegments * 2;
+    this.ropePositions = new Float32Array(verts * 3);
+    const geo = new THREE.BufferGeometry();
+    this.ropeAttribute = new THREE.BufferAttribute(this.ropePositions, 3);
+    this.ropeAttribute.setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('position', this.ropeAttribute);
+    geo.setDrawRange(0, 0);
+    this.ropeGeometry = geo;
+    this.ropeMaterial = new THREE.LineBasicMaterial({ color: 0x7a6242, transparent: true, opacity: 0.95 });
+    this.ropes = new THREE.LineSegments(geo, this.ropeMaterial);
+    this.ropes.frustumCulled = false;
+    this.ropes.name = 'haul-ropes';
+    this.group.add(this.ropes);
+    this._ropeCursor = 0;
+  }
+
+  /** Write one sagging rope from (ax,ay,az) to (bx,by,bz). */
+  _writeRope(ax, ay, az, bx, by, bz) {
+    const segs = this.ropeSegments;
+    const sag = 0.16 + Math.hypot(bx - ax, bz - az) * 0.055;
+    let o = this._ropeCursor;
+    for (let i = 0; i < segs; i++) {
+      const t0 = i / segs;
+      const t1 = (i + 1) / segs;
+      for (const t of [t0, t1]) {
+        this.ropePositions[o++] = ax + (bx - ax) * t;
+        this.ropePositions[o++] = ay + (by - ay) * t - sag * 4 * t * (1 - t);
+        this.ropePositions[o++] = az + (bz - az) * t;
+      }
+    }
+    this._ropeCursor = o;
   }
 
   _buildRoutes() {
@@ -60247,7 +60935,7 @@ class WorkerSystem {
             gangId,
             distance: offsetDistance,
             lateral: side * (0.7 + (row % 2) * 0.35),
-            back: 3.2 + row * 1.25,
+            back: (route.sledge ? GANG_LEAD : 3.2) + row * 1.25,
             phase: rng() * Math.PI * 2,
             lean: route.sledge ? 1 : 0,
             speed: route.speed * (0.94 + rng() * 0.12),
@@ -60347,6 +61035,7 @@ class WorkerSystem {
 
     let sledgeIndex = 0;
     const seenGangs = new Set();
+    this._ropeCursor = 0;
 
     for (const agent of this.agents) {
       if (agent.index >= this.mesh.count) continue;
@@ -60357,20 +61046,47 @@ class WorkerSystem {
         const h = s.heading;
         const rx = Math.cos(h);
         const rz = -Math.sin(h);
-        const px = s.position.x + rx * agent.lateral - Math.sin(h) * agent.back;
-        const pz = s.position.z + rz * agent.lateral - Math.cos(h) * agent.back;
-        this._place(agent, px, terrainHeight(px, pz), pz, h, 7.2 * agent.speed, 0.62, agent.lean);
+        // Haulers walk ahead of the sledge - `back` is the distance up the
+        // rope from the sledge nose, not a distance behind it.
+        const lead = agent.route.sledge ? agent.back : -agent.back * 0.4;
+        const px = s.position.x + rx * agent.lateral + Math.sin(h) * lead;
+        const pz = s.position.z + rz * agent.lateral + Math.cos(h) * lead;
+        const py = terrainHeight(px, pz);
+        this._place(agent, px, py, pz, h, 7.2 * agent.speed, 0.62, agent.lean);
 
         if (agent.route.sledge && !seenGangs.has(agent.gangId) && sledgeIndex < this.sledgeCapacity) {
           seenGangs.add(agent.gangId);
+          const sx = s.position.x;
+          const sz = s.position.z;
+          const sy = terrainHeight(sx, sz);
           this._euler.set(0, h, 0);
           this._quat.setFromEuler(this._euler);
-          this._pos.set(s.position.x, terrainHeight(s.position.x, s.position.z), s.position.z);
+          this._pos.set(sx, sy, sz);
           this._scale.set(1, 1, 1);
           this._matrix.compose(this._pos, this._quat, this._scale);
           this.sledges.setMatrixAt(sledgeIndex, this._matrix);
           this.loads.setMatrixAt(sledgeIndex, this._matrix);
           sledgeIndex++;
+
+          // Ropes: towing post -> front rank's shoulders, one each side.
+          const fx = Math.sin(h);
+          const fz = Math.cos(h);
+          const half = this.sledgeWidth / 2 - 0.2;
+          const nose = this.sledgeLength / 2 - 0.25;
+          for (const side of [-1, 1]) {
+            const ax = sx + fx * nose + rx * half * side;
+            const az = sz + fz * nose + rz * half * side;
+            const bx = sx + fx * GANG_LEAD + rx * 0.7 * side;
+            const bz = sz + fz * GANG_LEAD + rz * 0.7 * side;
+            this._writeRope(ax, sy + 0.72, az, bx, terrainHeight(bx, bz) + 1.24, bz);
+          }
+
+          // Runners grinding through the sand throw a puff every few metres.
+          this.sledgeDust += Math.abs(agent.speed) * dt * 6;
+          if (this.onDust && this.sledgeDust > 2.4) {
+            const tail = this.sledgeLength / 2;
+            this.onDust(sx - fx * tail, sy + 0.15, sz - fz * tail, 1.35, -fx * 0.5, -fz * 0.5);
+          }
         }
       } else if (agent.kind === 'static') {
         this._place(
@@ -60398,8 +61114,11 @@ class WorkerSystem {
       }
     }
 
+    if (this.sledgeDust > 2.4) this.sledgeDust = 0;
     this.sledges.count = sledgeIndex;
     this.loads.count = sledgeIndex;
+    this.ropeGeometry.setDrawRange(0, this._ropeCursor / 3);
+    this.ropeAttribute.needsUpdate = true;
     this.sledges.instanceMatrix.needsUpdate = true;
     this.loads.instanceMatrix.needsUpdate = true;
     this.mesh.instanceMatrix.needsUpdate = true;
@@ -60407,6 +61126,8 @@ class WorkerSystem {
   }
 
   dispose() {
+    this.ropeGeometry.dispose();
+    this.ropeMaterial.dispose();
     this.geometry.dispose();
     this.sledgeGeometry.dispose();
     this.loadGeometry.dispose();
@@ -61712,7 +62433,439 @@ function buildTorchPosts(positions, material) {
   return mesh;
 }
 
+/* ------------------------------------------------------------ dust puffs */
+
+const PUFF_VERT = /* glsl */ `
+attribute vec3 aOrigin;
+attribute vec4 aPuff;      // x = spawn time, y = life, z = base size, w = seed
+attribute vec3 aDrift;
+uniform float uTime;
+varying float vAlpha;
+varying vec2 vUv;
+
+void main() {
+  float age = (uTime - aPuff.x) / max(aPuff.y, 0.001);
+  vUv = uv;
+  if (age < 0.0 || age > 1.0) {
+    // Retired puffs collapse to a degenerate point behind the camera.
+    vAlpha = 0.0;
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    return;
+  }
+  // Expand quickly, then linger and fade; the puff also lifts and drifts.
+  float grow = 0.35 + 1.15 * sqrt(age);
+  float size = aPuff.z * grow;
+  vec3 centre = aOrigin + aDrift * age + vec3(0.0, 0.55 * age * age, 0.0);
+  vAlpha = (1.0 - age) * (1.0 - age) * smoothstep(0.0, 0.12, age);
+
+  // Billboard: build the quad in view space so it always faces the camera.
+  vec4 mv = viewMatrix * vec4(centre, 1.0);
+  float spin = aPuff.w * 6.2831853 + age * (aPuff.w - 0.5) * 1.4;
+  float c = cos(spin);
+  float s = sin(spin);
+  vec2 corner = vec2(position.x * c - position.y * s, position.x * s + position.y * c);
+  mv.xy += corner * size;
+  gl_Position = projectionMatrix * mv;
+}
+`;
+
+const PUFF_FRAG = /* glsl */ `
+uniform vec3 uColor;
+uniform float uOpacity;
+varying float vAlpha;
+varying vec2 vUv;
+
+void main() {
+  vec2 d = vUv - 0.5;
+  float r = length(d) * 2.0;
+  float a = smoothstep(1.0, 0.15, r);
+  // A soft interior gradient stops the puff reading as a flat disc.
+  a *= 0.55 + 0.45 * smoothstep(1.0, 0.35, r);
+  gl_FragColor = vec4(uColor, a * vAlpha * uOpacity);
+}
+`;
+
+/**
+ * A ring buffer of billboarded dust puffs.
+ *
+ * Every puff is one instance of a unit quad; the whole animation - growth,
+ * drift, spin and fade - runs in the vertex shader from a spawn time, so
+ * emitting a puff costs four attribute writes and nothing per frame.
+ */
+class DustPuffs {
+  constructor(scene, { capacity = 120, color = 0xf0e3c8, opacity = 0.62 } = {}) {
+    this.capacity = capacity;
+    this.cursor = 0;
+    this.time = 0;
+    const quad = new THREE.PlaneGeometry(1, 1);
+    const geo = new THREE.InstancedBufferGeometry();
+    geo.index = quad.index;
+    geo.setAttribute('position', quad.attributes.position);
+    geo.setAttribute('uv', quad.attributes.uv);
+    quad.dispose();
+    this.origins = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
+    this.puffs = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4);
+    this.drifts = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
+    // Spawn every slot far in the past so nothing is drawn until it is used.
+    for (let i = 0; i < capacity; i++) this.puffs.array[i * 4] = -1000;
+    geo.setAttribute('aOrigin', this.origins);
+    geo.setAttribute('aPuff', this.puffs);
+    geo.setAttribute('aDrift', this.drifts);
+    geo.instanceCount = capacity;
+    this.geometry = geo;
+    this.material = new THREE.ShaderMaterial({
+      vertexShader: PUFF_VERT,
+      fragmentShader: PUFF_FRAG,
+      uniforms: {
+        uTime: { value: 0 },
+        uColor: { value: new THREE.Color(color) },
+        uOpacity: { value: opacity },
+      },
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    this.mesh = new THREE.Mesh(geo, this.material);
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 5;
+    this.mesh.name = 'dust-puffs';
+    scene.add(this.mesh);
+  }
+
+  /** Emit one puff. `strength` scales size and lifetime (a sprint kicks more). */
+  emit(x, y, z, strength = 1, driftX = 0, driftZ = 0) {
+    const i = this.cursor;
+    this.cursor = (this.cursor + 1) % this.capacity;
+    this.origins.array[i * 3] = x;
+    this.origins.array[i * 3 + 1] = y;
+    this.origins.array[i * 3 + 2] = z;
+    const p = i * 4;
+    this.puffs.array[p] = this.time;
+    this.puffs.array[p + 1] = 0.75 + strength * 0.85;
+    this.puffs.array[p + 2] = 0.62 * strength;
+    this.puffs.array[p + 3] = (i * 0.6180339887) % 1;
+    this.drifts.array[i * 3] = driftX;
+    this.drifts.array[i * 3 + 1] = 0.32 + strength * 0.2;
+    this.drifts.array[i * 3 + 2] = driftZ;
+    this.origins.needsUpdate = true;
+    this.puffs.needsUpdate = true;
+    this.drifts.needsUpdate = true;
+  }
+
+  update(dt) {
+    this.time += dt;
+    this.material.uniforms.uTime.value = this.time;
+  }
+
+  clear() {
+    for (let i = 0; i < this.capacity; i++) this.puffs.array[i * 4] = -1000;
+    this.puffs.needsUpdate = true;
+  }
+
+  dispose() {
+    this.geometry.dispose();
+    this.material.dispose();
+  }
+}
+
+/* ----------------------------------------------------------------- birds */
+
+const BIRD_VERT = /* glsl */ `
+attribute float aWing;     // -1 = left wing tip, +1 = right wing tip, 0 = body
+attribute vec2 aFlap;      // x = flap rate, y = phase
+uniform float uTime;
+
+void main() {
+  vec3 p = position;
+  if (abs(aWing) > 0.5) {
+    float beat = sin(uTime * aFlap.x + aFlap.y);
+    // The tip swings about the shoulder: up-and-in on the downstroke.
+    p.y += beat * 0.42;
+    p.x *= 1.0 - abs(beat) * 0.22;
+  }
+  vec4 world = instanceMatrix * vec4(p, 1.0);
+  gl_Position = projectionMatrix * modelViewMatrix * world;
+}
+`;
+
+const BIRD_FRAG = /* glsl */ `
+uniform vec3 uColor;
+uniform float uOpacity;
+void main() {
+  gl_FragColor = vec4(uColor, uOpacity);
+}
+`;
+
+/**
+ * Ibis and egret flocks working the Nile margin.
+ *
+ * Each bird is a three-triangle glider; the wingbeat is a vertex-shader
+ * function of a per-instance rate and phase, so a hundred birds cost the CPU
+ * one matrix each and the GPU almost nothing.  They fly slow circuits at
+ * different radii and heights, which gives the eastern sky some life without
+ * competing for attention with the monuments.
+ */
+class BirdFlock {
+  constructor(scene, { count = 60, seed = 4242 } = {}) {
+    const rng = makeRng(seed);
+    // Body + two swept wings, drawn double-sided so the underside reads from
+    // below.  Only the tip vertex carries a wing id, so the beat pivots about
+    // the shoulder instead of translating the whole panel.
+    const positions = new Float32Array([
+      // body: a dart along -Z, which is the direction of travel
+      0, 0, -0.90, -0.13, 0, 0.42, 0.13, 0, 0.42,
+      // left wing: root leading edge, tip, root trailing edge
+      -0.10, 0, -0.30, -1.05, 0, 0.18, -0.10, 0, 0.36,
+      // right wing
+      0.10, 0, -0.30, 1.05, 0, 0.18, 0.10, 0, 0.36,
+    ]);
+    const wings = new Float32Array([0, 0, 0, 0, -1, 0, 0, 1, 0]);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('aWing', new THREE.BufferAttribute(wings, 1));
+    this.geometry = geo;
+    this.material = new THREE.ShaderMaterial({
+      vertexShader: BIRD_VERT,
+      fragmentShader: BIRD_FRAG,
+      uniforms: {
+        uTime: { value: 0 },
+        uColor: { value: new THREE.Color(0x554b3e) },
+        uOpacity: { value: 1 },
+      },
+      transparent: true,
+      side: THREE.DoubleSide,
+    });
+    this.mesh = new THREE.InstancedMesh(geo, this.material, count);
+    this.mesh.frustumCulled = false;
+    this.mesh.name = 'birds';
+    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    scene.add(this.mesh);
+
+    const flap = new Float32Array(count * 2);
+    this.birds = [];
+    for (let i = 0; i < count; i++) {
+      // Flocks orbit a few loose centres along the river margin.
+      const flock = Math.floor(rng() * 4);
+      const cx = NILE.x - 260 - flock * 120 + (rng() - 0.5) * 90;
+      const cz = HARBOUR.z - 420 + flock * 340 + (rng() - 0.5) * 120;
+      const bird = {
+        cx,
+        cz,
+        radius: 55 + rng() * 130,
+        angle: rng() * Math.PI * 2,
+        speed: (0.055 + rng() * 0.05) * (rng() < 0.5 ? -1 : 1),
+        y: NILE.waterY + 34 + rng() * 66,
+        bobAmp: 1.4 + rng() * 3.2,
+        bobRate: 0.4 + rng() * 0.5,
+        scale: 1.9 + rng() * 1.5,
+      };
+      this.birds.push(bird);
+      flap[i * 2] = 5.5 + rng() * 3.5;
+      flap[i * 2 + 1] = rng() * Math.PI * 2;
+    }
+    this.flap = new THREE.InstancedBufferAttribute(flap, 2);
+    geo.setAttribute('aFlap', this.flap);
+
+    this.time = 0;
+    this._matrix = new THREE.Matrix4();
+    this._quat = new THREE.Quaternion();
+    this._euler = new THREE.Euler();
+    this._pos = new THREE.Vector3();
+    this._scale = new THREE.Vector3();
+  }
+
+  update(dt, cameraPosition, light = 1) {
+    this.time += dt;
+    this.material.uniforms.uTime.value = this.time;
+    // Birds read as silhouettes by day and all but vanish at night.
+    this.material.uniforms.uOpacity.value = 0.25 + light * 0.75;
+    // The flock is only ever seen from the plateau looking east; skip the
+    // matrix work entirely when the camera is nowhere near.
+    if (cameraPosition && cameraPosition.distanceTo(this._pos.set(NILE.x - 320, 0, HARBOUR.z)) > 3200) {
+      this.mesh.visible = false;
+      return;
+    }
+    this.mesh.visible = true;
+    for (let i = 0; i < this.birds.length; i++) {
+      const b = this.birds[i];
+      b.angle += b.speed * dt;
+      const x = b.cx + Math.cos(b.angle) * b.radius;
+      const z = b.cz + Math.sin(b.angle) * b.radius;
+      const y = b.y + Math.sin(this.time * b.bobRate + b.angle) * b.bobAmp;
+      // Heading is the tangent to the circle; the dart points down -Z, so the
+      // yaw that maps -Z onto the velocity is atan2(-vx, -vz).  Bank into the turn.
+      const vx = -Math.sin(b.angle) * b.speed;
+      const vz = Math.cos(b.angle) * b.speed;
+      const heading = Math.atan2(-vx, -vz);
+      this._euler.set(0, heading, b.speed > 0 ? -0.24 : 0.24, 'YXZ');
+      this._quat.setFromEuler(this._euler);
+      this._pos.set(x, y, z);
+      this._scale.setScalar(b.scale);
+      this._matrix.compose(this._pos, this._quat, this._scale);
+      this.mesh.setMatrixAt(i, this._matrix);
+    }
+    this.mesh.instanceMatrix.needsUpdate = true;
+  }
+
+  dispose() {
+    this.geometry.dispose();
+    this.material.dispose();
+  }
+}
+
+/* -------------------------------------------------------------- pennants */
+
+const PENNANT_VERT = /* glsl */ `
+attribute float aAnchor;   // 0 at the mast, 1 at the free end
+attribute float aPhase;
+uniform float uTime;
+uniform float uWind;
+varying vec3 vColor;
+varying float vShade;
+
+void main() {
+  vec3 p = position;
+  float t = aAnchor;
+  // A travelling wave whose amplitude grows with distance from the mast.
+  float wave = sin(uTime * 2.6 + aPhase - t * 6.5) * t * t;
+  float lift = sin(uTime * 1.7 + aPhase * 1.3 - t * 3.1) * t;
+  p.z += wave * 0.85 * uWind;
+  p.y += lift * 0.30 * uWind - t * t * 0.55 * (1.0 - uWind);
+  vColor = color;
+  // Fake the cloth's own shading from the slope of the wave.
+  vShade = 0.72 + 0.28 * cos(uTime * 2.6 + aPhase - t * 6.5);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+}
+`;
+
+const PENNANT_FRAG = /* glsl */ `
+varying vec3 vColor;
+varying float vShade;
+uniform vec3 uLight;
+void main() {
+  gl_FragColor = vec4(vColor * vShade * uLight, 1.0);
+}
+`;
+
+/**
+ * Linen standards on the temple flagstaffs.
+ *
+ * Old Kingdom temple gates carried tall cedar masts with coloured streamers -
+ * the hieroglyph for "god" is one of them.  Each streamer is a strip of
+ * quads whose free end is displaced by a travelling wave in the vertex
+ * shader, so the whole set of them is a single draw call that never touches
+ * the CPU after construction.
+ */
+class Pennants {
+  constructor(scene, sites, mastMaterial) {
+    this.sites = sites || [];
+    this.time = 0;
+    if (!this.sites.length) return;
+
+    const LENGTH = 6.6;
+    const WIDTH = 1.15;
+    const SEGMENTS = 10;
+    const cloth = [];
+    const masts = [];
+    const anchors = [];
+    const phases = [];
+    const colors = [];
+    const palette = [
+      [0.78, 0.20, 0.16], [0.93, 0.90, 0.84], [0.16, 0.44, 0.46],
+      [0.85, 0.66, 0.20], [0.30, 0.26, 0.52],
+    ];
+
+    for (let s = 0; s < this.sites.length; s++) {
+      const site = this.sites[s];
+      // Both masts at one gate fly the same colour.
+      const tint = palette[Math.floor(s / 2) % palette.length];
+      const phase = (s * 1.7) % (Math.PI * 2);
+      const top = site.y + site.height;
+      const dirX = Math.cos(site.yaw || 0);
+      const dirZ = -Math.sin(site.yaw || 0);
+      masts.push(box(0.48, site.height, 0.48, site.x, site.y + site.height / 2, site.z));
+      masts.push(box(0.78, 0.5, 0.78, site.x, top + 0.24, site.z));
+
+      // The streamer is built in its own local frame and baked into world
+      // space, so one geometry carries every pennant on the plateau.
+      const positions = new Float32Array(SEGMENTS * 6 * 3);
+      const anch = new Float32Array(SEGMENTS * 6);
+      let o = 0;
+      for (let i = 0; i < SEGMENTS; i++) {
+        const t0 = i / SEGMENTS;
+        const t1 = (i + 1) / SEGMENTS;
+        const quad = [[t0, 0], [t1, 0], [t1, 1], [t0, 0], [t1, 1], [t0, 1]];
+        for (const [t, v] of quad) {
+          const along = t * LENGTH;
+          positions[o * 3] = site.x + dirX * along;
+          positions[o * 3 + 1] = top - 0.35 - v * WIDTH;
+          positions[o * 3 + 2] = site.z + dirZ * along;
+          anch[o] = t;
+          o++;
+        }
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      cloth.push(g);
+      for (let i = 0; i < anch.length; i++) {
+        anchors.push(anch[i]);
+        phases.push(phase);
+        colors.push(tint[0], tint[1], tint[2]);
+      }
+    }
+
+    const geo = mergeGeometries(cloth);
+    for (const g of cloth) g.dispose();
+    geo.setAttribute('aAnchor', new THREE.BufferAttribute(new Float32Array(anchors), 1));
+    geo.setAttribute('aPhase', new THREE.BufferAttribute(new Float32Array(phases), 1));
+    geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
+    this.geometry = geo;
+    this.material = new THREE.ShaderMaterial({
+      vertexShader: PENNANT_VERT,
+      fragmentShader: PENNANT_FRAG,
+      uniforms: {
+        uTime: { value: 0 },
+        uWind: { value: 1 },
+        uLight: { value: new THREE.Color(1, 1, 1) },
+      },
+      vertexColors: true,
+      side: THREE.DoubleSide,
+    });
+    this.mesh = new THREE.Mesh(geo, this.material);
+    this.mesh.name = 'pennants';
+    this.mesh.frustumCulled = false;
+    scene.add(this.mesh);
+
+    this.mastGeometry = mergeGeometries(masts);
+    scaleUvByWorldSize(this.mastGeometry, 0.8);
+    this.masts = new THREE.Mesh(this.mastGeometry, mastMaterial);
+    this.masts.castShadow = true;
+    this.masts.name = 'flagstaffs';
+    scene.add(this.masts);
+  }
+
+  /** `light` is the sky's day factor: the linen goes dark with the sun. */
+  update(dt, light = 1) {
+    if (!this.material) return;
+    this.time += dt;
+    this.material.uniforms.uTime.value = this.time;
+    // A slow gust cycle so the standards are never quite still.
+    this.material.uniforms.uWind.value = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(this.time * 0.17));
+    const l = 0.22 + light * 0.9;
+    this.material.uniforms.uLight.value.setRGB(l, l * 0.98, l * 0.94);
+  }
+
+  dispose() {
+    if (this.geometry) this.geometry.dispose();
+    if (this.mastGeometry) this.mastGeometry.dispose();
+    if (this.material) this.material.dispose();
+  }
+}
+
 /* ================= src/world/world.js ================= */
+
+
+
 
 
 
@@ -61825,6 +62978,9 @@ class World {
       size: 1.7,
       opacity: 0.34,
     });
+    this.dustPuffs = new DustPuffs(this.scene, { capacity: 160 });
+    this.birds = new BirdFlock(this.scene, { count: this.quality.settings.birdCount });
+    this.pennants = new Pennants(this.scene, this.monuments.pennantSites, this.site.materials.timber);
   }
 
   _buildInterior() {
@@ -61839,6 +62995,7 @@ class World {
       opacity: 0.5,
       blending: THREE.AdditiveBlending,
     });
+    this.interiorPuffs = new DustPuffs(this.interior.scene, { capacity: 48, color: 0xe6d8bc, opacity: 0.42 });
     this.interiorTorches = new TorchSystem(this.interior.scene, this.textures, this.quality, { capacity: 140 });
     for (const t of this.interior.torchSites) {
       this.interiorTorches.add(t.x, t.y, t.z, { scale: t.scale, interior: true, alwaysLit: true });
@@ -61860,6 +63017,15 @@ class World {
 
   _buildWorkers() {
     this.workers = new WorkerSystem(this.scene, this.textures, this.quality, this.pyramids);
+    this.workers.onDust = (x, y, z, strength, dx, dz) => {
+      if (this.dustPuffs) this.dustPuffs.emit(x, y, z, strength, dx, dz);
+    };
+  }
+
+  /** A footfall or a sledge runner kicking up the plateau's dust. */
+  kickDust(x, y, z, strength = 1, driftX = 0, driftZ = 0) {
+    const field = this.inInterior ? this.interiorPuffs : this.dustPuffs;
+    if (field) field.emit(x, y, z, strength, driftX, driftZ);
   }
 
   _buildTorches() {
@@ -61928,6 +63094,7 @@ class World {
       this.interior.update(dt, camera.position, this.sky);
       this.interiorTorches.update(dt, camera.position, 1, true);
       this.interiorDust.update(elapsed, camera.position, 0.5, this.quality.pixelRatio);
+      this.interiorPuffs.update(dt);
       return;
     }
 
@@ -61936,6 +63103,9 @@ class World {
     this.workers.update(dt, this.pyramids.khufuBuiltHeight);
     this.torches.update(dt, camera.position, this.sky.state.torchFactor, false);
     this.sand.update(elapsed, camera.position, 0.14 + this.sky.state.dayFactor * 0.22, this.quality.pixelRatio);
+    this.dustPuffs.update(dt);
+    this.birds.update(dt, camera.position, this.sky.state.dayFactor);
+    this.pennants.update(dt, this.sky.state.dayFactor);
   }
 
   dispose() {
@@ -61943,6 +63113,7 @@ class World {
     for (const sys of [
       this.terrain, this.pyramids, this.monuments, this.site, this.rocks,
       this.vegetation, this.footprints, this.sand, this.workers, this.torches,
+      this.dustPuffs, this.birds, this.pennants, this.interiorPuffs,
       this.interior, this.interiorTorches, this.interiorDust, this.sky,
     ]) {
       if (sys && sys.dispose) sys.dispose();
@@ -63032,12 +64203,15 @@ const LABOUR_SHARE = 0.55;      // fraction of budget that is labour, not materi
 const TARGET_PEAK_WORKFORCE = 21000;
 const ENGAGEMENT_LEVELS = ['Unaware', 'Resistant', 'Neutral', 'Supportive', 'Leading'];
 
-/** Deterministic PRNG so a given seed replays exactly. */
-function rng32(seed) {
-  let a = seed >>> 0;
+/**
+ * Deterministic PRNG. The state lives on the project rather than in a closure
+ * so a saved session resumes on exactly the same random stream it left on.
+ */
+function makeProjectRng(owner, seed) {
+  owner.rngState = seed >>> 0;
   return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
+    owner.rngState = (owner.rngState + 0x6d2b79f5) >>> 0;
+    let t = owner.rngState;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
@@ -63074,7 +64248,8 @@ function formatEgyptianDate(day) {
 
 class Project {
   constructor({ seed = 20250821 } = {}) {
-    this.rng = rng32(seed);
+    this.seed = seed;
+    this.rng = makeProjectRng(this, seed);
     this.packages = flattenWBS();
     this.wbs = WBS;
 
@@ -63996,6 +65171,147 @@ class Project {
     };
   }
 
+  /* ------------------------------------------------------ persistence */
+
+  /**
+   * A complete, replayable snapshot of the run.
+   *
+   * Everything the simulation reads each day is here, including the PRNG
+   * state, so a restored session continues on the same random stream rather
+   * than diverging from the one the player was watching.
+   */
+  serialise() {
+    return {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      seed: this.seed,
+      rngState: this.rngState,
+      day: this.day,
+      finished: this.finished,
+      eventSerial: this.eventSerial,
+      autoStaffing: this.autoStaffing,
+      inspectionLevel: this.inspectionLevel,
+      totals: {
+        ac: this.ac,
+        ev: this.ev,
+        pv: this.pv,
+        labourSpent: this.labourSpent,
+        materialSpent: this.materialSpent,
+        reworkCost: this.reworkCost,
+        riskSpent: this.riskSpent,
+        contingencyRemaining: this.contingencyRemaining,
+        managementRemaining: this.managementRemaining,
+      },
+      site: {
+        welfare: this.welfare,
+        safety: this.safety,
+        stoneStock: this.stoneStock,
+        toolStock: this.toolStock,
+        incidents: this.incidents,
+        recentIncidents: this.recentIncidents,
+        realisedRisks: this.realisedRisks,
+      },
+      tasks: this.tasks.map((t) => {
+        const st = this.state.get(t.id);
+        return {
+          id: t.id,
+          pct: st.pct,
+          actualStart: st.actualStart,
+          actualFinish: st.actualFinish,
+          actualCost: st.actualCost,
+          materialSpent: st.materialSpent,
+          remaining: st.remaining,
+          rework: st.rework,
+          crashed: st.crashed,
+        };
+      }),
+      resources: this.resources.map((r) => ({ id: r.id, assigned: r.assigned })),
+      risks: this.risks.map((r) => ({
+        id: r.id,
+        response: r.response,
+        currentProbability: r.currentProbability,
+        status: r.status,
+        occurrences: r.occurrences,
+        lastDay: r.lastDay,
+        activeUntil: r.activeUntil || null,
+        productivityFactor: r.productivityFactor || null,
+      })),
+      procurement: this.procurement.map((c) => ({
+        id: c.id, status: c.status, ordered: c.ordered, delivered: c.delivered,
+      })),
+      stakeholders: this.stakeholders.map((s) => ({ id: s.id, satisfaction: s.satisfaction, level: s.level })),
+      quality: { ...this.quality },
+      costOfQuality: { ...this.costOfQuality },
+      qualitySamples: this.qualitySamples.slice(-150),
+      missions: this.missions.map((m) => ({
+        id: m.id,
+        status: m.status,
+        objectives: m.objectives.map((o) => ({ id: o.id, done: o.done })),
+      })),
+      evmHistory: this.evmHistory.slice(-400),
+      events: this.events.slice(0, 40),
+    };
+  }
+
+  /** Restore a snapshot produced by `serialise`. Returns true on success. */
+  restore(data) {
+    if (!data || data.version !== 1 || !Array.isArray(data.tasks)) return false;
+
+    this.rngState = data.rngState >>> 0;
+    this.day = data.day;
+    this.finished = !!data.finished;
+    this.eventSerial = data.eventSerial || 0;
+    this.autoStaffing = !!data.autoStaffing;
+    this.inspectionLevel = data.inspectionLevel;
+
+    Object.assign(this, data.totals);
+    Object.assign(this, data.site);
+
+    for (const saved of data.tasks) {
+      const st = this.state.get(saved.id);
+      if (st) Object.assign(st, saved, { blocked: null });
+    }
+    for (const saved of data.resources) {
+      const r = this.resourceById.get(saved.id);
+      if (r) r.assigned = saved.assigned;
+    }
+    for (const saved of data.risks) {
+      const r = this.riskById.get(saved.id);
+      if (!r) continue;
+      Object.assign(r, saved);
+      if (!saved.activeUntil) r.activeUntil = null;
+    }
+    for (const saved of data.procurement) {
+      const c = this.procurement.find((x) => x.id === saved.id);
+      if (c) Object.assign(c, saved);
+    }
+    for (const saved of data.stakeholders) {
+      const s = this.stakeholders.find((x) => x.id === saved.id);
+      if (s) {
+        s.satisfaction = saved.satisfaction;
+        s.level = saved.level;
+        s.levelName = ENGAGEMENT_LEVELS[s.level - 1];
+      }
+    }
+    Object.assign(this.quality, data.quality);
+    Object.assign(this.costOfQuality, data.costOfQuality);
+    this.qualitySamples = data.qualitySamples || [];
+    for (const saved of data.missions || []) {
+      const m = this.missions.find((x) => x.id === saved.id);
+      if (!m) continue;
+      m.status = saved.status;
+      for (const so of saved.objectives) {
+        const o = m.objectives.find((x) => x.id === so.id);
+        if (o) o.done = so.done;
+      }
+    }
+    this.evmHistory = data.evmHistory || [];
+    this.events = data.events || [];
+
+    this._recomputeForecast();
+    return true;
+  }
+
   /** Snapshot for the dashboard. */
   snapshot() {
     return {
@@ -64491,12 +65807,17 @@ function pearson(xs, ys) {
 }
 
 /**
- * Run the analysis.
+ * Create a Monte Carlo run that can be advanced in batches.
+ *
+ * The UI drives this a few hundred iterations at a time from the animation
+ * frame callback, so four thousand full network simulations never block the
+ * main thread during a live demonstration. `runMonteCarlo` below is the
+ * synchronous wrapper used by tests and by the headless API.
  *
  * @param {Project} project
- * @param {object} opts { iterations, seed, includeRisks, onProgress }
+ * @param {object} opts { iterations, seed, includeRisks }
  */
-function runMonteCarlo(project, opts = {}) {
+function createMonteCarlo(project, opts = {}) {
   const iterations = opts.iterations || 2000;
   const rng = mcRng(opts.seed || 987654321);
   const includeRisks = opts.includeRisks !== false;
@@ -64525,15 +65846,15 @@ function runMonteCarlo(project, opts = {}) {
   for (const s of specs) durationSamples.set(s.id, new Float64Array(iterations));
 
   const riskYears = Math.max(0.5, (project.baselineDuration - project.day) / 365);
-  const scratch = specs.map((s) => ({
-    id: s.id,
-    duration: 0,
-    predecessors: s.predecessors,
-  }));
+  const scratch = specs.map((s) => ({ id: s.id, duration: 0, predecessors: s.predecessors }));
+  const remainingBudget = specs.reduce((sum, s) => sum + (s.done ? 0 : s.budget * (s.m > 0 ? 1 : 0)), 0);
+  const bump = new Map();
 
-  for (let i = 0; i < iterations; i++) {
+  let completed = 0;
+
+  function runOne(i) {
     let extraCost = 0;
-    const bump = new Map();
+    bump.clear();
 
     if (includeRisks) {
       for (const risk of project.risks) {
@@ -64556,64 +65877,168 @@ function runMonteCarlo(project, opts = {}) {
 
     const result = computeCPM(scratch);
     finishes[i] = project.day + result.duration;
-
-    // Cost: material to go plus labour over the sampled duration, plus risk.
-    const remainingBudget = specs.reduce((sum, s) => sum + (s.done ? 0 : s.budget * (s.m > 0 ? 1 : 0)), 0);
     const labour = project.baselineDailyLabour * result.duration * (0.92 + rng() * 0.2);
     costs[i] = project.ac + remainingBudget * 0.45 * (0.94 + rng() * 0.18) + labour + extraCost;
-
-    if (opts.onProgress && (i & 255) === 0) opts.onProgress(i / iterations);
   }
-
-  const sortedFinish = Array.from(finishes).sort((a, b) => a - b);
-  const sortedCost = Array.from(costs).sort((a, b) => a - b);
-
-  // ---- tornado: correlation of each package's duration with the finish ----
-  const finishArr = Array.from(finishes);
-  const tornado = [];
-  for (const s of specs) {
-    if (s.done) continue;
-    const r = pearson(Array.from(durationSamples.get(s.id)), finishArr);
-    if (Math.abs(r) > 0.02) tornado.push({ id: s.id, code: s.code, name: s.name, correlation: r });
-  }
-  tornado.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
-
-  // ---- histogram ----
-  const bins = 34;
-  const min = sortedFinish[0];
-  const max = sortedFinish[sortedFinish.length - 1];
-  const width = (max - min) / bins || 1;
-  const histogram = new Array(bins).fill(0);
-  for (const f of finishes) histogram[Math.min(bins - 1, Math.floor((f - min) / width))]++;
-
-  const baseline = project.baselineDuration;
-  let onTime = 0;
-  for (const f of finishes) if (f <= baseline) onTime++;
 
   return {
     iterations,
-    finish: {
-      min,
-      max,
-      p10: percentile(sortedFinish, 0.1),
-      p50: percentile(sortedFinish, 0.5),
-      p80: percentile(sortedFinish, 0.8),
-      p90: percentile(sortedFinish, 0.9),
-      mean: sortedFinish.reduce((a, b) => a + b, 0) / iterations,
+    get completed() {
+      return completed;
     },
-    cost: {
-      p10: percentile(sortedCost, 0.1),
-      p50: percentile(sortedCost, 0.5),
-      p80: percentile(sortedCost, 0.8),
-      p90: percentile(sortedCost, 0.9),
-      mean: sortedCost.reduce((a, b) => a + b, 0) / iterations,
+    get progress() {
+      return completed / iterations;
     },
-    probabilityOnTime: onTime / iterations,
-    probabilityOnBudget: sortedCost.filter((c) => c <= project.bac).length / iterations,
-    histogram: { bins, min, width, counts: histogram },
-    tornado: tornado.slice(0, 12),
-    baseline,
-    bac: project.bac,
+    get done() {
+      return completed >= iterations;
+    },
+    /** Advance the run by up to `batch` iterations. Returns true when finished. */
+    step(batch = 250) {
+      const end = Math.min(iterations, completed + batch);
+      while (completed < end) {
+        runOne(completed);
+        completed++;
+      }
+      return completed >= iterations;
+    },
+    /** Build the summary once every iteration has run. */
+    finish() {
+      const sortedFinish = Array.from(finishes).sort((a, b) => a - b);
+      const sortedCost = Array.from(costs).sort((a, b) => a - b);
+
+      // Tornado: correlation of each package's duration with the finish date.
+      const finishArr = Array.from(finishes);
+      const tornado = [];
+      for (const s of specs) {
+        if (s.done) continue;
+        const r = pearson(Array.from(durationSamples.get(s.id)), finishArr);
+        if (Math.abs(r) > 0.02) tornado.push({ id: s.id, code: s.code, name: s.name, correlation: r });
+      }
+      tornado.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
+
+      const bins = 34;
+      const min = sortedFinish[0];
+      const max = sortedFinish[sortedFinish.length - 1];
+      const width = (max - min) / bins || 1;
+      const histogram = new Array(bins).fill(0);
+      for (const f of finishes) histogram[Math.min(bins - 1, Math.floor((f - min) / width))]++;
+
+      const baseline = project.baselineDuration;
+      let onTime = 0;
+      for (const f of finishes) if (f <= baseline) onTime++;
+
+      return {
+        iterations,
+        finish: {
+          min,
+          max,
+          p10: percentile(sortedFinish, 0.1),
+          p50: percentile(sortedFinish, 0.5),
+          p80: percentile(sortedFinish, 0.8),
+          p90: percentile(sortedFinish, 0.9),
+          mean: sortedFinish.reduce((a, b) => a + b, 0) / iterations,
+        },
+        cost: {
+          p10: percentile(sortedCost, 0.1),
+          p50: percentile(sortedCost, 0.5),
+          p80: percentile(sortedCost, 0.8),
+          p90: percentile(sortedCost, 0.9),
+          mean: sortedCost.reduce((a, b) => a + b, 0) / iterations,
+        },
+        probabilityOnTime: onTime / iterations,
+        probabilityOnBudget: sortedCost.filter((c) => c <= project.bac).length / iterations,
+        histogram: { bins, min, width, counts: histogram },
+        tornado: tornado.slice(0, 12),
+        baseline,
+        bac: project.bac,
+      };
+    },
+  };
+}
+
+/** Synchronous convenience wrapper. */
+function runMonteCarlo(project, opts = {}) {
+  const run = createMonteCarlo(project, opts);
+  while (!run.step(1000));
+  return run.finish();
+}
+
+/* ================= src/ui/storage.js ================= */
+/**
+ * Session persistence.
+ *
+ * Three named slots plus an autosave, held in localStorage where the browser
+ * allows it. Opened straight from `file://` some browsers give every file an
+ * opaque origin and throw on any storage access, so every call is guarded and
+ * the panel falls back to JSON export/import — which works everywhere.
+ */
+
+const PREFIX = 'giza.save.';
+const SLOTS = ['auto', 'slot1', 'slot2', 'slot3'];
+
+const SLOT_LABELS = {
+  auto: 'Autosave',
+  slot1: 'Slot 1',
+  slot2: 'Slot 2',
+  slot3: 'Slot 3',
+};
+
+let available = null;
+
+/** Is localStorage usable in this context? Cached after the first probe. */
+function storageAvailable() {
+  if (available !== null) return available;
+  try {
+    const key = `${PREFIX}probe`;
+    window.localStorage.setItem(key, '1');
+    window.localStorage.removeItem(key);
+    available = true;
+  } catch {
+    available = false;
+  }
+  return available;
+}
+
+function writeSlot(slot, payload) {
+  if (!storageAvailable()) return { ok: false, reason: 'Browser storage is unavailable from a local file.' };
+  try {
+    window.localStorage.setItem(PREFIX + slot, JSON.stringify(payload));
+    return { ok: true };
+  } catch (err) {
+    // Almost always the 5 MB quota; a save is ~80 KB, so this means many slots.
+    return { ok: false, reason: err && err.name === 'QuotaExceededError' ? 'Browser storage is full.' : 'Could not write to browser storage.' };
+  }
+}
+
+function readSlot(slot) {
+  if (!storageAvailable()) return null;
+  try {
+    const raw = window.localStorage.getItem(PREFIX + slot);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearSlot(slot) {
+  if (!storageAvailable()) return;
+  try {
+    window.localStorage.removeItem(PREFIX + slot);
+  } catch {
+    /* nothing to do */
+  }
+}
+
+/** Short human description of what a slot holds, for the panel. */
+function describeSlot(slot) {
+  const data = readSlot(slot);
+  if (!data) return null;
+  const saved = data.savedAt ? new Date(data.savedAt) : null;
+  return {
+    day: data.day,
+    years: (data.day / 365).toFixed(1),
+    savedAt: saved ? saved.toLocaleString() : 'unknown',
+    progress: data.totals && data.totals.ev !== undefined ? data.totals.ev : 0,
   };
 }
 
@@ -65240,13 +66665,14 @@ const CHART_COLORS = COLORS;
 
 
 
+
 /**
  * The project management dashboard.
  *
- * Eleven panels covering the PMBOK performance domains: scope (WBS), schedule
+ * Twelve panels covering the PMBOK performance domains: scope (WBS), schedule
  * (Gantt, CPM network, PERT), cost (earned value), risk, resources, quality,
- * procurement, stakeholders, uncertainty (Monte Carlo), the mission layer, and
- * the project charter itself.
+ * procurement, stakeholders, uncertainty (Monte Carlo), the mission layer, the
+ * project charter itself, and session persistence.
  */
 
 const PANELS = [
@@ -65261,6 +66687,7 @@ const PANELS = [
   { id: 'stakeholders', title: 'Stakeholders', sub: 'Power / interest and engagement', icon: 'crown', wide: true },
   { id: 'montecarlo', title: 'Monte Carlo Forecast', sub: 'Probabilistic schedule and cost', icon: 'dice', wide: true },
   { id: 'missions', title: 'Missions', sub: 'Objectives and success criteria', icon: 'flag' },
+  { id: 'session', title: 'Session', sub: 'Save, load and export a run', icon: 'save' },
 ];
 
 const ICONS = {
@@ -65278,6 +66705,7 @@ const ICONS = {
   advisor: 'M12 3a5 5 0 0 1 5 5c0 2-1 3-2 4s-1.5 1.5-1.5 3h-3c0-1.5-.5-2-1.5-3s-2-2-2-4a5 5 0 0 1 5-5z M10 19h4M10.5 21.5h3',
   help: 'M9 9a3 3 0 1 1 4 2.8c-.8.4-1 1-1 1.7v.5 M12 17.5v.1 M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z',
   camera: 'M4 8h3l1.5-2h7L17 8h3v11H4z M12 16a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z',
+  save: 'M5 4h11l3 3v13H5z M8 4v5h7V4 M8 19v-6h8v6',
   stats: 'M4 20V10 M10 20V4 M16 20v-7 M22 20H2',
 };
 
@@ -65354,6 +66782,7 @@ class Dashboard {
     this.openId = id;
     this.panel.classList.add('open');
     this.panel.classList.toggle('wide', !!spec.wide);
+    document.body.classList.add('panel-open');
     clear(this.headIcon).appendChild(icon(spec.icon, 20));
     this.headTitle.textContent = spec.title;
     this.headSub.textContent = spec.sub;
@@ -65364,6 +66793,7 @@ class Dashboard {
   close() {
     this.openId = null;
     this.panel.classList.remove('open');
+    document.body.classList.remove('panel-open');
     for (const b of this.rail.children) b.classList.remove('active');
   }
 
@@ -65371,8 +66801,9 @@ class Dashboard {
     return PANELS.map((p) => p.id);
   }
 
-  /** Cheap refresh while the panel is open. */
+  /** Cheap refresh while the panel is open, plus any background analysis. */
   tick() {
+    this.advanceMonteCarlo();
     if (!this.openId) return;
     if (this._sinceRender === undefined) this._sinceRender = 0;
     this._sinceRender++;
@@ -65929,18 +67360,24 @@ class Dashboard {
   _render_montecarlo(body) {
     const p = this.project;
     const runButton = el('button', {
-      class: 'action', text: 'Run 4 000 iterations',
-      onclick: () => {
-        runButton.disabled = true;
-        runButton.textContent = 'Running…';
-        setTimeout(() => {
-          this.monteCarloResult = runMonteCarlo(p, { iterations: 4000, seed: 12345 + p.day });
-          if (this.sim.advisor) this.sim.advisor.setForecast(this.monteCarloResult);
-          this.render();
-        }, 30);
-      },
+      class: 'action',
+      text: this.monteCarloRun ? 'Running…' : 'Run 4 000 iterations',
+      disabled: !!this.monteCarloRun,
+      onclick: () => this.startMonteCarlo(4000),
     });
     this.headExtra.appendChild(runButton);
+
+    if (this.monteCarloRun) {
+      body.appendChild(el('h3', { class: 'section', text: 'Simulating' }));
+      body.appendChild(el('p', { class: 'note', text:
+        'Running the full critical-path network once per iteration, a few hundred iterations per frame so the ' +
+        'simulator keeps drawing while it works.' }));
+      const fill = el('i', { style: { width: `${Math.round(this.monteCarloRun.progress * 100)}%` } });
+      body.appendChild(el('div', { class: 'boot-bar', style: { margin: '10px 0', width: '100%' } }, [fill]));
+      body.appendChild(el('p', { class: 'note', text:
+        `${this.monteCarloRun.completed.toLocaleString()} of ${this.monteCarloRun.iterations.toLocaleString()} iterations` }));
+      return;
+    }
 
     if (!this.monteCarloResult) {
       body.appendChild(el('p', { class: 'note', text:
@@ -65948,7 +67385,7 @@ class Dashboard {
         'identified risk as a Bernoulli trial against its current probability, and re-runs the whole critical path ' +
         'network for every iteration. That captures the merge bias that PERT cannot: near-critical paths become ' +
         'critical in some outcomes, which is why the P50 finish is always later than the deterministic estimate.' }));
-      body.appendChild(el('button', { class: 'action', text: 'Run the analysis', onclick: () => runButton.click() }));
+      body.appendChild(el('button', { class: 'action', text: 'Run the analysis', onclick: () => this.startMonteCarlo(4000) }));
       return;
     }
 
@@ -65988,6 +67425,31 @@ class Dashboard {
       `it is the price of the uncertainty we have already identified and written down.”` }));
   }
 
+  /** Kick off a chunked Monte Carlo run; `tick` advances it frame by frame. */
+  startMonteCarlo(iterations) {
+    if (this.monteCarloRun) return;
+    this.monteCarloRun = createMonteCarlo(this.project, {
+      iterations,
+      seed: 12345 + this.project.day,
+    });
+    if (this.openId === 'montecarlo') this.render();
+  }
+
+  /** Advance an in-flight Monte Carlo run. Called once per frame. */
+  advanceMonteCarlo() {
+    if (!this.monteCarloRun) return;
+    const finished = this.monteCarloRun.step(300);
+    if (finished) {
+      this.monteCarloResult = this.monteCarloRun.finish();
+      this.monteCarloRun = null;
+      if (this.sim.advisor) this.sim.advisor.setForecast(this.monteCarloResult);
+      if (this.openId === 'montecarlo') this.render();
+    } else if (this.openId === 'montecarlo') {
+      const bar = this.body.querySelector('.boot-bar i');
+      if (bar) bar.style.width = `${Math.round(this.monteCarloRun.progress * 100)}%`;
+    }
+  }
+
   /* ------------------------------------------------------------ missions */
 
   _render_missions(body) {
@@ -66015,6 +67477,153 @@ class Dashboard {
       }
       card.appendChild(el('p', { class: 'note', style: { marginBottom: 0 }, html: `<em>Reward:</em> ${m.reward}` }));
       body.appendChild(card);
+    }
+  }
+
+  /* ------------------------------------------------------------- session */
+
+  _render_session(body) {
+    const p = this.project;
+    const canStore = storageAvailable();
+
+    body.appendChild(el('div', { class: 'grid c4' }, [
+      kpi('Project day', String(p.day), `${(p.day / 365).toFixed(1)} years elapsed`),
+      kpi('Earned', fmtPct(p.overallProgress, 1), `${fmtNum(p.ev)} of ${fmtNum(p.bac)} kdb`),
+      kpi('SPI / CPI', `${p.spi.toFixed(2)} / ${p.cpi.toFixed(2)}`, 'current performance'),
+      kpi('Missions', `${p.missions.filter((m) => m.status === 'complete').length} / ${p.missions.length}`, 'complete'),
+    ]));
+
+    body.appendChild(el('h3', { class: 'section', text: 'Save slots' }));
+    if (!canStore) {
+      body.appendChild(el('p', { class: 'note', html:
+        '<em>Browser storage is unavailable.</em> Opened straight from a file, some browsers give the page an opaque ' +
+        'origin and refuse local storage. Use the export and import boxes below instead — they work everywhere. ' +
+        'Serving the file over http (<em>npm run serve</em>) also restores slots.' }));
+    }
+
+    for (const slot of SLOTS) {
+      const info = canStore ? describeSlot(slot) : null;
+      const row = el('div', { class: 'row between', style: {
+        padding: '9px 11px', marginBottom: '6px', borderRadius: '8px',
+        background: 'rgba(236,224,198,0.04)', border: '1px solid rgba(236,224,198,0.08)',
+      } }, [
+        el('div', {}, [
+          el('b', { text: SLOT_LABELS[slot] }),
+          el('div', { style: { fontSize: '11.5px', color: 'var(--papyrus-dim)' },
+            text: info ? `Day ${info.day} · ${info.years} years · saved ${info.savedAt}` : 'empty' }),
+        ]),
+        el('div', { class: 'row' }, [
+          slot === 'auto' ? null : el('button', {
+            class: 'action', text: 'Save', disabled: !canStore,
+            onclick: () => this._saveTo(slot),
+          }),
+          el('button', {
+            class: 'action ghost', text: 'Load', disabled: !canStore || !info,
+            onclick: () => this._loadFrom(slot),
+          }),
+          el('button', {
+            class: 'action ghost', text: 'Clear', disabled: !canStore || !info,
+            onclick: () => { clearSlot(slot); this.render(); },
+          }),
+        ]),
+      ]);
+      body.appendChild(row);
+    }
+
+    body.appendChild(el('h3', { class: 'section', text: 'Export and import' }));
+    body.appendChild(el('p', { class: 'note', text:
+      'A save is a plain JSON document holding the whole run — the day, every package’s progress, actual cost, the ' +
+      'risk register, the reserves, quality samples, stakeholder satisfaction and the random-number state. Restoring ' +
+      'one resumes on exactly the same random stream, so a taught session picks up where it stopped.' }));
+
+    const area = el('textarea', {
+      rows: 6,
+      style: {
+        width: '100%', fontFamily: 'var(--font-mono)', fontSize: '11px', resize: 'vertical',
+        background: 'rgba(10,9,6,0.8)', color: 'var(--papyrus-dim)',
+        border: '1px solid rgba(236,224,198,0.16)', borderRadius: '6px', padding: '8px',
+      },
+      placeholder: 'Paste a saved session here, or press Export to fill this box.',
+    });
+    body.appendChild(area);
+    body.appendChild(el('div', { class: 'row', style: { marginTop: '9px' } }, [
+      el('button', { class: 'action', text: 'Export to box', onclick: () => {
+        area.value = JSON.stringify(p.serialise());
+        area.select();
+        this.sim.hud.toast('Session exported — copy the text to keep it', 'good');
+      } }),
+      el('button', { class: 'action ghost', text: 'Import from box', onclick: () => {
+        try {
+          const data = JSON.parse(area.value);
+          if (p.restore(data)) {
+            this._afterLoad();
+            this.sim.hud.toast(`Session restored to day ${p.day}`, 'good');
+          } else {
+            this.sim.hud.toast('That JSON is not a Digital Giza save', 'bad');
+          }
+        } catch {
+          this.sim.hud.toast('Could not parse that JSON', 'bad');
+        }
+      } }),
+      el('button', { class: 'action ghost', text: 'Download file', onclick: () => this._downloadSave() }),
+    ]));
+
+    body.appendChild(el('h3', { class: 'section', text: 'Start over' }));
+    body.appendChild(el('p', { class: 'note', text:
+      'A new project rebuilds the baseline from scratch. The seed changes the random stream — the risks that fire, the ' +
+      'accidents, the quality samples — while leaving the scope, the network and the budget exactly as they are.' }));
+    const seedInput = el('input', { type: 'number', value: String(p.seed), style: { width: '150px' } });
+    body.appendChild(el('div', { class: 'row' }, [
+      el('span', { class: 'note', text: 'Seed' }),
+      seedInput,
+      el('button', { class: 'action ghost', text: 'Random seed', onclick: () => {
+        seedInput.value = String(Math.floor(Math.random() * 2147483647));
+      } }),
+      el('button', { class: 'action danger', text: 'New project', onclick: () => {
+        this.sim.newProject(Number(seedInput.value) || undefined);
+        this.monteCarloResult = null;
+        this.render();
+        this.sim.hud.toast('New project chartered', 'good');
+      } }),
+    ]));
+  }
+
+  _saveTo(slot) {
+    const result = writeSlot(slot, this.project.serialise());
+    this.sim.hud.toast(result.ok ? `Saved to ${SLOT_LABELS[slot]}` : result.reason, result.ok ? 'good' : 'bad');
+    this.render();
+  }
+
+  _loadFrom(slot) {
+    const data = readSlot(slot);
+    if (!data || !this.project.restore(data)) {
+      this.sim.hud.toast('That slot could not be restored', 'bad');
+      return;
+    }
+    this._afterLoad();
+    this.sim.hud.toast(`Restored ${SLOT_LABELS[slot]} — day ${this.project.day}`, 'good');
+  }
+
+  _afterLoad() {
+    this.monteCarloResult = null;
+    this.monteCarloRun = null;
+    this.sim.syncWorld(true);
+    this.render();
+  }
+
+  _downloadSave() {
+    try {
+      const blob = new Blob([JSON.stringify(this.project.serialise(), null, 1)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `akhet-khufu-day-${this.project.day}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch {
+      this.sim.hud.toast('Download blocked here — use Export to box instead', 'bad');
     }
   }
 }
@@ -66065,7 +67674,7 @@ class HUD {
 
   _buildTopBar() {
     this.modeButtons = new Map();
-    const modeSwitch = el('div', { class: 'mode-switch' });
+    const modeSwitch = el('div', { class: 'mode-switch modes' });
     for (const m of MODES) {
       const b = el('button', { class: 'mode-btn', title: m.hint, onclick: () => this.sim.setMode(m.id) }, [
         el('span', { text: m.label }),
@@ -66079,7 +67688,7 @@ class HUD {
     const metrics = el('div', { class: 'hud-metrics' });
     const addMetric = (id, label) => {
       const value = el('b', { text: '—' });
-      const box = el('div', { class: 'metric' }, [value, el('span', { text: label })]);
+      const box = el('div', { class: 'metric', dataset: { metric: id } }, [value, el('span', { text: label })]);
       this.metricNodes[id] = { box, value };
       metrics.appendChild(box);
       return box;
@@ -66107,7 +67716,10 @@ class HUD {
       el('div', { class: 'hud-spacer' }),
       el('div', { class: 'mode-switch' }, [
         this.speedButton,
-        el('button', { class: 'mode-btn', title: 'Advisor (H)', onclick: () => this.toggleAdvisor() }, [icon('advisor', 15), el('span', { text: 'Hemiunu' })]),
+        el('button', { class: 'mode-btn', title: 'Advisor (H)', onclick: () => this.toggleAdvisor() }, [
+          icon('advisor', 15),
+          el('span', { class: 'wide-only', text: 'Hemiunu' }),
+        ]),
         el('button', { class: 'mode-btn', title: 'Renderer statistics (F)', onclick: () => this.toggleStats() }, [icon('stats', 15)]),
         el('button', { class: 'mode-btn', title: 'Help & controls (?)', onclick: () => this.toggleHelp() }, [icon('help', 15)]),
       ]),
@@ -66172,6 +67784,15 @@ class HUD {
       ['G', 'Toggle the construction ramp'],
       ['N', 'Toggle night'],
       ['?', 'This card'],
+      ['T', 'Show / hide the touch controls'],
+    ];
+    const touchKeys = [
+      ['Left thumb', 'Virtual stick — it appears wherever you press'],
+      ['Right side', 'Drag to look'],
+      ['Two fingers', 'Pinch to zoom (Project Manager and Drone)'],
+      ['◀ ▶', 'Previous / next mode'],
+      ['⏱', 'Simulation speed'],
+      ['Jump · Run · Crouch · Enter', 'On-screen actions, bottom right'],
     ];
     const card = el('div', { class: 'help-card' }, [
       el('h2', { text: 'DIGITAL GIZA' }),
@@ -66180,6 +67801,8 @@ class HUD {
         'the construction of the Great Pyramid. Walk it, fly it, or manage it.' }),
       el('h3', { class: 'section', text: 'Controls' }),
       el('div', { class: 'keys' }, keys.map(([k, d]) => el('div', {}, [el('kbd', { text: k }), el('span', { text: d })]))),
+      el('h3', { class: 'section', text: 'On a phone or tablet' }),
+      el('div', { class: 'keys' }, touchKeys.map(([k, d]) => el('div', {}, [el('kbd', { text: k }), el('span', { text: d })]))),
       el('h3', { class: 'section', text: 'The four modes' }),
       el('div', { class: 'grid c2' }, MODES.map((m) => el('div', { class: 'kpi' }, [
         el('div', { class: 'label', text: m.label }),
@@ -66783,7 +68406,186 @@ class TourDirector {
   }
 }
 
+/* ================= src/ui/touch.js ================= */
+
+
+/**
+ * On-screen controls for phones and tablets.
+ *
+ * Three things live here: a virtual stick that draws itself wherever the left
+ * thumb lands, a pad of action buttons on the right, and a small set of
+ * layout rules that keep the pad out of the way when a dashboard panel is
+ * open.  Buttons drive the simulation through the same key codes the keyboard
+ * uses - `InputManager.setVirtualKey` - so nothing downstream has to know
+ * whether the player is on a desk or a train.
+ *
+ * The layer stays hidden until either the device reports a coarse pointer or
+ * a finger actually touches the canvas, so a mouse user never sees it.
+ */
+
+/** Buttons shown per mode. `hold` keys stay down while pressed. */
+const BUTTONS = {
+  archaeologist: [
+    { id: 'jump', label: 'Jump', code: 'Space', hold: true, glyph: '⤒' },
+    { id: 'run', label: 'Run', code: 'ShiftLeft', hold: true, glyph: '»' },
+    { id: 'crouch', label: 'Crouch', code: 'KeyC', hold: true, toggle: true, glyph: '⤓' },
+    { id: 'use', label: 'Enter', code: 'KeyE', tap: true, glyph: '⏎' },
+  ],
+  drone: [
+    { id: 'up', label: 'Rise', code: 'Space', hold: true, glyph: '⤒' },
+    { id: 'down', label: 'Dive', code: 'KeyQ', hold: true, glyph: '⤓' },
+    { id: 'run', label: 'Boost', code: 'ShiftLeft', hold: true, glyph: '»' },
+  ],
+  manager: [
+    { id: 'use', label: 'Inspect', code: 'KeyE', tap: true, glyph: '⏎' },
+  ],
+  tour: [],
+};
+
+class TouchControls {
+  constructor(root, sim) {
+    this.root = root;
+    this.sim = sim;
+    this.input = sim.input;
+    this.mode = null;
+    this.enabled = false;
+    this.forced = false;
+
+    this.layer = el('div', { class: 'touch-layer' });
+    this.stick = el('div', { class: 'touch-stick' }, [el('i', { class: 'touch-knob' })]);
+    this.knob = this.stick.firstChild;
+    this.pad = el('div', { class: 'touch-pad' });
+    this.utility = el('div', { class: 'touch-utility' });
+    this.hint = el('div', {
+      class: 'touch-hint',
+      text: 'Left thumb to move · drag the right side to look · pinch to zoom',
+    });
+    this.layer.append(this.stick, this.pad, this.utility, this.hint);
+    root.appendChild(this.layer);
+
+    this._buildUtility();
+    this.setMode(sim.mode);
+
+    // Reveal the moment a finger lands, even on a device we could not sniff.
+    this.input.onTouchUsed = () => this.setEnabled(true);
+    if (this.input.hasTouch) this.setEnabled(true);
+    this._hintUntil = 14;
+  }
+
+  _buildUtility() {
+    const mk = (label, title, onclick) =>
+      el('button', { class: 'touch-util', title, type: 'button', onclick }, [label]);
+    this.utility.append(
+      mk('◀', 'Previous mode', () => this._cycleMode(-1)),
+      mk('▶', 'Next mode', () => this._cycleMode(1)),
+      mk('⏱', 'Simulation speed', () => this.sim.hud.cycleSpeed())
+    );
+  }
+
+  _cycleMode(step) {
+    const order = ['archaeologist', 'manager', 'tour', 'drone'];
+    const i = order.indexOf(this.sim.mode);
+    this.sim.setMode(order[(i + step + order.length) % order.length]);
+  }
+
+  setEnabled(on) {
+    if (this.enabled === on) return;
+    this.enabled = on;
+    this.layer.classList.toggle('on', on);
+    document.body.classList.toggle('touch-mode', on);
+  }
+
+  /** Force the layer on or off from the settings panel or a QA hook. */
+  toggle() {
+    this.forced = !this.enabled;
+    this.setEnabled(this.forced);
+    return this.enabled;
+  }
+
+  setMode(mode) {
+    if (this.mode === mode) return;
+    this.mode = mode;
+    this._releaseAll();
+    this.pad.replaceChildren();
+    this.buttons = [];
+    for (const spec of BUTTONS[mode] || []) {
+      const node = el('button', { class: 'touch-btn', type: 'button', 'aria-label': spec.label }, [
+        el('b', { text: spec.glyph }),
+        el('span', { text: spec.label }),
+      ]);
+      const press = (ev) => {
+        ev.preventDefault();
+        if (spec.tap) {
+          this.input.tapVirtualKey(spec.code);
+          node.classList.add('hit');
+          setTimeout(() => node.classList.remove('hit'), 160);
+          return;
+        }
+        if (spec.toggle) {
+          const on = !node.classList.contains('held');
+          node.classList.toggle('held', on);
+          this.input.setVirtualKey(spec.code, on);
+          return;
+        }
+        node.classList.add('held');
+        this.input.setVirtualKey(spec.code, true);
+      };
+      const release = (ev) => {
+        if (spec.tap || spec.toggle) return;
+        if (ev) ev.preventDefault();
+        node.classList.remove('held');
+        this.input.setVirtualKey(spec.code, false);
+      };
+      node.addEventListener('touchstart', press, { passive: false });
+      node.addEventListener('touchend', release, { passive: false });
+      node.addEventListener('touchcancel', release, { passive: false });
+      node.addEventListener('mousedown', press);
+      node.addEventListener('mouseup', release);
+      node.addEventListener('mouseleave', release);
+      node.dataset.code = spec.code;
+      this.pad.appendChild(node);
+      this.buttons.push({ spec, node });
+    }
+  }
+
+  _releaseAll() {
+    for (const b of this.buttons || []) {
+      b.node.classList.remove('held');
+      this.input.setVirtualKey(b.spec.code, false);
+    }
+  }
+
+  /** Follow the stick and hide the pad while a dashboard panel is open. */
+  update(dt = 0) {
+    if (!this.enabled) return;
+    if (this._hintUntil > 0) {
+      // The hint retires as soon as the player has moved, or after a while.
+      if (this.input.stick.active) this._hintUntil = Math.min(this._hintUntil, 1.4);
+      this._hintUntil -= dt;
+      this.hint.style.display = this._hintUntil > 0 ? 'block' : 'none';
+      this.hint.style.opacity = Math.min(1, this._hintUntil / 1.4).toFixed(2);
+    }
+    if (this.mode !== this.sim.mode) this.setMode(this.sim.mode);
+    const s = this.input.stick;
+    this.stick.classList.toggle('on', s.active);
+    if (s.active) {
+      this.stick.style.transform = `translate(${s.baseX - 68}px, ${s.baseY - 68}px)`;
+      this.knob.style.transform = `translate(${s.knobX - s.baseX}px, ${s.knobY - s.baseY}px)`;
+    }
+    const busy = !!this.sim.dashboard.openId || this.sim.mode === 'tour';
+    this.layer.classList.toggle('dim', busy);
+  }
+
+  dispose() {
+    this._releaseAll();
+    this.layer.remove();
+    document.body.classList.remove('touch-mode');
+  }
+}
+
 /* ================= src/main.js ================= */
+
+
 
 
 
@@ -66885,13 +68687,26 @@ class Simulator {
     this.orbit = new OrbitController(this.engine.camera, this.input);
     this.drone = new DroneController(this.engine.camera, this.input);
     this.cinematic = new CinematicPlayer(this.engine.camera);
-    this.walker.onFootstep = (position) => {
-      if (!this.world.inInterior) this.world.footprints.stamp(position, this.walker.yaw);
+    this.walker.onFootstep = (position, sprinting) => {
+      const yaw = this.walker.yaw;
+      if (!this.world.inInterior) this.world.footprints.stamp(position, yaw);
+      // A puff of dust behind the trailing foot, drifting the way you came.
+      const feet = position.y - this.walker.height;
+      const strength = sprinting ? 1.0 : this.walker.crouching ? 0.45 : 0.7;
+      this.world.kickDust(
+        position.x + Math.sin(yaw) * 0.28,
+        feet + 0.1,
+        position.z + Math.cos(yaw) * 0.28,
+        strength,
+        Math.sin(yaw) * 0.55,
+        Math.cos(yaw) * 0.55
+      );
     };
 
     this.dashboard = new Dashboard(this.uiRoot, this);
     this.hud = new HUD(this.uiRoot, this);
     this.tour = new TourDirector(this);
+    this.touch = new TouchControls(this.uiRoot, this);
     this.hud.applySpeed();
 
     this.orbit.frame(new THREE.Vector3(-40, 50, 240), 820, Math.PI * 0.30, Math.PI * 0.83);
@@ -66937,6 +68752,9 @@ class Simulator {
           else this.input.exitPointerLock();
           break;
         case 'h': case 'H': this.hud.toggleAdvisor(); break;
+        case 't': case 'T':
+          this.hud.toast(this.touch.toggle() ? 'Touch controls on' : 'Touch controls off');
+          break;
         case 'f': case 'F': this.hud.toggleStats(); break;
         case 'm': case 'M': this.dashboard.toggle('missions'); break;
         case '?': this.hud.toggleHelp(); break;
@@ -66999,6 +68817,37 @@ class Simulator {
       this.tour.start(0);
     }
     this.hud.toast(`${mode.charAt(0).toUpperCase() + mode.slice(1)} mode`);
+  }
+
+  /* --------------------------------------------------------- session */
+
+  /**
+   * Charter a fresh project. `restore` mutates in place so loading needs no
+   * rewiring, but a new project is a new object and the advisor, dashboard and
+   * HUD all hold a reference to it.
+   */
+  newProject(seed) {
+    this.project = new Project(seed === undefined ? {} : { seed });
+    this.advisor = new Advisor(this.project);
+    this.dashboard.project = this.project;
+    this.hud.project = this.project;
+    this.dashboard.monteCarloResult = null;
+    this.dashboard.monteCarloRun = null;
+    this.dashboard.selectedTask = null;
+    this.hud.eventCount = 0;
+    this.hud.lastRenderedEvent = null;
+    this._autosaveDay = 0;
+    this.syncWorld(true);
+    return this.project;
+  }
+
+  /** Autosave to the reserved slot at a fixed project-day cadence. */
+  _maybeAutosave() {
+    if (this.mode === 'tour') return;
+    if (this._autosaveDay === undefined) this._autosaveDay = 0;
+    if (this.project.day - this._autosaveDay < 500) return;
+    this._autosaveDay = this.project.day;
+    writeSlot('auto', this.project.serialise());
   }
 
   /* ------------------------------------------------------------ world sync */
@@ -67070,7 +68919,10 @@ class Simulator {
         this.simAccumulator -= 1;
         steps++;
       }
-      if (steps > 0) this.syncWorld();
+      if (steps > 0) {
+        this.syncWorld();
+        this._maybeAutosave();
+      }
     }
 
     // --- camera ---
@@ -67092,6 +68944,7 @@ class Simulator {
     if (this.mode !== 'tour') this._updateProximity();
     else this.hud.setPrompt(null);
     this.hud.update(dt);
+    this.touch.update(dt);
     this.dashboard.tick();
     if (this._advisorTimer === undefined) this._advisorTimer = 0;
     this._advisorTimer += dt;
@@ -67290,6 +69143,52 @@ window.__giza = {
       probabilityOnTime: Number(r.probabilityOnTime.toFixed(3)),
       topDriver: r.tornado[0] ? `${r.tornado[0].code} (r=${r.tornado[0].correlation.toFixed(2)})` : null,
     };
+  },
+  saveSession() {
+    return sim.project.serialise();
+  },
+  restoreSession(data) {
+    const ok = sim.project.restore(data);
+    if (ok) sim.syncWorld(true);
+    return ok;
+  },
+  autosaveSlot() {
+    return readSlot('auto');
+  },
+  newProject(seed) {
+    sim.newProject(seed);
+    return sim.project.snapshot();
+  },
+  /** Force the on-screen touch layer on or off, for QA on a desktop browser. */
+  setTouchControls(on) {
+    sim.touch.setEnabled(on);
+    sim.touch.update(0);
+    return {
+      enabled: sim.touch.enabled,
+      buttons: sim.touch.buttons.map((b) => b.spec.id),
+      mode: sim.touch.mode,
+    };
+  },
+  /** Drive the virtual stick directly, as a thumb would. */
+  touchStick(dx, dy) {
+    const s = sim.input.stick;
+    s.active = dx !== 0 || dy !== 0;
+    s.baseX = 140;
+    s.baseY = window.innerHeight - 140;
+    s.knobX = s.baseX + dx * s.radius;
+    s.knobY = s.baseY + dy * s.radius;
+    sim.input.touch.moveX = dx;
+    sim.input.touch.moveY = dy;
+    return sim.input.axes();
+  },
+  /** Press an on-screen button by its id and report the resulting key state. */
+  touchButton(id) {
+    const entry = sim.touch.buttons.find((b) => b.spec.id === id);
+    if (!entry) return { ok: false };
+    entry.node.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    const down = sim.input.isDown(entry.spec.code);
+    entry.node.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    return { ok: true, code: entry.spec.code, down, stillDown: sim.input.isDown(entry.spec.code) };
   },
   advisorReport() {
     return { headline: sim.advisor.headline(), advice: sim.advisor.analyse() };

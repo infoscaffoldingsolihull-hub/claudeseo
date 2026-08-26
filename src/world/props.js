@@ -629,3 +629,432 @@ export function buildTorchPosts(positions, material) {
   mesh.castShadow = true;
   return mesh;
 }
+
+/* ------------------------------------------------------------ dust puffs */
+
+const PUFF_VERT = /* glsl */ `
+attribute vec3 aOrigin;
+attribute vec4 aPuff;      // x = spawn time, y = life, z = base size, w = seed
+attribute vec3 aDrift;
+uniform float uTime;
+varying float vAlpha;
+varying vec2 vUv;
+
+void main() {
+  float age = (uTime - aPuff.x) / max(aPuff.y, 0.001);
+  vUv = uv;
+  if (age < 0.0 || age > 1.0) {
+    // Retired puffs collapse to a degenerate point behind the camera.
+    vAlpha = 0.0;
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    return;
+  }
+  // Expand quickly, then linger and fade; the puff also lifts and drifts.
+  float grow = 0.35 + 1.15 * sqrt(age);
+  float size = aPuff.z * grow;
+  vec3 centre = aOrigin + aDrift * age + vec3(0.0, 0.55 * age * age, 0.0);
+  vAlpha = (1.0 - age) * (1.0 - age) * smoothstep(0.0, 0.12, age);
+
+  // Billboard: build the quad in view space so it always faces the camera.
+  vec4 mv = viewMatrix * vec4(centre, 1.0);
+  float spin = aPuff.w * 6.2831853 + age * (aPuff.w - 0.5) * 1.4;
+  float c = cos(spin);
+  float s = sin(spin);
+  vec2 corner = vec2(position.x * c - position.y * s, position.x * s + position.y * c);
+  mv.xy += corner * size;
+  gl_Position = projectionMatrix * mv;
+}
+`;
+
+const PUFF_FRAG = /* glsl */ `
+uniform vec3 uColor;
+uniform float uOpacity;
+varying float vAlpha;
+varying vec2 vUv;
+
+void main() {
+  vec2 d = vUv - 0.5;
+  float r = length(d) * 2.0;
+  float a = smoothstep(1.0, 0.15, r);
+  // A soft interior gradient stops the puff reading as a flat disc.
+  a *= 0.55 + 0.45 * smoothstep(1.0, 0.35, r);
+  gl_FragColor = vec4(uColor, a * vAlpha * uOpacity);
+}
+`;
+
+/**
+ * A ring buffer of billboarded dust puffs.
+ *
+ * Every puff is one instance of a unit quad; the whole animation - growth,
+ * drift, spin and fade - runs in the vertex shader from a spawn time, so
+ * emitting a puff costs four attribute writes and nothing per frame.
+ */
+export class DustPuffs {
+  constructor(scene, { capacity = 120, color = 0xf0e3c8, opacity = 0.62 } = {}) {
+    this.capacity = capacity;
+    this.cursor = 0;
+    this.time = 0;
+    const quad = new THREE.PlaneGeometry(1, 1);
+    const geo = new THREE.InstancedBufferGeometry();
+    geo.index = quad.index;
+    geo.setAttribute('position', quad.attributes.position);
+    geo.setAttribute('uv', quad.attributes.uv);
+    quad.dispose();
+    this.origins = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
+    this.puffs = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4);
+    this.drifts = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
+    // Spawn every slot far in the past so nothing is drawn until it is used.
+    for (let i = 0; i < capacity; i++) this.puffs.array[i * 4] = -1000;
+    geo.setAttribute('aOrigin', this.origins);
+    geo.setAttribute('aPuff', this.puffs);
+    geo.setAttribute('aDrift', this.drifts);
+    geo.instanceCount = capacity;
+    this.geometry = geo;
+    this.material = new THREE.ShaderMaterial({
+      vertexShader: PUFF_VERT,
+      fragmentShader: PUFF_FRAG,
+      uniforms: {
+        uTime: { value: 0 },
+        uColor: { value: new THREE.Color(color) },
+        uOpacity: { value: opacity },
+      },
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    this.mesh = new THREE.Mesh(geo, this.material);
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 5;
+    this.mesh.name = 'dust-puffs';
+    scene.add(this.mesh);
+  }
+
+  /** Emit one puff. `strength` scales size and lifetime (a sprint kicks more). */
+  emit(x, y, z, strength = 1, driftX = 0, driftZ = 0) {
+    const i = this.cursor;
+    this.cursor = (this.cursor + 1) % this.capacity;
+    this.origins.array[i * 3] = x;
+    this.origins.array[i * 3 + 1] = y;
+    this.origins.array[i * 3 + 2] = z;
+    const p = i * 4;
+    this.puffs.array[p] = this.time;
+    this.puffs.array[p + 1] = 0.75 + strength * 0.85;
+    this.puffs.array[p + 2] = 0.62 * strength;
+    this.puffs.array[p + 3] = (i * 0.6180339887) % 1;
+    this.drifts.array[i * 3] = driftX;
+    this.drifts.array[i * 3 + 1] = 0.32 + strength * 0.2;
+    this.drifts.array[i * 3 + 2] = driftZ;
+    this.origins.needsUpdate = true;
+    this.puffs.needsUpdate = true;
+    this.drifts.needsUpdate = true;
+  }
+
+  update(dt) {
+    this.time += dt;
+    this.material.uniforms.uTime.value = this.time;
+  }
+
+  clear() {
+    for (let i = 0; i < this.capacity; i++) this.puffs.array[i * 4] = -1000;
+    this.puffs.needsUpdate = true;
+  }
+
+  dispose() {
+    this.geometry.dispose();
+    this.material.dispose();
+  }
+}
+
+/* ----------------------------------------------------------------- birds */
+
+const BIRD_VERT = /* glsl */ `
+attribute float aWing;     // -1 = left wing tip, +1 = right wing tip, 0 = body
+attribute vec2 aFlap;      // x = flap rate, y = phase
+uniform float uTime;
+
+void main() {
+  vec3 p = position;
+  if (abs(aWing) > 0.5) {
+    float beat = sin(uTime * aFlap.x + aFlap.y);
+    // The tip swings about the shoulder: up-and-in on the downstroke.
+    p.y += beat * 0.42;
+    p.x *= 1.0 - abs(beat) * 0.22;
+  }
+  vec4 world = instanceMatrix * vec4(p, 1.0);
+  gl_Position = projectionMatrix * modelViewMatrix * world;
+}
+`;
+
+const BIRD_FRAG = /* glsl */ `
+uniform vec3 uColor;
+uniform float uOpacity;
+void main() {
+  gl_FragColor = vec4(uColor, uOpacity);
+}
+`;
+
+/**
+ * Ibis and egret flocks working the Nile margin.
+ *
+ * Each bird is a three-triangle glider; the wingbeat is a vertex-shader
+ * function of a per-instance rate and phase, so a hundred birds cost the CPU
+ * one matrix each and the GPU almost nothing.  They fly slow circuits at
+ * different radii and heights, which gives the eastern sky some life without
+ * competing for attention with the monuments.
+ */
+export class BirdFlock {
+  constructor(scene, { count = 60, seed = 4242 } = {}) {
+    const rng = makeRng(seed);
+    // Body + two swept wings, drawn double-sided so the underside reads from
+    // below.  Only the tip vertex carries a wing id, so the beat pivots about
+    // the shoulder instead of translating the whole panel.
+    const positions = new Float32Array([
+      // body: a dart along -Z, which is the direction of travel
+      0, 0, -0.90, -0.13, 0, 0.42, 0.13, 0, 0.42,
+      // left wing: root leading edge, tip, root trailing edge
+      -0.10, 0, -0.30, -1.05, 0, 0.18, -0.10, 0, 0.36,
+      // right wing
+      0.10, 0, -0.30, 1.05, 0, 0.18, 0.10, 0, 0.36,
+    ]);
+    const wings = new Float32Array([0, 0, 0, 0, -1, 0, 0, 1, 0]);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('aWing', new THREE.BufferAttribute(wings, 1));
+    this.geometry = geo;
+    this.material = new THREE.ShaderMaterial({
+      vertexShader: BIRD_VERT,
+      fragmentShader: BIRD_FRAG,
+      uniforms: {
+        uTime: { value: 0 },
+        uColor: { value: new THREE.Color(0x554b3e) },
+        uOpacity: { value: 1 },
+      },
+      transparent: true,
+      side: THREE.DoubleSide,
+    });
+    this.mesh = new THREE.InstancedMesh(geo, this.material, count);
+    this.mesh.frustumCulled = false;
+    this.mesh.name = 'birds';
+    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    scene.add(this.mesh);
+
+    const flap = new Float32Array(count * 2);
+    this.birds = [];
+    for (let i = 0; i < count; i++) {
+      // Flocks orbit a few loose centres along the river margin.
+      const flock = Math.floor(rng() * 4);
+      const cx = NILE.x - 260 - flock * 120 + (rng() - 0.5) * 90;
+      const cz = HARBOUR.z - 420 + flock * 340 + (rng() - 0.5) * 120;
+      const bird = {
+        cx,
+        cz,
+        radius: 55 + rng() * 130,
+        angle: rng() * Math.PI * 2,
+        speed: (0.055 + rng() * 0.05) * (rng() < 0.5 ? -1 : 1),
+        y: NILE.waterY + 34 + rng() * 66,
+        bobAmp: 1.4 + rng() * 3.2,
+        bobRate: 0.4 + rng() * 0.5,
+        scale: 1.9 + rng() * 1.5,
+      };
+      this.birds.push(bird);
+      flap[i * 2] = 5.5 + rng() * 3.5;
+      flap[i * 2 + 1] = rng() * Math.PI * 2;
+    }
+    this.flap = new THREE.InstancedBufferAttribute(flap, 2);
+    geo.setAttribute('aFlap', this.flap);
+
+    this.time = 0;
+    this._matrix = new THREE.Matrix4();
+    this._quat = new THREE.Quaternion();
+    this._euler = new THREE.Euler();
+    this._pos = new THREE.Vector3();
+    this._scale = new THREE.Vector3();
+  }
+
+  update(dt, cameraPosition, light = 1) {
+    this.time += dt;
+    this.material.uniforms.uTime.value = this.time;
+    // Birds read as silhouettes by day and all but vanish at night.
+    this.material.uniforms.uOpacity.value = 0.25 + light * 0.75;
+    // The flock is only ever seen from the plateau looking east; skip the
+    // matrix work entirely when the camera is nowhere near.
+    if (cameraPosition && cameraPosition.distanceTo(this._pos.set(NILE.x - 320, 0, HARBOUR.z)) > 3200) {
+      this.mesh.visible = false;
+      return;
+    }
+    this.mesh.visible = true;
+    for (let i = 0; i < this.birds.length; i++) {
+      const b = this.birds[i];
+      b.angle += b.speed * dt;
+      const x = b.cx + Math.cos(b.angle) * b.radius;
+      const z = b.cz + Math.sin(b.angle) * b.radius;
+      const y = b.y + Math.sin(this.time * b.bobRate + b.angle) * b.bobAmp;
+      // Heading is the tangent to the circle; the dart points down -Z, so the
+      // yaw that maps -Z onto the velocity is atan2(-vx, -vz).  Bank into the turn.
+      const vx = -Math.sin(b.angle) * b.speed;
+      const vz = Math.cos(b.angle) * b.speed;
+      const heading = Math.atan2(-vx, -vz);
+      this._euler.set(0, heading, b.speed > 0 ? -0.24 : 0.24, 'YXZ');
+      this._quat.setFromEuler(this._euler);
+      this._pos.set(x, y, z);
+      this._scale.setScalar(b.scale);
+      this._matrix.compose(this._pos, this._quat, this._scale);
+      this.mesh.setMatrixAt(i, this._matrix);
+    }
+    this.mesh.instanceMatrix.needsUpdate = true;
+  }
+
+  dispose() {
+    this.geometry.dispose();
+    this.material.dispose();
+  }
+}
+
+/* -------------------------------------------------------------- pennants */
+
+const PENNANT_VERT = /* glsl */ `
+attribute float aAnchor;   // 0 at the mast, 1 at the free end
+attribute float aPhase;
+uniform float uTime;
+uniform float uWind;
+varying vec3 vColor;
+varying float vShade;
+
+void main() {
+  vec3 p = position;
+  float t = aAnchor;
+  // A travelling wave whose amplitude grows with distance from the mast.
+  float wave = sin(uTime * 2.6 + aPhase - t * 6.5) * t * t;
+  float lift = sin(uTime * 1.7 + aPhase * 1.3 - t * 3.1) * t;
+  p.z += wave * 0.85 * uWind;
+  p.y += lift * 0.30 * uWind - t * t * 0.55 * (1.0 - uWind);
+  vColor = color;
+  // Fake the cloth's own shading from the slope of the wave.
+  vShade = 0.72 + 0.28 * cos(uTime * 2.6 + aPhase - t * 6.5);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+}
+`;
+
+const PENNANT_FRAG = /* glsl */ `
+varying vec3 vColor;
+varying float vShade;
+uniform vec3 uLight;
+void main() {
+  gl_FragColor = vec4(vColor * vShade * uLight, 1.0);
+}
+`;
+
+/**
+ * Linen standards on the temple flagstaffs.
+ *
+ * Old Kingdom temple gates carried tall cedar masts with coloured streamers -
+ * the hieroglyph for "god" is one of them.  Each streamer is a strip of
+ * quads whose free end is displaced by a travelling wave in the vertex
+ * shader, so the whole set of them is a single draw call that never touches
+ * the CPU after construction.
+ */
+export class Pennants {
+  constructor(scene, sites, mastMaterial) {
+    this.sites = sites || [];
+    this.time = 0;
+    if (!this.sites.length) return;
+
+    const LENGTH = 6.6;
+    const WIDTH = 1.15;
+    const SEGMENTS = 10;
+    const cloth = [];
+    const masts = [];
+    const anchors = [];
+    const phases = [];
+    const colors = [];
+    const palette = [
+      [0.78, 0.20, 0.16], [0.93, 0.90, 0.84], [0.16, 0.44, 0.46],
+      [0.85, 0.66, 0.20], [0.30, 0.26, 0.52],
+    ];
+
+    for (let s = 0; s < this.sites.length; s++) {
+      const site = this.sites[s];
+      // Both masts at one gate fly the same colour.
+      const tint = palette[Math.floor(s / 2) % palette.length];
+      const phase = (s * 1.7) % (Math.PI * 2);
+      const top = site.y + site.height;
+      const dirX = Math.cos(site.yaw || 0);
+      const dirZ = -Math.sin(site.yaw || 0);
+      masts.push(box(0.48, site.height, 0.48, site.x, site.y + site.height / 2, site.z));
+      masts.push(box(0.78, 0.5, 0.78, site.x, top + 0.24, site.z));
+
+      // The streamer is built in its own local frame and baked into world
+      // space, so one geometry carries every pennant on the plateau.
+      const positions = new Float32Array(SEGMENTS * 6 * 3);
+      const anch = new Float32Array(SEGMENTS * 6);
+      let o = 0;
+      for (let i = 0; i < SEGMENTS; i++) {
+        const t0 = i / SEGMENTS;
+        const t1 = (i + 1) / SEGMENTS;
+        const quad = [[t0, 0], [t1, 0], [t1, 1], [t0, 0], [t1, 1], [t0, 1]];
+        for (const [t, v] of quad) {
+          const along = t * LENGTH;
+          positions[o * 3] = site.x + dirX * along;
+          positions[o * 3 + 1] = top - 0.35 - v * WIDTH;
+          positions[o * 3 + 2] = site.z + dirZ * along;
+          anch[o] = t;
+          o++;
+        }
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      cloth.push(g);
+      for (let i = 0; i < anch.length; i++) {
+        anchors.push(anch[i]);
+        phases.push(phase);
+        colors.push(tint[0], tint[1], tint[2]);
+      }
+    }
+
+    const geo = mergeGeometries(cloth);
+    for (const g of cloth) g.dispose();
+    geo.setAttribute('aAnchor', new THREE.BufferAttribute(new Float32Array(anchors), 1));
+    geo.setAttribute('aPhase', new THREE.BufferAttribute(new Float32Array(phases), 1));
+    geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
+    this.geometry = geo;
+    this.material = new THREE.ShaderMaterial({
+      vertexShader: PENNANT_VERT,
+      fragmentShader: PENNANT_FRAG,
+      uniforms: {
+        uTime: { value: 0 },
+        uWind: { value: 1 },
+        uLight: { value: new THREE.Color(1, 1, 1) },
+      },
+      vertexColors: true,
+      side: THREE.DoubleSide,
+    });
+    this.mesh = new THREE.Mesh(geo, this.material);
+    this.mesh.name = 'pennants';
+    this.mesh.frustumCulled = false;
+    scene.add(this.mesh);
+
+    this.mastGeometry = mergeGeometries(masts);
+    scaleUvByWorldSize(this.mastGeometry, 0.8);
+    this.masts = new THREE.Mesh(this.mastGeometry, mastMaterial);
+    this.masts.castShadow = true;
+    this.masts.name = 'flagstaffs';
+    scene.add(this.masts);
+  }
+
+  /** `light` is the sky's day factor: the linen goes dark with the sun. */
+  update(dt, light = 1) {
+    if (!this.material) return;
+    this.time += dt;
+    this.material.uniforms.uTime.value = this.time;
+    // A slow gust cycle so the standards are never quite still.
+    this.material.uniforms.uWind.value = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(this.time * 0.17));
+    const l = 0.22 + light * 0.9;
+    this.material.uniforms.uLight.value.setRGB(l, l * 0.98, l * 0.94);
+  }
+
+  dispose() {
+    if (this.geometry) this.geometry.dispose();
+    if (this.mastGeometry) this.mastGeometry.dispose();
+    if (this.material) this.material.dispose();
+  }
+}

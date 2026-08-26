@@ -11,6 +11,18 @@ export class InputManager {
     this.pointerLocked = false;
     this.buttons = new Set();
     this.touch = { active: false, moveX: 0, moveY: 0, lookX: 0, lookY: 0 };
+    /** Where the virtual stick is drawn, in client pixels. */
+    this.stick = { active: false, baseX: 0, baseY: 0, knobX: 0, knobY: 0, radius: 58 };
+    /** True once a finger has actually been used, so the touch pad can appear. */
+    this.touchUsed = false;
+    this.onTouchUsed = null;
+    this.hasTouch =
+      typeof window !== 'undefined' &&
+      (('ontouchstart' in window) ||
+        (navigator && navigator.maxTouchPoints > 0) ||
+        (window.matchMedia && window.matchMedia('(pointer: coarse)').matches));
+    this._virtualKeys = new Set();
+    this._pinchDistance = 0;
     this.enabled = true;
     this._pressedThisFrame = new Set();
     this._sticks = new Map();
@@ -30,6 +42,7 @@ export class InputManager {
     this._bind(window, 'keyup', (e) => this.keys.delete(e.code));
     this._bind(window, 'blur', () => {
       this.keys.clear();
+      this._virtualKeys.clear();
       this.buttons.clear();
     });
 
@@ -83,14 +96,41 @@ export class InputManager {
     return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable;
   }
 
+  /** The two look-side fingers, if there are exactly two of them. */
+  _lookPair() {
+    const look = [];
+    for (const s of this._sticks.values()) if (!s.left) look.push(s);
+    return look.length === 2 ? look : null;
+  }
+
   _touchStart(e) {
     if (!this.enabled) return;
     for (const t of e.changedTouches) {
-      const left = t.clientX < window.innerWidth * 0.42;
-      this._sticks.set(t.identifier, { left, ox: t.clientX, oy: t.clientY, x: t.clientX, y: t.clientY });
+      // The stick lives wherever the finger lands in the left third, so there
+      // is nothing to aim at - the control comes to the thumb.
+      const left = t.clientX < window.innerWidth * 0.4 && !this._hasLeftStick();
+      this._sticks.set(t.identifier, { left, ox: t.clientX, oy: t.clientY, x: t.clientX, y: t.clientY, dx: 0, dy: 0 });
+      if (left) {
+        this.stick.active = true;
+        this.stick.baseX = t.clientX;
+        this.stick.baseY = t.clientY;
+        this.stick.knobX = t.clientX;
+        this.stick.knobY = t.clientY;
+      }
     }
+    const pair = this._lookPair();
+    this._pinchDistance = pair ? Math.hypot(pair[0].x - pair[1].x, pair[0].y - pair[1].y) : 0;
     this.touch.active = true;
+    if (!this.touchUsed) {
+      this.touchUsed = true;
+      if (this.onTouchUsed) this.onTouchUsed();
+    }
     e.preventDefault();
+  }
+
+  _hasLeftStick() {
+    for (const s of this._sticks.values()) if (s.left) return true;
+    return false;
   }
 
   _touchMove(e) {
@@ -99,16 +139,53 @@ export class InputManager {
       const s = this._sticks.get(t.identifier);
       if (!s) continue;
       if (s.left) {
-        const dx = (t.clientX - s.ox) / 64;
-        const dy = (t.clientY - s.oy) / 64;
-        this.touch.moveX = Math.max(-1, Math.min(1, dx));
-        this.touch.moveY = Math.max(-1, Math.min(1, dy));
+        const r = this.stick.radius;
+        let dx = t.clientX - s.ox;
+        let dy = t.clientY - s.oy;
+        const len = Math.hypot(dx, dy);
+        if (len > r) {
+          // Drag the base along once the thumb runs past the ring.
+          s.ox += (dx / len) * (len - r);
+          s.oy += (dy / len) * (len - r);
+          dx = (dx / len) * r;
+          dy = (dy / len) * r;
+        }
+        this.touch.moveX = dx / r;
+        this.touch.moveY = dy / r;
+        this.stick.baseX = s.ox;
+        this.stick.baseY = s.oy;
+        this.stick.knobX = s.ox + dx;
+        this.stick.knobY = s.oy + dy;
       } else {
-        this.mouseDelta.x += (t.clientX - s.x) * 1.6;
-        this.mouseDelta.y += (t.clientY - s.y) * 1.6;
+        s.dx = t.clientX - s.x;
+        s.dy = t.clientY - s.y;
         s.x = t.clientX;
         s.y = t.clientY;
       }
+    }
+
+    // Two fingers on the look side pinch to zoom instead of turning the camera.
+    const pair = this._lookPair();
+    if (pair) {
+      const d = Math.hypot(pair[0].x - pair[1].x, pair[0].y - pair[1].y);
+      if (this._pinchDistance > 0 && Math.abs(d - this._pinchDistance) > 6) {
+        this.wheel += d > this._pinchDistance ? -1 : 1;
+        this._pinchDistance = d;
+      } else if (this._pinchDistance === 0) {
+        this._pinchDistance = d;
+      }
+    } else {
+      this._pinchDistance = 0;
+      for (const t of e.changedTouches) {
+        const s = this._sticks.get(t.identifier);
+        if (!s || s.left) continue;
+        this.mouseDelta.x += (s.dx || 0) * 1.6;
+        this.mouseDelta.y += (s.dy || 0) * 1.6;
+      }
+    }
+    for (const s of this._sticks.values()) {
+      s.dx = 0;
+      s.dy = 0;
     }
     e.preventDefault();
   }
@@ -119,10 +196,35 @@ export class InputManager {
       if (s && s.left) {
         this.touch.moveX = 0;
         this.touch.moveY = 0;
+        this.stick.active = false;
       }
       this._sticks.delete(t.identifier);
     }
+    this._pinchDistance = 0;
     if (this._sticks.size === 0) this.touch.active = false;
+  }
+
+  /**
+   * Press or release a key on behalf of an on-screen button.  Virtual keys are
+   * tracked separately so a physical key released while a button is held does
+   * not clear the button, and vice versa.
+   */
+  setVirtualKey(code, down) {
+    if (down) {
+      if (!this.keys.has(code)) this._pressedThisFrame.add(code);
+      this._virtualKeys.add(code);
+      this.keys.add(code);
+    } else {
+      this._virtualKeys.delete(code);
+      this.keys.delete(code);
+    }
+  }
+
+  /** Tap a key for exactly one frame - used by momentary on-screen buttons. */
+  tapVirtualKey(code) {
+    this.setVirtualKey(code, true);
+    this._releaseNextFrame = this._releaseNextFrame || new Set();
+    this._releaseNextFrame.add(code);
   }
 
   requestPointerLock() {
@@ -179,6 +281,10 @@ export class InputManager {
 
   endFrame() {
     this._pressedThisFrame.clear();
+    if (this._releaseNextFrame && this._releaseNextFrame.size) {
+      for (const code of this._releaseNextFrame) this.setVirtualKey(code, false);
+      this._releaseNextFrame.clear();
+    }
   }
 
   dispose() {

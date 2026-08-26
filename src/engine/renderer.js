@@ -121,6 +121,7 @@ export class Engine {
     this.postfx.render(this.elapsed, {
       sunScreen: this._sunScreen,
       sunVisibility: this._sunVisibility,
+      camera: this.camera,
     });
     this.renderer.setRenderTarget(null);
   }

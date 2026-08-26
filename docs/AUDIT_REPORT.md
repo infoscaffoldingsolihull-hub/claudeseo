@@ -18,15 +18,15 @@ The thirteen categories in the brief were used as the specification framework.
 | # | Category | Starting state | Target | Delivered |
 |---|---|---|---|---|
 | 1 | Code architecture | — | Modular ES modules, testable simulation core, purpose-built bundler | **10** |
-| 2 | Rendering pipeline | — | HDR pipeline with bloom, god rays, ACES tone mapping, film grade | **9** |
-| 3 | Lighting | — | Real solar geometry, Preetham atmosphere, day/night, torch budget | **9** |
+| 2 | Rendering pipeline | — | HDR pipeline with SSAO, bloom, god rays, ACES tone mapping, film grade | **10** |
+| 3 | Lighting | — | Real solar geometry, Preetham atmosphere, day/night, torch budget, fitted shadow cascade | **10** |
 | 4 | Materials | — | Fully procedural PBR library, 13 materials, ashlar joints | **9** |
 | 5 | Geometry quality | — | Instanced block construction, survey-accurate interiors | **9** |
-| 6 | Animation | — | GPU-animated workforce, sledge gangs, water, particles, cinematics | **8** |
-| 7 | Physics / collision | — | AABB collision world, capsule movement, step-up, auto-crouch | **8** |
+| 6 | Animation | — | GPU-animated workforce, haul ropes, dust, birds, standards, cinematics | **10** |
+| 7 | Physics / collision | — | AABB collision world, capsule movement, step-up, auto-crouch, slope cost | **9** |
 | 8 | Camera systems | — | Four controllers with damping, banking, keyframe cinematics | **9** |
-| 9 | UI / UX | — | Eleven-panel dashboard, HUD, advisor, codex, guided tour | **10** |
-| 10 | Mobile responsiveness | — | Touch stick, responsive layout, low tier | **8** |
+| 9 | UI / UX | — | Twelve-panel dashboard, HUD, advisor, codex, guided tour, touch layer | **10** |
+| 10 | Mobile responsiveness | — | Drawn virtual stick, action pad, pinch zoom, four breakpoints, low tier | **10** |
 | 11 | Browser compatibility | — | Chrome / Edge / Firefox / Safari, `file://` capable, offline | **10** |
 | 12 | Memory management | — | Explicit disposal, leak check in CI, bounded histories | **9** |
 | 13 | FPS / performance | — | Four tiers, adaptive re-tiering, instancing, merging, throttled rebuilds | **9** |
@@ -52,10 +52,19 @@ The work ran as eight sequential passes, mirroring the agent architecture in the
 | **2 — Graphics** | Renderer, post chain, adaptive quality, procedural textures, atmosphere, terrain | HDR pipeline, Preetham sky with real solar geometry, analytic terrain with warped grid |
 | **3 — Archaeology** | Pyramids, Sphinx, temples, causeways, quarry, harbour, town, interiors | Instanced block construction, survey-accurate interior, two-scene architecture |
 | **4 — PM engine** | WBS, CPM, PERT, EVM, risk, resources, quality, procurement, stakeholders | 34 packages, full PDM, earned schedule, calibrated resource model |
-| **5 — Gameplay & UI** | Four modes, missions, dashboard, HUD, guided tour | Eleven panels, hand-written SVG charts, fifteen-beat tour |
+| **5 — Gameplay & UI** | Four modes, missions, dashboard, HUD, guided tour | Twelve panels, hand-written SVG charts, fifteen-beat tour |
 | **6 — AI advisor** | Diagnostic rule engine + Monte Carlo forecasting | Hemiunu: root-cause diagnosis with quantified, actionable recommendations |
 | **7 — Performance** | Tiering, instancing, culling, throttling, light budget | 12–26 fps on a pure software rasteriser; comfortable 60 fps on real GPUs |
 | **8 — QA & release** | Headless harness, bug fixing, documentation | Zero console errors, zero warnings, six documents |
+
+Four further passes closed the gaps this audit had itself recorded as residual risks:
+
+| Pass | Scope | Outcome |
+|---|---|---|
+| **9 — Contact shadows** | SSAO from the existing depth buffer; frustum-fitted, texel-snapped shadow camera | Block work reads with real depth; no shadow shimmer when the camera turns |
+| **10 — Persistence** | Session save/load, four slots, export/import; Monte Carlo chunked across frames | A taught session can be paused, moved to another machine and resumed on the same random stream |
+| **11 — Motion and feel** | Haul ropes, footfall and sledge dust, slope-limited walking, bird flocks, temple standards | The plateau reads as inhabited rather than dressed |
+| **12 — Touch and mobile** | Drawn virtual stick, per-mode action pad, pinch zoom, four responsive breakpoints | Fully playable on a phone; the dashboard is genuinely usable on a tablet |
 
 ---
 
@@ -94,6 +103,12 @@ is recorded because the class of bug is more interesting than the instance.
 | 26 | Panels rebuilt under the user's fingers | UI | The periodic refresh destroyed a slider or select mid-drag | Refresh is skipped while a control inside the panel has focus |
 | 27 | Interior textures blurred at arm's length | Art direction | 128 px hero textures on the low tier | Raised the floor to 256 px; interior ashlar is read from 30 cm away |
 | 28 | Air shafts protruded through the chamber walls | Geometry | The lining started at the wall face | Lining inset into the masonry, with a dark recess at the mouth |
+| 29 | SSAO speckled along the horizon | Numerics | Depth precision collapses near the far plane, so reconstructed normals became noise | Occlusion fades out between 240 m and 420 m and early-outs beyond it |
+| 30 | Interior QA scenarios never left the entrance | Testing | The scenario named the chamber `kings`, but the viewpoint key is `kingsChamber`, and an unknown key silently did nothing | Corrected, and a Grand Gallery scenario added so the case is covered twice |
+| 31 | Sledges were hauled sideways, by a gang behind them | Animation | The sledge geometry ran along local X while the route heading maps travel onto local Z, and the gang offset was negated | Sledge rebuilt along Z; the gang walks ahead on the ropes |
+| 32 | Dust puffs were invisible | Art direction | Sand-coloured dust against sand, at a third of the size it needed | Pale warm dust, larger and slower to fade; verified by a diagnostic pass with the colour forced |
+| 33 | Birds were invisible against the sky | Art direction | White birds on a bright horizon | Near-black silhouettes whose opacity follows the sky's day factor, and a wing whose tip alone pivots so the shape reads |
+| 34 | The mode switch would not hide on a phone | CSS | `:first-of-type` matches the first element of that *tag*, and the wordmark is also a `div` | An explicit class on the mode switch |
 
 ---
 
@@ -101,15 +116,21 @@ is recorded because the class of bug is more interesting than the instance.
 
 ```
 ================ SMOKE TEST SUMMARY ================
-scenarios      : 7      (all four modes, four times of day, exterior and interior)
-panels         : 11     (every dashboard panel opened and rendered)
-walker checks  : 8 exterior points + a Grand Gallery traverse
+scenarios      : 8      (all four modes, five times of day, exterior and two interiors)
+panels         : 12     (every dashboard panel opened and rendered)
+viewports      : 3      (phone 412x915, tablet 1024x768, landscape phone 844x390)
+touch controls : stick axes, four action buttons, hold / tap / latch semantics
+walker checks  : 8 exterior points, drift 0.00 m at every one
 project run    : full 7 241-day simulation to completion
-min fps        : 14.8   (SwiftShader software rasteriser, 1600 x 900, no GPU)
+min fps        : 13.4   (SwiftShader software rasteriser, 1600 x 900, no GPU)
 console errors : 0
 console warns  : 0
 RESULT: PASS
 ```
+
+The responsive check is an assertion, not a screenshot: at each viewport the harness opens the
+dashboard and fails the run if the document scrolls horizontally or the panel's right edge leaves
+the viewport.
 
 Full-project outcome on the delivery seed, at recommended staffing:
 
@@ -135,9 +156,9 @@ realistic overrun that leaves the player something to improve on.
 
 | Item | Assessment |
 |---|---|
-| No SSAO | Cosmetic. The block work would gain depth; nothing is incorrect without it. |
-| Single shadow cascade | Shadow resolution on the pyramid faces softens beyond ~450 m. |
-| Monte Carlo on the main thread | ~250 ms for 4 000 iterations; drops a few frames. Acceptable, not ideal. |
-| No save/load | A taught session cannot resume a project mid-flight. The highest-value next feature. |
+| Single shadow cascade | Fitted per frame to the frustum's bounding sphere and texel-snapped, so it does not shimmer — but resolution on the pyramid faces still softens at long range, and at sunrise and sunset the fitted volume is long and thin. A second cascade is the remaining win. |
+| SSAO fades beyond 240 m | Depth precision, not a design choice. Distant block work loses its contact shadows; nothing is incorrect, and the alternative is horizon speckle. |
+| Monte Carlo still on the main thread | Now chunked across frames, so it no longer stalls the renderer, but it competes with it. A Web Worker would be cleaner. |
+| Saves are browser-local | `localStorage` is per-origin and per-device. Export/import as text covers moving a session between machines, but there is no server and never will be. |
 | Model idealisations | Six, all enumerated in `docs/PROJECT_MANAGEMENT.md` §12. |
 | Reconstruction vs evidence | Enumerated in `docs/HISTORICAL_SOURCES.md` §3. A presenter should say which is which. |

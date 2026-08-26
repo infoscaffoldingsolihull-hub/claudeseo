@@ -15,6 +15,9 @@ import { QUARRY, VILLAGE, PYRAMIDS, HARBOUR, GRANITE_YARD } from './layout.js';
  * assigned workforce, so a labour shortage is visible from the ground.
  */
 
+/** Distance from the sledge's centre to the front rank of the hauling gang. */
+const GANG_LEAD = 5.6;
+
 const LIMB_BODY = 0;
 const LIMB_LEG_L = 1;
 const LIMB_LEG_R = 2;
@@ -176,6 +179,9 @@ export class WorkerSystem {
     this.time = 0;
     this.activityScale = 1;
     this.paused = false;
+    /** Called as (x, y, z, strength, driftX, driftZ) when a sledge kicks dust. */
+    this.onDust = null;
+    this.sledgeDust = 0;
 
     const wood = textures.wood();
     const lime = textures.limestone();
@@ -210,6 +216,7 @@ export class WorkerSystem {
     this.mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
 
     this._buildSledges();
+    this._buildRopes();
     this._buildRoutes();
     this._buildAgents();
 
@@ -222,14 +229,21 @@ export class WorkerSystem {
   }
 
   _buildSledges() {
+    // The sledge is modelled with its runners along local +Z, which is the
+    // direction of travel once the route heading is applied - the gang is out
+    // in front on the ropes, not alongside.
     const parts = [];
     const L = 4.6;
     const W = 2.2;
+    this.sledgeLength = L;
+    this.sledgeWidth = W;
     for (const side of [-1, 1]) {
-      parts.push(box(L, 0.32, 0.32, 0, 0.16, side * (W / 2 - 0.2)));
-      parts.push(box(0.5, 0.46, 0.32, L / 2 - 0.1, 0.33, side * (W / 2 - 0.2)));
+      parts.push(box(0.32, 0.32, L, side * (W / 2 - 0.2), 0.16, 0));
+      parts.push(box(0.32, 0.46, 0.5, side * (W / 2 - 0.2), 0.33, L / 2 - 0.1));
+      // Towing post the rope is lashed to.
+      parts.push(box(0.14, 0.5, 0.14, side * (W / 2 - 0.2), 0.62, L / 2 - 0.25));
     }
-    for (let i = 0; i < 4; i++) parts.push(box(0.3, 0.2, W, -L / 2 + 0.7 + i * 1.1, 0.42, 0));
+    for (let i = 0; i < 4; i++) parts.push(box(W, 0.2, 0.3, 0, 0.42, -L / 2 + 0.7 + i * 1.1));
     const geo = mergeGeometries(parts);
     scaleUvByWorldSize(geo, 0.8);
     this.sledgeGeometry = geo;
@@ -240,7 +254,7 @@ export class WorkerSystem {
     this.sledges.count = 0;
     this.group.add(this.sledges);
 
-    const load = box(2.5, 1.15, 1.6, 0, 0.58, 0);
+    const load = box(1.6, 1.15, 2.5, 0, 0.58, 0);
     scaleUvByWorldSize(load, 1.0);
     this.loadGeometry = load;
     this.loads = new THREE.InstancedMesh(load, this.loadMaterial, this.sledgeCapacity);
@@ -248,6 +262,50 @@ export class WorkerSystem {
     this.loads.frustumCulled = false;
     this.loads.count = 0;
     this.group.add(this.loads);
+  }
+
+  /**
+   * Haul ropes.
+   *
+   * Two ropes per sledge, each drawn as a short polyline so it can sag under
+   * its own weight between the towing post and the front rank's shoulders.
+   * One LineSegments carries every rope on the plateau; the geometry is
+   * rewritten in place each frame, which for ten gangs is 240 floats.
+   */
+  _buildRopes() {
+    this.ropeSegments = 5;
+    this.ropesPerSledge = 2;
+    const verts = this.sledgeCapacity * this.ropesPerSledge * this.ropeSegments * 2;
+    this.ropePositions = new Float32Array(verts * 3);
+    const geo = new THREE.BufferGeometry();
+    this.ropeAttribute = new THREE.BufferAttribute(this.ropePositions, 3);
+    this.ropeAttribute.setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('position', this.ropeAttribute);
+    geo.setDrawRange(0, 0);
+    this.ropeGeometry = geo;
+    this.ropeMaterial = new THREE.LineBasicMaterial({ color: 0x7a6242, transparent: true, opacity: 0.95 });
+    this.ropes = new THREE.LineSegments(geo, this.ropeMaterial);
+    this.ropes.frustumCulled = false;
+    this.ropes.name = 'haul-ropes';
+    this.group.add(this.ropes);
+    this._ropeCursor = 0;
+  }
+
+  /** Write one sagging rope from (ax,ay,az) to (bx,by,bz). */
+  _writeRope(ax, ay, az, bx, by, bz) {
+    const segs = this.ropeSegments;
+    const sag = 0.16 + Math.hypot(bx - ax, bz - az) * 0.055;
+    let o = this._ropeCursor;
+    for (let i = 0; i < segs; i++) {
+      const t0 = i / segs;
+      const t1 = (i + 1) / segs;
+      for (const t of [t0, t1]) {
+        this.ropePositions[o++] = ax + (bx - ax) * t;
+        this.ropePositions[o++] = ay + (by - ay) * t - sag * 4 * t * (1 - t);
+        this.ropePositions[o++] = az + (bz - az) * t;
+      }
+    }
+    this._ropeCursor = o;
   }
 
   _buildRoutes() {
@@ -324,7 +382,7 @@ export class WorkerSystem {
             gangId,
             distance: offsetDistance,
             lateral: side * (0.7 + (row % 2) * 0.35),
-            back: 3.2 + row * 1.25,
+            back: (route.sledge ? GANG_LEAD : 3.2) + row * 1.25,
             phase: rng() * Math.PI * 2,
             lean: route.sledge ? 1 : 0,
             speed: route.speed * (0.94 + rng() * 0.12),
@@ -424,6 +482,7 @@ export class WorkerSystem {
 
     let sledgeIndex = 0;
     const seenGangs = new Set();
+    this._ropeCursor = 0;
 
     for (const agent of this.agents) {
       if (agent.index >= this.mesh.count) continue;
@@ -434,20 +493,47 @@ export class WorkerSystem {
         const h = s.heading;
         const rx = Math.cos(h);
         const rz = -Math.sin(h);
-        const px = s.position.x + rx * agent.lateral - Math.sin(h) * agent.back;
-        const pz = s.position.z + rz * agent.lateral - Math.cos(h) * agent.back;
-        this._place(agent, px, terrainHeight(px, pz), pz, h, 7.2 * agent.speed, 0.62, agent.lean);
+        // Haulers walk ahead of the sledge - `back` is the distance up the
+        // rope from the sledge nose, not a distance behind it.
+        const lead = agent.route.sledge ? agent.back : -agent.back * 0.4;
+        const px = s.position.x + rx * agent.lateral + Math.sin(h) * lead;
+        const pz = s.position.z + rz * agent.lateral + Math.cos(h) * lead;
+        const py = terrainHeight(px, pz);
+        this._place(agent, px, py, pz, h, 7.2 * agent.speed, 0.62, agent.lean);
 
         if (agent.route.sledge && !seenGangs.has(agent.gangId) && sledgeIndex < this.sledgeCapacity) {
           seenGangs.add(agent.gangId);
+          const sx = s.position.x;
+          const sz = s.position.z;
+          const sy = terrainHeight(sx, sz);
           this._euler.set(0, h, 0);
           this._quat.setFromEuler(this._euler);
-          this._pos.set(s.position.x, terrainHeight(s.position.x, s.position.z), s.position.z);
+          this._pos.set(sx, sy, sz);
           this._scale.set(1, 1, 1);
           this._matrix.compose(this._pos, this._quat, this._scale);
           this.sledges.setMatrixAt(sledgeIndex, this._matrix);
           this.loads.setMatrixAt(sledgeIndex, this._matrix);
           sledgeIndex++;
+
+          // Ropes: towing post -> front rank's shoulders, one each side.
+          const fx = Math.sin(h);
+          const fz = Math.cos(h);
+          const half = this.sledgeWidth / 2 - 0.2;
+          const nose = this.sledgeLength / 2 - 0.25;
+          for (const side of [-1, 1]) {
+            const ax = sx + fx * nose + rx * half * side;
+            const az = sz + fz * nose + rz * half * side;
+            const bx = sx + fx * GANG_LEAD + rx * 0.7 * side;
+            const bz = sz + fz * GANG_LEAD + rz * 0.7 * side;
+            this._writeRope(ax, sy + 0.72, az, bx, terrainHeight(bx, bz) + 1.24, bz);
+          }
+
+          // Runners grinding through the sand throw a puff every few metres.
+          this.sledgeDust += Math.abs(agent.speed) * dt * 6;
+          if (this.onDust && this.sledgeDust > 2.4) {
+            const tail = this.sledgeLength / 2;
+            this.onDust(sx - fx * tail, sy + 0.15, sz - fz * tail, 1.35, -fx * 0.5, -fz * 0.5);
+          }
         }
       } else if (agent.kind === 'static') {
         this._place(
@@ -475,8 +561,11 @@ export class WorkerSystem {
       }
     }
 
+    if (this.sledgeDust > 2.4) this.sledgeDust = 0;
     this.sledges.count = sledgeIndex;
     this.loads.count = sledgeIndex;
+    this.ropeGeometry.setDrawRange(0, this._ropeCursor / 3);
+    this.ropeAttribute.needsUpdate = true;
     this.sledges.instanceMatrix.needsUpdate = true;
     this.loads.instanceMatrix.needsUpdate = true;
     this.mesh.instanceMatrix.needsUpdate = true;
@@ -484,6 +573,8 @@ export class WorkerSystem {
   }
 
   dispose() {
+    this.ropeGeometry.dispose();
+    this.ropeMaterial.dispose();
     this.geometry.dispose();
     this.sledgeGeometry.dispose();
     this.loadGeometry.dispose();

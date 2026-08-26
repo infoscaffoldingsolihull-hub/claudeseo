@@ -33,6 +33,7 @@ export class FirstPersonController {
     this.bobAmount = 0;
     this.stepDistance = 0;
     this.onFootstep = null;
+    this.grade = 0;
     this.flying = false;
     this.enabled = true;
     this._forward = new THREE.Vector3();
@@ -46,6 +47,28 @@ export class FirstPersonController {
     this.yaw = yaw;
     this.pitch = pitch;
     this.grounded = false;
+  }
+
+  /**
+   * Speed multiplier for the ground gradient in the direction of travel.
+   *
+   * The plateau's sand slopes are genuinely hard work: climbing a 1-in-3 face
+   * costs roughly half your pace, while a shallow descent gives a little back.
+   * The gradient is sampled from the collision world's ground function, so it
+   * costs two height lookups and works on any terrain.
+   */
+  _slopeFactor(collision, direction) {
+    if (this.flying || !collision || typeof collision.groundFn !== 'function') return 1;
+    const probe = 1.6;
+    const x0 = this.position.x;
+    const z0 = this.position.z;
+    const h0 = collision.groundFn(x0, z0);
+    const h1 = collision.groundFn(x0 + direction.x * probe, z0 + direction.z * probe);
+    if (!Number.isFinite(h0) || !Number.isFinite(h1)) return 1;
+    const grade = (h1 - h0) / probe;
+    this.grade = grade;
+    if (grade > 0) return 1 / (1 + grade * grade * 3.2);
+    return Math.min(1.18, 1 - grade * 0.28);
   }
 
   update(dt, collision) {
@@ -80,7 +103,10 @@ export class FirstPersonController {
       .set(0, 0, 0)
       .addScaledVector(this._forward, -axes.y)
       .addScaledVector(this._right, axes.x);
-    if (this._desired.lengthSq() > 1e-6) this._desired.normalize().multiplyScalar(speed);
+    if (this._desired.lengthSq() > 1e-6) {
+      this._desired.normalize();
+      this._desired.multiplyScalar(speed * this._slopeFactor(collision, this._desired));
+    }
 
     if (this.flying) {
       let vy = 0;
@@ -177,6 +203,28 @@ export class OrbitController {
     this.distance = this._distanceGoal;
     this.phi = this._phiGoal;
     this.theta = this._thetaGoal;
+  }
+
+  /**
+   * Speed multiplier for the ground gradient in the direction of travel.
+   *
+   * The plateau's sand slopes are genuinely hard work: climbing a 1-in-3 face
+   * costs roughly half your pace, while a shallow descent gives a little back.
+   * The gradient is sampled from the collision world's ground function, so it
+   * costs two height lookups and works on any terrain.
+   */
+  _slopeFactor(collision, direction) {
+    if (this.flying || !collision || typeof collision.groundFn !== 'function') return 1;
+    const probe = 1.6;
+    const x0 = this.position.x;
+    const z0 = this.position.z;
+    const h0 = collision.groundFn(x0, z0);
+    const h1 = collision.groundFn(x0 + direction.x * probe, z0 + direction.z * probe);
+    if (!Number.isFinite(h0) || !Number.isFinite(h1)) return 1;
+    const grade = (h1 - h0) / probe;
+    this.grade = grade;
+    if (grade > 0) return 1 / (1 + grade * grade * 3.2);
+    return Math.min(1.18, 1 - grade * 0.28);
   }
 
   update(dt, collision) {

@@ -83,12 +83,111 @@ void main() {
 }
 `;
 
+const SSAO_FRAG = /* glsl */ `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D tDepth;
+uniform mat4 uProjection;
+uniform mat4 uInverseProjection;
+uniform vec2 uTexel;
+uniform float uRadius;
+uniform float uBias;
+uniform float uIntensity;
+uniform float uMaxDistance;
+uniform float uFadeStart;
+uniform vec3 uKernel[16];
+
+float sampleDepth(vec2 uv) {
+  return texture2D(tDepth, uv).x;
+}
+
+/** Unproject a depth-buffer sample back into view space. */
+vec3 viewFromUvDepth(vec2 uv, float d) {
+  vec4 clip = vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
+  vec4 view = uInverseProjection * clip;
+  return view.xyz / view.w;
+}
+
+float hash12(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+void main() {
+  float d = sampleDepth(vUv);
+  // Sky and far plane are never occluded.
+  if (d >= 0.99999) { gl_FragColor = vec4(1.0); return; }
+  vec3 P = viewFromUvDepth(vUv, d);
+
+  // Beyond a few hundred metres the occlusion is sub-pixel anyway, and the
+  // depth buffer has so little precision left that sampling it produces
+  // speckle along the horizon. Fade out and stop.
+  float viewDist = -P.z;
+  if (viewDist > uMaxDistance) { gl_FragColor = vec4(1.0); return; }
+  float distanceFade = 1.0 - smoothstep(uFadeStart, uMaxDistance, viewDist);
+
+  // Reconstruct the normal from the four nearest depth taps, choosing the
+  // closer neighbour on each axis so silhouettes do not smear. Doing it this
+  // way avoids needing derivatives, which are awkward under GLSL ES 1.00.
+  vec2 ex = vec2(uTexel.x, 0.0);
+  vec2 ey = vec2(0.0, uTexel.y);
+  vec3 pR = viewFromUvDepth(vUv + ex, sampleDepth(vUv + ex));
+  vec3 pL = viewFromUvDepth(vUv - ex, sampleDepth(vUv - ex));
+  vec3 pU = viewFromUvDepth(vUv + ey, sampleDepth(vUv + ey));
+  vec3 pD = viewFromUvDepth(vUv - ey, sampleDepth(vUv - ey));
+  vec3 dx = abs(pR.z - P.z) < abs(P.z - pL.z) ? (pR - P) : (P - pL);
+  vec3 dy = abs(pU.z - P.z) < abs(P.z - pD.z) ? (pU - P) : (P - pD);
+  vec3 N = normalize(cross(dx, dy));
+  if (N.z < 0.0) N = -N;
+
+  // Random tangent frame per pixel, so the 16 samples cover more directions.
+  float ang = hash12(gl_FragCoord.xy) * 6.2831853;
+  vec3 rvec = vec3(cos(ang), sin(ang), 0.0);
+  vec3 T = normalize(rvec - N * dot(rvec, N));
+  vec3 B = cross(N, T);
+  mat3 TBN = mat3(T, B, N);
+
+  float occlusion = 0.0;
+  for (int i = 0; i < 16; i++) {
+    vec3 samplePos = P + TBN * uKernel[i] * uRadius;
+    vec4 offset = uProjection * vec4(samplePos, 1.0);
+    vec2 sUv = (offset.xy / offset.w) * 0.5 + 0.5;
+    if (sUv.x < 0.0 || sUv.x > 1.0 || sUv.y < 0.0 || sUv.y > 1.0) continue;
+    vec3 occluder = viewFromUvDepth(sUv, sampleDepth(sUv));
+    // View space looks down -Z, so a larger z is nearer the camera.
+    float range = smoothstep(0.0, 1.0, uRadius / max(0.0001, abs(P.z - occluder.z)));
+    occlusion += (occluder.z >= samplePos.z + uBias ? 1.0 : 0.0) * range;
+  }
+
+  float ao = 1.0 - (occlusion / 16.0) * uIntensity * distanceFade;
+  gl_FragColor = vec4(clamp(ao, 0.0, 1.0));
+}
+`;
+
+const SSAO_BLUR_FRAG = /* glsl */ `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D tDiffuse;
+uniform vec2 uTexel;
+void main() {
+  // 4x4 box blur: enough to hide the per-pixel rotation noise.
+  float sum = 0.0;
+  for (int x = -2; x < 2; x++) {
+    for (int y = -2; y < 2; y++) {
+      sum += texture2D(tDiffuse, vUv + vec2(float(x) + 0.5, float(y) + 0.5) * uTexel).r;
+    }
+  }
+  gl_FragColor = vec4(sum / 16.0);
+}
+`;
+
 const COMPOSITE_FRAG = /* glsl */ `
 precision highp float;
 varying vec2 vUv;
 uniform sampler2D tDiffuse;
 uniform sampler2D tBloom;
 uniform sampler2D tRays;
+uniform sampler2D tAO;
+uniform float aoStrength;
 uniform float bloomStrength;
 uniform float raysStrength;
 uniform float exposure;
@@ -134,6 +233,11 @@ void main() {
     color = texture2D(tDiffuse, uv).rgb;
   }
 
+  if (aoStrength > 0.0) {
+    float ao = texture2D(tAO, uv).r;
+    color *= mix(1.0, ao, aoStrength);
+  }
+
   color += texture2D(tBloom, uv).rgb * bloomStrength;
   color += texture2D(tRays, uv).rgb * raysStrength;
   color *= exposure;
@@ -172,8 +276,10 @@ function fullscreenMesh(material) {
   return mesh;
 }
 
-function makeRT(w, h, samples) {
-  const rt = new THREE.WebGLRenderTarget(Math.max(1, w), Math.max(1, h), {
+function makeRT(w, h, samples, withDepthTexture = false) {
+  const width = Math.max(1, w);
+  const height = Math.max(1, h);
+  const options = {
     type: THREE.HalfFloatType,
     format: THREE.RGBAFormat,
     minFilter: THREE.LinearFilter,
@@ -181,9 +287,38 @@ function makeRT(w, h, samples) {
     depthBuffer: true,
     stencilBuffer: false,
     samples: samples || 0,
-  });
+  };
+  if (withDepthTexture) {
+    // three resolves depth as part of the multisample blit, so a sampleable
+    // depth texture works alongside MSAA and SSAO needs no extra scene pass.
+    const depth = new THREE.DepthTexture(width, height);
+    depth.type = THREE.UnsignedIntType;
+    depth.format = THREE.DepthFormat;
+    depth.minFilter = THREE.NearestFilter;
+    depth.magFilter = THREE.NearestFilter;
+    options.depthTexture = depth;
+  }
+  const rt = new THREE.WebGLRenderTarget(width, height, options);
   rt.texture.generateMipmaps = false;
   return rt;
+}
+
+/** Cosine-weighted hemisphere kernel, clustered toward the origin. */
+function makeSsaoKernel(count) {
+  const kernel = [];
+  let seed = 1;
+  const rand = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x7fffffff;
+  };
+  for (let i = 0; i < count; i++) {
+    const v = new THREE.Vector3(rand() * 2 - 1, rand() * 2 - 1, rand());
+    v.normalize();
+    const t = i / count;
+    v.multiplyScalar(0.1 + 0.9 * t * t);
+    kernel.push(v);
+  }
+  return kernel;
 }
 
 export class PostFX {
@@ -225,6 +360,31 @@ export class PostFX {
       depthTest: false,
       depthWrite: false,
     });
+    this.ssaoMat = new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: SSAO_FRAG,
+      uniforms: {
+        tDepth: { value: null },
+        uProjection: { value: new THREE.Matrix4() },
+        uInverseProjection: { value: new THREE.Matrix4() },
+        uTexel: { value: new THREE.Vector2() },
+        uRadius: { value: 1.15 },
+        uBias: { value: 0.035 },
+        uIntensity: { value: 1.0 },
+        uMaxDistance: { value: 420 },
+        uFadeStart: { value: 240 },
+        uKernel: { value: makeSsaoKernel(16) },
+      },
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.ssaoBlurMat = new THREE.ShaderMaterial({
+      vertexShader: FULLSCREEN_VERT,
+      fragmentShader: SSAO_BLUR_FRAG,
+      uniforms: { tDiffuse: { value: null }, uTexel: { value: new THREE.Vector2() } },
+      depthTest: false,
+      depthWrite: false,
+    });
     this.compositeMat = new THREE.ShaderMaterial({
       vertexShader: FULLSCREEN_VERT,
       fragmentShader: COMPOSITE_FRAG,
@@ -232,6 +392,8 @@ export class PostFX {
         tDiffuse: { value: null },
         tBloom: { value: null },
         tRays: { value: null },
+        tAO: { value: null },
+        aoStrength: { value: 0.85 },
         bloomStrength: { value: 0.55 },
         raysStrength: { value: 0.5 },
         exposure: { value: 1.0 },
@@ -262,6 +424,9 @@ export class PostFX {
     this.blurRTA = null;
     this.blurRTB = null;
     this.raysRT = null;
+    this.ssaoRT = null;
+    this.ssaoBlurRT = null;
+    this.aoStrength = 0.85;
     this.setSize(1, 1);
   }
 
@@ -273,14 +438,23 @@ export class PostFX {
     const half = [Math.ceil(this.width / 2), Math.ceil(this.height / 2)];
     const quarter = [Math.ceil(this.width / 4), Math.ceil(this.height / 4)];
 
-    for (const rt of [this.sceneRT, this.brightRT, this.blurRTA, this.blurRTB, this.raysRT]) {
+    for (const rt of [this.sceneRT, this.brightRT, this.blurRTA, this.blurRTB, this.raysRT, this.ssaoRT, this.ssaoBlurRT]) {
       if (rt) rt.dispose();
     }
-    this.sceneRT = makeRT(this.width, this.height, samples);
+    this.sceneRT = makeRT(this.width, this.height, samples, !!s.ssao);
     this.brightRT = makeRT(half[0], half[1], 0);
     this.blurRTA = makeRT(quarter[0], quarter[1], 0);
     this.blurRTB = makeRT(quarter[0], quarter[1], 0);
     this.raysRT = makeRT(half[0], half[1], 0);
+    if (s.ssao) {
+      this.ssaoRT = makeRT(half[0], half[1], 0);
+      this.ssaoBlurRT = makeRT(half[0], half[1], 0);
+      this.ssaoMat.uniforms.uTexel.value.set(1 / half[0], 1 / half[1]);
+      this.ssaoBlurMat.uniforms.uTexel.value.set(1 / half[0], 1 / half[1]);
+    } else {
+      this.ssaoRT = null;
+      this.ssaoBlurRT = null;
+    }
     this.compositeMat.uniforms.resolution.value.set(this.width, this.height);
   }
 
@@ -296,10 +470,27 @@ export class PostFX {
   }
 
   /** Runs the chain over whatever was rendered into `sceneRT`. */
-  render(time, { sunScreen = null, sunVisibility = 0 } = {}) {
+  render(time, { sunScreen = null, sunVisibility = 0, camera = null } = {}) {
     const s = this.quality.settings;
     const u = this.compositeMat.uniforms;
     u.time.value = time;
+
+    if (s.ssao && this.ssaoRT && camera && this.sceneRT.depthTexture) {
+      const su = this.ssaoMat.uniforms;
+      su.tDepth.value = this.sceneRT.depthTexture;
+      su.uProjection.value.copy(camera.projectionMatrix);
+      su.uInverseProjection.value.copy(camera.projectionMatrixInverse);
+      this._blit(this.ssaoMat, this.ssaoRT);
+
+      this.ssaoBlurMat.uniforms.tDiffuse.value = this.ssaoRT.texture;
+      this._blit(this.ssaoBlurMat, this.ssaoBlurRT);
+
+      u.tAO.value = this.ssaoBlurRT.texture;
+      u.aoStrength.value = this.aoStrength;
+    } else {
+      u.tAO.value = null;
+      u.aoStrength.value = 0;
+    }
 
     if (s.bloom) {
       this.brightMat.uniforms.tDiffuse.value = this.sceneRT.texture;
@@ -358,6 +549,7 @@ export class PostFX {
         lift: [0.008, 0.004, 0.0],
         gain: [1.05, 1.0, 0.945],
         bloomStrength: 0.55,
+        aoStrength: 0.8,
       },
       interior: {
         exposure: 1.12,
@@ -370,6 +562,7 @@ export class PostFX {
         lift: [0.006, 0.005, 0.006],
         gain: [1.0, 0.985, 0.985],
         bloomStrength: 0.42,
+        aoStrength: 1.0,
       },
     };
   }
@@ -379,6 +572,7 @@ export class PostFX {
     const u = this.compositeMat.uniforms;
     if (look.bloomStrength !== undefined) this.bloomStrength = look.bloomStrength;
     if (look.raysStrength !== undefined) this.raysStrength = look.raysStrength;
+    if (look.aoStrength !== undefined) this.aoStrength = look.aoStrength;
     for (const [key, value] of Object.entries(look)) {
       if (!u[key]) continue;
       if (u[key].value && u[key].value.isVector3) u[key].value.set(value[0], value[1], value[2]);
@@ -388,13 +582,15 @@ export class PostFX {
   }
 
   dispose() {
-    for (const rt of [this.sceneRT, this.brightRT, this.blurRTA, this.blurRTB, this.raysRT]) {
+    for (const rt of [this.sceneRT, this.brightRT, this.blurRTA, this.blurRTB, this.raysRT, this.ssaoRT, this.ssaoBlurRT]) {
       if (rt) rt.dispose();
     }
     this.quad.geometry.dispose();
     this.brightMat.dispose();
     this.blurMat.dispose();
     this.raysMat.dispose();
+    this.ssaoMat.dispose();
+    this.ssaoBlurMat.dispose();
     this.compositeMat.dispose();
   }
 }

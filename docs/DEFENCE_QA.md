@@ -246,7 +246,7 @@ panel, drops the walker at eight points and asserts it settles on the ground, wa
 Gallery, runs the entire twenty-year project headlessly and reports the earned-value outcome, checks
 geometry/texture/program counts for leaks, and **fails on any console error**.
 
-Current status: seven scenarios, eleven panels, zero errors, zero warnings.
+Current status: eight scenarios, twelve panels, three viewports, zero errors, zero warnings.
 
 ### C5. Give me an example of a bug the tests caught.
 
@@ -300,12 +300,39 @@ scan can show. A procedural reconstruction is the right tool for that question.
 
 ### D4. What would you do with another month?
 
-In order: screen-space ambient occlusion, which would transform the depth of the block work;
-cascaded shadow maps for the pyramid faces at range; moving Monte Carlo into a Web Worker; baked
-ambient occlusion for the chambers; and a save/load system so a taught session can resume a project
-mid-flight.
+That list has largely been worked through: screen-space ambient occlusion is in, the shadow camera
+is fitted and texel-snapped, Monte Carlo is chunked across frames so it no longer stalls the
+renderer, and sessions save and resume. What is left, in order: a second shadow cascade for the
+pyramid faces at range and for the very long, thin shadow volume at sunrise and sunset; moving
+Monte Carlo off the main thread entirely; baked ambient occlusion for the chambers, which would be
+more truthful than the fill lights they use now; and compressed textures, at the cost of vendoring
+a transcoder.
 
-### D5. What is the single thing you would want the audience to take away?
+### D5. Can I run this on a phone during the talk?
+
+Yes, and it is worth doing — handing a delegate a phone with the plateau on it makes the point
+faster than a slide does. The touch layer appears by itself: the left thumb is a virtual stick that
+draws itself wherever you press, the right side of the screen is look, two fingers pinch to zoom,
+and a pad of action buttons sits under the right thumb and changes with the mode. The dashboard is
+genuinely usable on a tablet — every target grows to a finger-sized one and the panel takes the
+full width. On a phone the wordmark, the mode switch and two of the five metrics stand down,
+because the mode arrows and the speed button on the touch layer already do that job. The QA harness
+asserts at three viewports that nothing scrolls horizontally and the dashboard stays on screen.
+
+The graphics tier drops automatically on a phone, and the adaptive re-tiering will drop it further
+if the frame rate does not hold. If you are presenting from a known machine, pin the tier with
+`?quality=high` on the URL rather than letting it adapt during the talk.
+
+### D6. If the simulation is stochastic, how do you demonstrate the same thing twice?
+
+Two mechanisms. The project takes an explicit seed, so `newProject(seed)` reproduces a run exactly;
+and a saved session records the generator's state alongside everything else, so a restored run
+continues on the same random stream it would have followed rather than diverging from the moment
+it is loaded. That was verified by stepping an original and a restored project 600 days in parallel
+and comparing state. Practically: build the scenario you want to teach, save it to a slot or export
+it as text, and load it when you get to that slide.
+
+### D7. What is the single thing you would want the audience to take away?
 
 That the critical path runs through the King's Chamber. Not as a fact about the Fourth Dynasty, but
 as the moment when the discipline becomes visible: you stand inside a granite room, you learn that
