@@ -59,6 +59,29 @@ Press `?` in the application for the full control reference.
 
 ---
 
+## What you can walk into
+
+All three pyramids are open. A stone approach stair climbs the north face of each one to a
+landing at the doorway; stand on it and press `E`.
+
+| Way in | Leads to |
+| --- | --- |
+| Great Pyramid — original entrance | Descending Passage, Subterranean Chamber, Grand Gallery, King's and Queen's Chambers, the relieving chambers |
+| Great Pyramid — al-Ma'mun's forced tunnel | the same, entering below the Ascending Passage plug |
+| Khafre — upper entrance | descending passage, the long horizontal run, Belzoni's burial chamber |
+| Khafre — lower entrance | the lower passage and its subsidiary chamber |
+| Menkaure — north face | panelled chamber, main chamber, the six niches, the vaulted burial chamber |
+
+The six temples are hollow and walkable too — through the gate, into the court, round the
+colonnade. Khafre's valley temple is the one to see: the granite hall with the emplacements of
+the twenty-three seated statues of the king.
+
+Twenty-nine **relics** are placed where they belong — sarcophagi, canopic chests, offering tables,
+ka-statues, model boats, masons' tool caches, false doors, inscribed stelae — each with a codex
+entry. Hieroglyphs appear where they are attested: the palace-façade panelling in Menkaure,
+painted registers in the temples, and the red-ochre gang marks in the relieving chambers of the
+Great Pyramid, which are the only inscription in that monument.
+
 ## What is actually simulated
 
 | Domain | Implementation |
@@ -108,7 +131,7 @@ src/
   shell.html                  HTML skeleton shared by both builds
   main.js                     application shell and the test API
   engine/                     renderer, post-processing, controls, input, quality, noise, textures
-  world/                      terrain, sky, pyramids, monuments, site, interior, workers, props
+  world/                      terrain, sky, pyramids, monuments, entrances, interior, tombs, relics, site, workers, props
   pm/                         the project simulation: model, CPM, EVM, Monte Carlo, advisor
   ui/                         dashboard panels, charts, HUD, guided tour, touch layer, stylesheet
 tools/

@@ -7,11 +7,12 @@ import { MonumentSystem } from './monuments.js';
 import { SiteSystem } from './site.js';
 import { WorkerSystem } from './workers.js';
 import { InteriorSystem } from './interior.js';
+import { EntranceSystem } from './entrances.js';
 import {
   RockField, Vegetation, Footprints, ParticleField, TorchSystem, buildTorchPosts, DustPuffs, BirdFlock,
   Pennants,
 } from './props.js';
-import { PYRAMIDS, POINTS_OF_INTEREST, KHUFU_INTERIOR } from './layout.js';
+import { POINTS_OF_INTEREST } from './layout.js';
 
 /**
  * The world: everything that exists in 3D, assembled and kept in step with the
@@ -32,6 +33,9 @@ export class World {
     this.interiorCollision = new CollisionWorld(() => -1e6);
     this.interiorCollision.stepHeight = 0.55;
     this.inInterior = false;
+    /** Which tomb the player is inside: 'khufu', 'khafre', 'menkaure' or null. */
+    this.interiorSite = null;
+    this.interiorEntranceId = null;
 
     this.steps = [
       ['Raising the atmosphere', () => this._buildSky()],
@@ -40,6 +44,7 @@ export class World {
       ['Carving Hor-em-akhet and the temples', () => this._buildMonuments()],
       ['Opening the quarry, the harbour and the workers’ town', () => this._buildSite()],
       ['Scattering boulders, scrub and palms', () => this._buildProps()],
+      ['Building the approaches to the entrances', () => this._buildEntrances()],
       ['Cutting the passages and chambers', () => this._buildInterior()],
       ['Mustering the workforce', () => this._buildWorkers()],
       ['Lighting the torches', () => this._buildTorches()],
@@ -118,6 +123,13 @@ export class World {
     this.pennants = new Pennants(this.scene, this.monuments.pennantSites, this.site.materials.timber);
   }
 
+  _buildEntrances() {
+    this.entrances = new EntranceSystem(
+      this.scene, this.textures, this.quality, this.collision,
+      (x, z) => terrainHeight(x, z)
+    );
+  }
+
   _buildInterior() {
     this.interior = new InteriorSystem(this.textures, this.quality);
     this.interior.registerCollision(this.interiorCollision);
@@ -138,16 +150,10 @@ export class World {
     const posts = buildTorchPosts(this.interior.torchSites, this.interior.materials.rough);
     if (posts) this.interior.scene.add(posts);
 
-    // Where the player stands when stepping in from the north face.
-    this.interiorEntry = this.interior.entrancePoint.clone();
-    this.exteriorEntry = this._exteriorEntrancePoint();
-  }
-
-  _exteriorEntrancePoint() {
-    const p = PYRAMIDS.khufu;
-    const y = KHUFU_INTERIOR.entrance.y;
-    const z = -(p.baseLength / 2) * (1 - y / p.designHeight);
-    return new THREE.Vector3(p.x + KHUFU_INTERIOR.entrance.x, p.baseY + y, p.z + z - 6);
+    // Where the player stands when stepping in, and where they come back out.
+    // Both are set by whichever entrance was used; these are the defaults.
+    this.interiorEntry = this.interior.sites.khufu.entry.clone();
+    this.exteriorEntry = this.entrances.byId('khufu').outside.clone();
   }
 
   _buildWorkers() {
@@ -164,21 +170,42 @@ export class World {
   }
 
   _buildTorches() {
-    this.torches = new TorchSystem(this.scene, this.textures, this.quality, { capacity: 220 });
-    const sites = [...this.monuments.torchSites, ...this.site.torchSites];
+    this.torches = new TorchSystem(this.scene, this.textures, this.quality, { capacity: 260 });
+    const sites = [...this.monuments.torchSites, ...this.site.torchSites, ...this.entrances.torchSites];
     for (const t of sites) this.torches.add(t.x, t.y, t.z, { scale: t.scale, interior: false });
     const posts = buildTorchPosts(sites, this.site.materials.timber);
     if (posts) this.scene.add(posts);
     this.torchSites = sites;
   }
 
-  /** Points of interest, split by which scene they live in. */
+  /**
+   * Points of interest: the hand-written set plus every relic the interiors
+   * registered while they were being built.  Cached, because proximity runs
+   * this every frame.
+   */
   get pointsOfInterest() {
-    return POINTS_OF_INTEREST;
+    if (!this._poiCache) {
+      this._poiCache = [
+        ...POINTS_OF_INTEREST,
+        ...(this.monuments ? this.monuments.relicPoints : []),
+        ...(this.interior ? this.interior.relicPoints : []),
+      ];
+    }
+    return this._poiCache;
+  }
+
+  /**
+   * Which scene a point of interest belongs to: a site id for anything
+   * underground, null for the plateau.  The three hand-written interior
+   * entries predate the other tombs and just say `interior: true`.
+   */
+  static poiSite(poi) {
+    if (!poi.interior) return null;
+    return poi.interior === true ? 'khufu' : poi.interior;
   }
 
   poiWorldPosition(poi) {
-    if (poi.interior) {
+    if (poi.interior === true) {
       const node = this.interior.nodes;
       if (poi.id === 'poi-kings-chamber') return node.kingsChamber.clone().add(new THREE.Vector3(0, 1.7, 0));
       if (poi.id === 'poi-grand-gallery') return node.grandGallery.clone().add(new THREE.Vector3(0, 1.7, 0));
@@ -195,19 +222,52 @@ export class World {
     return this.inInterior ? this.interiorCollision : this.collision;
   }
 
-  enterInterior() {
+  /**
+   * Step inside through a named entrance.  The entrance decides both which
+   * tomb the player lands in and where they will be put back down when they
+   * leave, so entering by Khafre's lower passage and walking up through the
+   * pyramid puts you back out at the lower entrance, not the upper one.
+   */
+  enterInterior(entranceId = 'khufu') {
+    const entrance = this.entrances.byId(entranceId) || this.entrances.byId('khufu');
+    const spot = this.interior.sites[entrance.id] || this.interior.sites[entrance.site];
     this.inInterior = true;
-    return this.interiorEntry.clone();
+    this.interiorSite = entrance.site;
+    this.interiorEntranceId = entrance.id;
+    this.interiorEntry = spot.entry.clone();
+    this.exteriorEntry = entrance.outside.clone();
+    return { position: this.interiorEntry.clone(), yaw: spot.yaw, name: entrance.name };
   }
 
   exitInterior() {
     this.inInterior = false;
-    return this.exteriorEntry.clone();
+    this.interiorSite = null;
+    const entrance = this.entrances.byId(this.interiorEntranceId);
+    return {
+      position: this.exteriorEntry.clone(),
+      yaw: 0,
+      name: entrance ? entrance.name : 'the plateau',
+    };
   }
 
-  /** Distance from a point to the pyramid entrance, for the enter/exit prompt. */
-  distanceToEntrance(position) {
-    return position.distanceTo(this.inInterior ? this.interiorEntry : this.exteriorEntry);
+  /**
+   * What the interaction key would act on from here: an entrance to step into
+   * from outside, or the way back out when inside.
+   */
+  entranceAt(position) {
+    if (!this.entrances) return null;
+    if (!this.inInterior) return this.entrances.nearest(position);
+    const d = position.distanceTo(this.interiorEntry);
+    if (d > 14) return null;
+    const entrance = this.entrances.byId(this.interiorEntranceId);
+    return {
+      id: this.interiorEntranceId,
+      site: this.interiorSite,
+      name: entrance ? entrance.name : '',
+      prompt: 'Leave the pyramid',
+      outside: this.exteriorEntry,
+      leaving: true,
+    };
   }
 
   /**

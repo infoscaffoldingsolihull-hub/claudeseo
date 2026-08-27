@@ -286,8 +286,14 @@ export class TourDirector {
       });
     }
 
+    // Viewpoint keys are site-qualified ('khafre.burialChamber'); Khufu's are
+    // bare, and resolve to that tomb.
     const wantInterior = !!beat.interior;
-    if (wantInterior !== sim.world.inInterior) sim.toggleInterior(true);
+    const wantSite = wantInterior
+      ? (beat.interior.includes('.') ? beat.interior.split('.')[0] : 'khufu')
+      : null;
+    if (sim.world.inInterior && sim.world.interiorSite !== wantSite) sim.toggleInterior(true);
+    if (wantInterior && !sim.world.inInterior) sim.toggleInterior(true, wantSite);
 
     if (wantInterior) {
       const vp = sim.world.interior.viewpoints[beat.interior];

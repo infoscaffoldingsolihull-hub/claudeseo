@@ -92,14 +92,26 @@ async function run() {
   if (wantShots && !existsSync(SHOT_DIR)) mkdirSync(SHOT_DIR, { recursive: true });
 
   const results = [];
+  // Assertion failures, as distinct from console errors: a silently blocked
+  // doorway throws nothing, so it has to be checked for and reported.
+  const failures = [];
+
   const scenarios = [
     { id: 'overview', mode: 'manager', hour: 9.5, wait: 2200 },
     { id: 'sunrise-walk', mode: 'archaeologist', hour: 6.0, wait: 2200 },
     { id: 'noon-site', mode: 'archaeologist', hour: 12.0, wait: 2000 },
     { id: 'golden-hour', mode: 'drone', hour: 17.5, wait: 2400 },
     { id: 'night-torches', mode: 'drone', hour: 21.0, wait: 2200 },
+    // Framed from the north, low, so the approach stair and the chevrons
+    // over the doorway are both in shot.
+    { id: 'khufu-entrance', mode: 'manager', hour: 8.0, focus: [7.3, 15, -112], distance: 82, phi: Math.PI * 0.43, theta: Math.PI, wait: 2200 },
+    { id: 'khafre-entrance', mode: 'manager', hour: 8.5, focus: [-240, 20, 316], distance: 76, phi: Math.PI * 0.43, theta: Math.PI, wait: 2200 },
     { id: 'interior-kings-chamber', mode: 'archaeologist', hour: 12.0, interior: 'kingsChamber', wait: 2400 },
     { id: 'interior-grand-gallery', mode: 'archaeologist', hour: 12.0, interior: 'grandGallery', wait: 2400 },
+    { id: 'interior-khafre-burial', mode: 'archaeologist', hour: 12.0, interior: 'khafre.burialChamber', wait: 2400 },
+    { id: 'interior-khafre-lower', mode: 'archaeologist', hour: 12.0, interior: 'khafre.subsidiary', wait: 2200 },
+    { id: 'interior-menkaure-main', mode: 'archaeologist', hour: 12.0, interior: 'menkaure.mainChamber', wait: 2400 },
+    { id: 'interior-menkaure-panelled', mode: 'archaeologist', hour: 12.0, interior: 'menkaure.panelledChamber', wait: 2200 },
     { id: 'tour', mode: 'tour', hour: 8.0, wait: 2600 },
   ];
 
@@ -110,6 +122,36 @@ async function run() {
     results.push({ id: s.id, ...stats });
     console.log(`  ${s.id.padEnd(26)} fps=${stats.fps.toFixed(1)} calls=${stats.calls} tris=${stats.triangles}`);
     if (wantShots) await page.screenshot({ path: join(SHOT_DIR, `${s.id}.jpg`), type: 'jpeg', quality: 82 });
+  }
+
+  console.log('> entrance approaches');
+  const entrances = await page.evaluate(() => window.__giza.entranceReport());
+  for (const e of entrances) {
+    console.log(`  ${e.id.padEnd(14)} landing=${e.landingY}m worstRise=${e.worstRise}m (limit ${e.stepHeight}) ${e.walkable ? 'walkable' : 'BLOCKED'}`);
+    if (!e.walkable) failures.push(`entrance ${e.id} is not walkable: worst rise ${e.worstRise} m`);
+  }
+
+  console.log('> stepping through every entrance');
+  for (const e of entrances) {
+    const probe = await page.evaluate((id) => window.__giza.probeEntrance(id), e.id);
+    console.log(`  ${probe.id.padEnd(14)} site=${probe.site} floorGap=${probe.floorGap}m canLeave=${probe.canLeave}`);
+    if (!probe.inInterior) failures.push(`entrance ${e.id} did not lead inside`);
+    // A spawn more than a stride above the floor means the arrival point is
+    // hanging in the rock rather than standing on it.
+    if (Math.abs(probe.floorGap) > 1.2) failures.push(`entrance ${e.id} arrives ${probe.floorGap} m off the floor`);
+    if (!probe.canLeave) failures.push(`entrance ${e.id} has no way back out`);
+  }
+  await page.evaluate(() => { if (window.__giza.sim.world.inInterior) window.__giza.sim.toggleInterior(true); });
+
+  const relics = await page.evaluate(() => window.__giza.relicReport());
+  console.log(`> relics: ${relics.total} discoverable (${JSON.stringify(relics.bySite)})`);
+
+  console.log('> walking into every temple');
+  const temples = await page.evaluate(() => window.__giza.templeReport());
+  for (const t of temples) {
+    const note = t.obstruction === null ? '' : ` (court obstructed ${t.obstruction} m in)`;
+    console.log(`  ${t.id.padEnd(18)} court=${t.courtFloor}m gate=${t.gateBlocked ? 'BLOCKED' : 'clear'}${note}`);
+    if (t.gateBlocked) failures.push(`temple ${t.id} gateway is blocked`);
   }
 
   console.log('> exercising every dashboard panel');
@@ -196,14 +238,19 @@ async function run() {
   console.log(`panels         : ${panels.length}`);
   console.log(`viewports      : ${layouts.length} (${layouts.map((l) => l.label).join(', ')})`);
   console.log(`min fps        : ${minFps.toFixed(1)} (SwiftShader software rasteriser)`);
+  console.log(`entrances      : ${entrances.length} (all walkable, all lead inside)`);
+  console.log(`temples        : ${temples.length} walkable`);
+  console.log(`relics         : ${relics.total} discoverable`);
   console.log(`console errors : ${errors.length}`);
   console.log(`console warns  : ${warnings.length}`);
+  console.log(`assertions     : ${failures.length} failed`);
   if (warnings.length) warnings.slice(0, 12).forEach((w) => console.log(`  warn: ${w}`));
-  if (errors.length) {
-    errors.slice(0, 30).forEach((e) => console.log(`  ERROR: ${e}`));
+  if (errors.length) errors.slice(0, 30).forEach((e) => console.log(`  ERROR: ${e}`));
+  if (failures.length) failures.forEach((m) => console.log(`  FAIL: ${m}`));
+  if (errors.length || failures.length) {
     process.exitCode = 1;
   } else {
-    console.log('RESULT: PASS - zero console errors');
+    console.log('RESULT: PASS - zero console errors, all assertions passed');
   }
 }
 

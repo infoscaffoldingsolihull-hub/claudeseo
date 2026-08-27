@@ -2,19 +2,24 @@ import * as THREE from 'three';
 import { makeRng, lerp, clamp } from '../engine/noise.js';
 import { mergeGeometries, box, hollowRoom, gableRoof, scaleUvByWorldSize } from './geobuild.js';
 import { KHUFU_INTERIOR, PYRAMIDS } from './layout.js';
+import { RelicKit } from './relics.js';
+import { buildKhafre, buildMenkaure } from './tombs.js';
 
 /**
- * The interior of the Great Pyramid, at survey dimensions.
+ * The interiors of all three great pyramids.
  *
- * Everything lies in a single vertical plane 7.29 m east of the pyramid's
- * north-south axis - the same plane as the original entrance - exactly as
- * Petrie found it.  Passages are 1.05 m wide and 1.20 m high, so the player
- * has to stoop; the Grand Gallery opens out to 8.74 m; the King's Chamber is
- * red granite with five relieving chambers stacked above it.
+ * The Great Pyramid is built here at survey dimensions: everything lies in a
+ * single vertical plane 7.29 m east of the north-south axis - the same plane
+ * as the original entrance - exactly as Petrie found it.  Passages are 1.05 m
+ * wide and 1.20 m high, so the player has to stoop; the Grand Gallery opens
+ * out to 8.74 m; the King's Chamber is red granite with five relieving
+ * chambers stacked above it.  Khafre's and Menkaure's interiors are built by
+ * ./tombs.js into the same buckets.
  *
- * The interior is a scene of its own.  It is never rendered at the same time
- * as the exterior, which keeps both draw-call counts low and lets the interior
- * run its own fog, torchlight and dust.
+ * All of it is one scene, separate from the plateau.  Only one of the two is
+ * ever rendered, which keeps both draw-call counts low and lets the interior
+ * run its own fog, torchlight and dust.  The three tombs are hundreds of
+ * metres apart, so the fog closes long before one could be seen from another.
  */
 
 const K = KHUFU_INTERIOR;
@@ -188,15 +193,87 @@ export class InteriorSystem {
 
     this.nodes = {};
     this.viewpoints = {};
+    this.parts = { limestone: [], dressed: [], granite: [], rough: [] };
+    this.relics = new RelicKit(textures, quality);
+
     this._build();
+    this._decorateKhufu();
+
+    // Khufu's own nodes are unprefixed for historical reasons; give every one
+    // of them a site-qualified alias so all three tombs address alike.
+    for (const key of Object.keys(this.nodes)) this.nodes[`khufu.${key}`] = this.nodes[key];
+    for (const key of Object.keys(this.viewpoints)) this.viewpoints[`khufu.${key}`] = this.viewpoints[key];
+
+    const ctx = {
+      parts: this.parts,
+      colliders: this.colliders,
+      torchSites: this.torchSites,
+      nodes: this.nodes,
+      viewpoints: this.viewpoints,
+      relics: this.relics,
+      rng: this.rng,
+    };
+    buildKhafre(ctx);
+    buildMenkaure(ctx);
+
+    this._assemble();
+    this.relics.finish(this.scene);
+    for (const c of this.relics.colliders) this.colliders.push(c);
+    this._buildSites();
     this._buildLighting();
   }
 
+  /** Where the player arrives, and which way they face, for each tomb. */
+  _buildSites() {
+    this.sites = {
+      khufu: {
+        id: 'khufu',
+        name: PYRAMIDS.khufu.name,
+        entry: this.nodes.entrance.clone(),
+        yaw: Math.PI,
+      },
+      khafre: {
+        id: 'khafre',
+        name: PYRAMIDS.khafre.name,
+        entry: this.nodes['khafre.entrance'].clone(),
+        yaw: Math.PI,
+      },
+      menkaure: {
+        id: 'menkaure',
+        name: PYRAMIDS.menkaure.name,
+        entry: this.nodes['menkaure.entrance'].clone(),
+        yaw: Math.PI,
+      },
+    };
+    // Two of the ways in are second doors into a tomb that already has one,
+    // so they get their own arrival point rather than the site's default.
+    this.sites.khufuMamun = {
+      id: 'khufuMamun',
+      site: 'khufu',
+      name: 'Great Pyramid — al-Ma’mun’s tunnel',
+      entry: this.nodes.mamun.clone(),
+      yaw: Math.PI,
+    };
+    // The lower entrance of Khafre is a second way into the same tomb.
+    this.sites.khafreLower = {
+      id: 'khafreLower',
+      site: 'khafre',
+      name: `${PYRAMIDS.khafre.name} — lower entrance`,
+      entry: this.nodes['khafre.lowerEntrance'].clone(),
+      yaw: Math.PI,
+    };
+  }
+
+  /** Points of interest contributed by the relics, for the codex. */
+  get relicPoints() {
+    return this.relics.relics;
+  }
+
   _build() {
-    const lime = [];
-    const dressed = [];
-    const granite = [];
-    const rough = [];
+    const lime = this.parts.limestone;
+    const dressed = this.parts.dressed;
+    const granite = this.parts.granite;
+    const rough = this.parts.rough;
     const colliders = this.colliders;
 
     // ---------------------------------------------------------- entrance
@@ -381,17 +458,125 @@ export class InteriorSystem {
     this._lineTorches(horizY, ascEndZ, horizY, qcNorthWallZ - 6, 9);
     this._lineTorches(ggStartY, ggStartZ, ggEndY, ggEndZ, 7);
 
-    // ------------------------------------------------------------ assemble
-    this._addMesh(mergeGeometries(lime), this.materials.limestone, 'interior-limestone');
-    this._addMesh(mergeGeometries(dressed), this.materials.dressed, 'interior-dressed');
-    this._addMesh(mergeGeometries(granite), this.materials.granite, 'interior-granite');
-    this._addMesh(mergeGeometries(rough), this.materials.rough, 'interior-rough');
-
-    this._buildShaftMouths();
-
     // Daylight spilling in at the two entrances.
     this._addDaylight(AXIS_X, entryY + PH / 2, entryZ - 2.4, PW, PH);
     this._addDaylight(AXIS_X, mamunY + 1.0, mamunZ - 0.6, 1.5, 2.0);
+  }
+
+  /**
+   * Merge every bucket once all three tombs have contributed to it.  Four
+   * meshes carry the whole of Giza's underground, which is what keeps the
+   * interior at ten draw calls.
+   */
+  _assemble() {
+    this._addMesh(mergeGeometries(this.parts.limestone), this.materials.limestone, 'interior-limestone');
+    this._addMesh(mergeGeometries(this.parts.dressed), this.materials.dressed, 'interior-dressed');
+    this._addMesh(mergeGeometries(this.parts.granite), this.materials.granite, 'interior-granite');
+    this._addMesh(mergeGeometries(this.parts.rough), this.materials.rough, 'interior-rough');
+    this._buildShaftMouths();
+
+    // Daylight at the mouths of the other three ways in.
+    for (const [key, w, h] of [
+      ['khafre.entrance', KHUFU_INTERIOR.passageWidth, KHUFU_INTERIOR.passageHeight],
+      ['khafre.lowerEntrance', KHUFU_INTERIOR.passageWidth, KHUFU_INTERIOR.passageHeight],
+      ['menkaure.entrance', KHUFU_INTERIOR.passageWidth, KHUFU_INTERIOR.passageHeight],
+    ]) {
+      const n = this.nodes[key];
+      if (n) this._addDaylight(n.x, n.y + h / 2, n.z - 4.2, w, h);
+    }
+  }
+
+  /**
+   * Furnish the Great Pyramid.
+   *
+   * A deliberate point of accuracy: unlike every later royal tomb, Khufu's
+   * chambers carry no decoration at all.  The only inscriptions in the whole
+   * monument are the red-ochre gang marks daubed on the blocks of the
+   * relieving chambers before they were sealed - which nobody was ever meant
+   * to see.  Those are here, in the one place they belong, and the grave goods
+   * are the ones the burial would have held.
+   */
+  _decorateKhufu() {
+    const R = this.relics;
+    const rng = this.rng;
+    const kc = this.nodes.kingsChamber;
+    const qc = this.nodes.queensChamber;
+    const sub = this.nodes.subterranean;
+    const dav = this.nodes.davison;
+    const K2 = K.kingsChamber;
+
+    // ---- King's Chamber: bare granite, an open box, and the masons' kit ----
+    R.brokenLid(AXIS_X - K2.w / 2 + 4.6, kc.y, kc.z + 0.4, 0.12, K.sarcophagus.w, K.sarcophagus.d);
+    R.toolCache(AXIS_X + K2.w / 2 - 1.7, kc.y, kc.z + 1.5, -Math.PI * 0.5, {
+      site: 'khufu',
+      id: 'relic-khufu-tools',
+    });
+    R.relic({
+      id: 'relic-khufu-bare-walls',
+      name: 'The Undecorated Chamber',
+      site: 'khufu',
+      x: AXIS_X, y: kc.y + 1.7, z: kc.z - 1.6,
+      text:
+        'Not one hieroglyph. Every later royal tomb is covered in text — the Pyramid Texts begin in ' +
+        'Unas’s pyramid three centuries after this — but Khufu’s chambers are bare polished granite, ' +
+        'joints so fine you cannot slide a blade into them. Whatever the builders believed was doing the ' +
+        'work here, it was not writing.',
+      pm: 'Work package 6.5 — the specification was surface finish, not decoration. Know what you are buying.',
+    });
+
+    // ---- the relieving chambers: the only writing in the pyramid ----
+    if (dav) {
+      R.glyphPanel(AXIS_X - 2.6, dav.y + 0.55, dav.z - K2.d / 2 - 0.5, 3.4, 0.85, 's', { tile: 1.5, painted: true });
+      R.glyphPanel(AXIS_X + 1.9, dav.y + 0.5, dav.z + K2.d / 2 + 0.5, 2.8, 0.8, 'n', { tile: 1.5, painted: true });
+      R.cartouche(AXIS_X - 0.2, dav.y + 0.7, dav.z - K2.d / 2 - 0.46, 0.8, 's');
+      R.relic({
+        id: 'relic-khufu-gang-marks',
+        name: 'The Gang Marks',
+        site: 'khufu',
+        x: AXIS_X - 1.2, y: dav.y + 0.7, z: dav.z - K2.d / 2 - 0.2,
+        text:
+          'Daubed in red ochre on blocks that were about to be walled in for ever: quarry dates, levelling ' +
+          'lines, and the names of the work gangs. One of them reads “the gang: How powerful is the White ' +
+          'Crown of Khnum-Khufu”. It is the only place in the pyramid the king’s name appears, and it was ' +
+          'written by the crew, not for the crew.',
+        pm: 'Work package 6.6 — relieving chambers. The site record survived because nobody curated it.',
+      });
+    }
+
+    // ---- Queen's Chamber: the niche, and the goods the ka would draw on ----
+    if (qc) {
+      R.kaStatue(AXIS_X + K.queensChamber.w / 2 - 0.75, qc.y, qc.z + 0.9, -Math.PI * 0.5, {
+        site: 'khufu',
+        scale: 0.62,
+        id: 'relic-khufu-ka',
+        name: 'The Statue in the Niche',
+        text:
+          'The corbelled niche in the east wall was cut for something and then abandoned half-finished. ' +
+          'The usual reading is a serdab: a sealed cell holding a ka-statue, with a slot for the incense ' +
+          'to reach it. What actually stood here, if anything, nobody knows.',
+      });
+      R.offeringTable(AXIS_X - K.queensChamber.w / 2 + 1.1, qc.y, qc.z - 1.3, Math.PI * 0.5, { site: 'khufu' });
+      R.canopicChest(AXIS_X - K.queensChamber.w / 2 + 1.2, qc.y, qc.z + 1.2, Math.PI * 0.5, { site: 'khufu' });
+      R.jarCluster(AXIS_X + 0.4, qc.y, qc.z + K.queensChamber.d / 2 - 0.6, Math.PI, 4, rng);
+      R.modelBoat(AXIS_X - 0.6, qc.y, qc.z - K.queensChamber.d / 2 + 1.0, 0, { site: 'khufu' });
+    }
+
+    // ---- the subterranean chamber: abandoned mid-cut ----
+    if (sub) {
+      R.jarCluster(sub.x - 4.6, sub.y, sub.z - 2.2, 0, 4, rng);
+      R.stela(sub.x - 5.4, sub.y, sub.z + 1.6, Math.PI * 0.5, {
+        site: 'khufu',
+        id: 'relic-khufu-abandoned',
+        name: 'The Abandoned Chamber',
+        height: 1.6,
+        text:
+          'The first plan put the burial chamber down here, in the bedrock. The floor was left as a ' +
+          'jagged half-cut trench and the crews were moved up into the masonry instead. Two more chambers ' +
+          'were begun and changed before the King’s Chamber was settled on.',
+        pm: 'Work package 6.1 — two full changes of design mid-build, and the schedule absorbed both.',
+      });
+      R.toolCache(sub.x + 3.8, sub.y, sub.z - 1.4, Math.PI, { site: 'khufu', id: 'relic-khufu-sub-tools' });
+    }
   }
 
   _addMesh(geometry, material, name) {
@@ -627,6 +812,15 @@ export class InteriorSystem {
       ['subterranean', 4.2, 22],
       ['grandGallery', 6.0, 34],
       ['davison', 2.4, 14],
+      // Small chambers need much less than the King's Chamber: the same
+      // intensity in a 3 m room blows straight through the tone mapping and
+      // the walls come back as flat orange.
+      ['khafre.burialChamber', 5.4, 30],
+      ['khafre.subsidiary', 2.4, 16],
+      ['menkaure.panelledChamber', 1.9, 10],
+      ['menkaure.mainChamber', 4.6, 26],
+      ['menkaure.nicheChamber', 1.7, 11],
+      ['menkaure.burialChamber', 2.4, 13],
     ]) {
       const node = this.nodes[key];
       if (!node) continue;
@@ -657,5 +851,6 @@ export class InteriorSystem {
       if (o.geometry) o.geometry.dispose();
     });
     for (const m of Object.values(this.materials)) m.dispose();
+    this.relics.dispose();
   }
 }

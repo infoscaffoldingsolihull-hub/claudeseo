@@ -215,6 +215,52 @@ export const KHUFU_INTERIOR = {
   shaftDiameter: 0.21,
 };
 
+/**
+ * Interior of Khafre's pyramid — the simplest of the three, and the only one
+ * whose burial chamber is cut almost entirely into the bedrock.  Two entrances
+ * on the north side join in a single horizontal passage: the upper one 11.54 m
+ * up the face, the lower one out in the pavement north of the pyramid.
+ * Y values are relative to the pyramid's base course.
+ */
+export const KHAFRE_INTERIOR = {
+  upperEntrance: { x: 12.0, y: 11.54 },
+  /** The lower entrance opens in the courtyard pavement, north of the face. */
+  lowerEntrance: { x: 12.0, groundOffset: 30.0 },
+  passageAngleDeg: 26.53,
+  passageWidth: 1.06,
+  passageHeight: 1.19,
+  upperDescendLength: 31.7,
+  /** Level of the long horizontal run that both entrances feed into. */
+  horizontalY: -0.9,
+  horizontalLength: 57.0,
+  burialChamber: { w: 14.15, d: 5.0, wallH: 4.6, apexH: 6.83, floorY: -1.2 },
+  /** Belzoni broke in on 2 March 1818 and wrote his name on the south wall. */
+  graffito: 'Scoperta da G. Belzoni  2  mar  1818',
+  subsidiaryChamber: { w: 10.4, d: 3.1, h: 2.6 },
+  sarcophagus: { w: 2.63, d: 1.06, h: 0.97 },
+};
+
+/**
+ * Interior of Menkaure's pyramid: three chambers on two levels, the lowest
+ * lined with granite under a barrel-vaulted roof cut from the underside of
+ * paired slabs.  The basalt sarcophagus was lost with the Beatrice off
+ * Cartagena in 1838, so the emplacement here is empty, as it is today.
+ */
+export const MENKAURE_INTERIOR = {
+  entrance: { x: 0.0, y: 4.0 },
+  passageAngleDeg: 26.2,
+  passageWidth: 1.05,
+  passageHeight: 1.20,
+  descendingLength: 31.7,
+  /** Panelled chamber: the only decorated room in any Giza pyramid. */
+  panelledChamber: { w: 3.63, d: 3.15, h: 3.05, floorY: -10.6 },
+  portcullisCount: 3,
+  mainChamber: { w: 14.2, d: 3.84, h: 4.87, floorY: -12.4 },
+  nicheChamber: { w: 5.4, d: 1.9, h: 2.4, floorY: -16.8, niches: 6 },
+  burialChamber: { w: 6.59, d: 2.62, h: 3.43, floorY: -18.9 },
+  sarcophagus: { w: 2.44, d: 0.94, h: 0.89 },
+};
+
 /** Points of interest surfaced in Archaeologist mode and the guided tour. */
 export const POINTS_OF_INTEREST = [
   {

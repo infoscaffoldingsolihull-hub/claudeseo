@@ -57820,6 +57820,52 @@ const KHUFU_INTERIOR = {
   shaftDiameter: 0.21,
 };
 
+/**
+ * Interior of Khafre's pyramid — the simplest of the three, and the only one
+ * whose burial chamber is cut almost entirely into the bedrock.  Two entrances
+ * on the north side join in a single horizontal passage: the upper one 11.54 m
+ * up the face, the lower one out in the pavement north of the pyramid.
+ * Y values are relative to the pyramid's base course.
+ */
+const KHAFRE_INTERIOR = {
+  upperEntrance: { x: 12.0, y: 11.54 },
+  /** The lower entrance opens in the courtyard pavement, north of the face. */
+  lowerEntrance: { x: 12.0, groundOffset: 30.0 },
+  passageAngleDeg: 26.53,
+  passageWidth: 1.06,
+  passageHeight: 1.19,
+  upperDescendLength: 31.7,
+  /** Level of the long horizontal run that both entrances feed into. */
+  horizontalY: -0.9,
+  horizontalLength: 57.0,
+  burialChamber: { w: 14.15, d: 5.0, wallH: 4.6, apexH: 6.83, floorY: -1.2 },
+  /** Belzoni broke in on 2 March 1818 and wrote his name on the south wall. */
+  graffito: 'Scoperta da G. Belzoni  2  mar  1818',
+  subsidiaryChamber: { w: 10.4, d: 3.1, h: 2.6 },
+  sarcophagus: { w: 2.63, d: 1.06, h: 0.97 },
+};
+
+/**
+ * Interior of Menkaure's pyramid: three chambers on two levels, the lowest
+ * lined with granite under a barrel-vaulted roof cut from the underside of
+ * paired slabs.  The basalt sarcophagus was lost with the Beatrice off
+ * Cartagena in 1838, so the emplacement here is empty, as it is today.
+ */
+const MENKAURE_INTERIOR = {
+  entrance: { x: 0.0, y: 4.0 },
+  passageAngleDeg: 26.2,
+  passageWidth: 1.05,
+  passageHeight: 1.20,
+  descendingLength: 31.7,
+  /** Panelled chamber: the only decorated room in any Giza pyramid. */
+  panelledChamber: { w: 3.63, d: 3.15, h: 3.05, floorY: -10.6 },
+  portcullisCount: 3,
+  mainChamber: { w: 14.2, d: 3.84, h: 4.87, floorY: -12.4 },
+  nicheChamber: { w: 5.4, d: 1.9, h: 2.4, floorY: -16.8, niches: 6 },
+  burialChamber: { w: 6.59, d: 2.62, h: 3.43, floorY: -18.9 },
+  sarcophagus: { w: 2.44, d: 0.94, h: 0.89 },
+};
+
 /** Points of interest surfaced in Archaeologist mode and the guided tour. */
 const POINTS_OF_INTEREST = [
   {
@@ -59616,7 +59662,575 @@ class PyramidSystem {
   }
 }
 
+/* ================= src/world/relics.js ================= */
+
+
+
+/**
+ * The furnishing kit for the interiors: carved hieroglyphs, painted registers,
+ * and the grave goods themselves.
+ *
+ * Everything here is built from primitives in a local frame, then rotated and
+ * dropped into place, and accumulated into one bucket per material.  A whole
+ * pyramid's worth of relics therefore costs about a dozen draw calls rather
+ * than one per object.
+ *
+ * Objects that are worth walking over to look at also register a *relic
+ * record* - the same shape as a point of interest - so the discovery and codex
+ * machinery picks them up with no extra wiring.
+ */
+
+/* Pigments actually available to a 4th Dynasty workshop: ochres, Egyptian
+ * blue (ground frit), malachite green, gypsum white, carbon black. */
+const PALETTE = {
+  gold: { color: 0xd4af37, roughness: 0.28, metalness: 0.92 },
+  copper: { color: 0xa9613a, roughness: 0.38, metalness: 0.78 },
+  alabaster: { color: 0xe6dcc4, roughness: 0.34, metalness: 0 },
+  cedar: { color: 0x6b4a2c, roughness: 0.82, metalness: 0 },
+  ochre: { color: 0xc98b32, roughness: 0.74, metalness: 0 },
+  blue: { color: 0x24578f, roughness: 0.62, metalness: 0 },
+  red: { color: 0x9d3a26, roughness: 0.76, metalness: 0 },
+  green: { color: 0x3f7a55, roughness: 0.72, metalness: 0 },
+  white: { color: 0xe8e0cc, roughness: 0.68, metalness: 0 },
+  black: { color: 0x171310, roughness: 0.58, metalness: 0 },
+  faience: { color: 0x3fa5a0, roughness: 0.3, metalness: 0.1 },
+  granite: { color: 0x6b4a44, roughness: 0.5, metalness: 0.04 },
+  linen: { color: 0xd8cdb2, roughness: 0.92, metalness: 0 },
+};
+
+/** Cylinder standing on its base at the origin. */
+function cyl(rTop, rBottom, h, x, y, z, seg = 12) {
+  const g = new THREE.CylinderGeometry(rTop, rBottom, h, seg);
+  g.translate(x, y + h / 2, z);
+  return g;
+}
+
+/** Sphere, optionally squashed, centred at the point given. */
+function ball(r, x, y, z, sx = 1, sy = 1, sz = 1) {
+  const g = new THREE.SphereGeometry(r, 14, 10);
+  g.scale(sx, sy, sz);
+  g.translate(x, y, z);
+  return g;
+}
+
+class RelicKit {
+  constructor(textures, quality) {
+    const glyphTex = textures.hieroglyphs();
+    const aniso = Math.min(quality.settings.anisotropy, quality.maxAnisotropy);
+    glyphTex.anisotropy = aniso;
+
+    this.materials = {
+      // Sunk relief cut into the dressed limestone: the map carries the
+      // glyph columns, and a strong normal scale makes them read as carving
+      // rather than wallpaper under raking torchlight.
+      glyph: new THREE.MeshStandardMaterial({
+        map: glyphTex,
+        color: 0xd7c8a4,
+        roughness: 0.84,
+        metalness: 0,
+      }),
+      glyphPainted: new THREE.MeshStandardMaterial({
+        map: glyphTex,
+        color: 0xe4cf9c,
+        emissive: 0x2a1d0c,
+        emissiveIntensity: 0.35,
+        roughness: 0.7,
+        metalness: 0,
+      }),
+    };
+    for (const [name, spec] of Object.entries(PALETTE)) {
+      this.materials[name] = new THREE.MeshStandardMaterial(spec);
+    }
+
+    this.buckets = {};
+    for (const key of Object.keys(this.materials)) this.buckets[key] = [];
+
+    this.relics = [];
+    this.colliders = [];
+    this.torchSites = [];
+  }
+
+  /**
+   * Returns a placement function bound to one local frame.  Artifacts are
+   * modelled facing -Z at the origin and then yawed into place, which keeps
+   * every builder below readable.
+   */
+  _at(x, y, z, ry = 0) {
+    const m = new THREE.Matrix4().makeRotationY(ry);
+    m.setPosition(x, y, z);
+    return (bucket, ...geometries) => {
+      for (const g of geometries) {
+        if (!g) continue;
+        g.applyMatrix4(m);
+        this.buckets[bucket].push(g);
+      }
+    };
+  }
+
+  /** Register something worth walking over to look at. */
+  relic(spec) {
+    this.relics.push({
+      category: 'relic',
+      interior: spec.site,
+      site: spec.site,
+      position: [spec.x, spec.y, spec.z],
+      look: spec.look || [spec.x, spec.y, spec.z],
+      ...spec,
+    });
+    return this;
+  }
+
+  /** Solid volume the player should not walk through. */
+  solid(x, y, z, w, h, d, tag = 'relic') {
+    this.colliders.push({
+      minX: x - w / 2, maxX: x + w / 2,
+      minY: y, maxY: y + h,
+      minZ: z - d / 2, maxZ: z + d / 2,
+      tag,
+    });
+    return this;
+  }
+
+  /* ------------------------------------------------------------ carving */
+
+  /**
+   * A register of hieroglyphs on a wall face.
+   *
+   * `facing` is the outward normal of the wall the panel is applied to, so
+   * the caller thinks in terms of "the east wall" rather than in yaw angles.
+   * The panel stands a couple of centimetres proud of the masonry: enough to
+   * clear z-fighting, little enough that it does not read as a hung board.
+   */
+  glyphPanel(x, y, z, width, height, facing = 'n', opts = {}) {
+    const { tile = 2.4, painted = false, proud = 0.02 } = opts;
+    const geo = new THREE.PlaneGeometry(width, height);
+    // One texture tile per `tile` metres keeps glyphs about 0.3 m tall,
+    // which is the height of a monumental register.
+    const uv = geo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) {
+      uv.setXY(i, uv.getX(i) * (width / tile), uv.getY(i) * (height / tile));
+    }
+    const yaw = { n: 0, s: Math.PI, e: Math.PI / 2, w: -Math.PI / 2 }[facing] || 0;
+    const off = new THREE.Vector3(0, 0, proud).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+    const m = new THREE.Matrix4().makeRotationY(yaw);
+    m.setPosition(x + off.x, y + height / 2, z + off.z);
+    geo.applyMatrix4(m);
+    this.buckets[painted ? 'glyphPainted' : 'glyph'].push(geo);
+    return this;
+  }
+
+  /**
+   * A royal cartouche: the shen ring drawn out into an oval, with the name
+   * inside it.  Two of these flanking a doorway is the standard treatment.
+   */
+  cartouche(x, y, z, height = 1.1, facing = 'n') {
+    const yaw = { n: 0, s: Math.PI, e: Math.PI / 2, w: -Math.PI / 2 }[facing] || 0;
+    const put = this._at(x, y, z, yaw);
+    const w = height * 0.46;
+    const r = w / 2;
+    const straight = height - w;
+    // The ring: two straight sides closed by a half-round at each end.
+    const ring = new THREE.TorusGeometry(r, 0.045, 7, 20, Math.PI);
+    ring.rotateZ(Math.PI);
+    ring.translate(0, -straight / 2, 0.055);
+    const ring2 = new THREE.TorusGeometry(r, 0.045, 7, 20, Math.PI);
+    ring2.translate(0, straight / 2, 0.055);
+    put('gold',
+      ring, ring2,
+      box(0.09, straight, 0.09, -r, 0, 0.055),
+      box(0.09, straight, 0.09, r, 0, 0.055),
+      // The bar closing the ring at its foot.
+      box(w + 0.2, 0.1, 0.09, 0, -height / 2 - 0.02, 0.055));
+    put('glyphPainted', (() => {
+      const g = new THREE.PlaneGeometry(w * 0.8, straight * 0.92);
+      const uv = g.attributes.uv;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 0.34, uv.getY(i) * 1.5);
+      g.translate(0, 0, 0.05);
+      return g;
+    })());
+    return this;
+  }
+
+  /**
+   * Palace-façade panelling: the recessed niching that decorates Menkaure's
+   * panelled chamber, and the only architectural decoration in any Giza
+   * pyramid's interior.
+   */
+  panelling(x, y, z, width, height, facing = 'n', count = 5) {
+    const yaw = { n: 0, s: Math.PI, e: Math.PI / 2, w: -Math.PI / 2 }[facing] || 0;
+    const put = this._at(x, y, z, yaw);
+    const pitch = width / count;
+    for (let i = 0; i < count; i++) {
+      const cx = -width / 2 + pitch * (i + 0.5);
+      // Each panel is a pair of shallow jambs around a deeper recess.
+      put('white',
+        box(pitch * 0.16, height, 0.16, cx - pitch * 0.3, height / 2, 0.08),
+        box(pitch * 0.16, height, 0.16, cx + pitch * 0.3, height / 2, 0.08),
+        box(pitch * 0.44, height * 0.08, 0.2, cx, height * 0.96, 0.1));
+    }
+    return this;
+  }
+
+  /**
+   * A star ceiling: the night sky as the Egyptians painted it, deep blue with
+   * five-pointed stars.  Painted on the underside, so it faces down.
+   */
+  starCeiling(x, y, z, width, depth, rng) {
+    const field = new THREE.PlaneGeometry(width, depth);
+    field.rotateX(Math.PI / 2);
+    field.translate(x, y, z);
+    this.buckets.blue.push(field);
+    const count = Math.max(8, Math.round((width * depth) / 2.2));
+    for (let i = 0; i < count; i++) {
+      const sx = x + (rng() - 0.5) * width * 0.94;
+      const sz = z + (rng() - 0.5) * depth * 0.94;
+      const r = 0.11 + rng() * 0.07;
+      // A five-pointed star reads well enough as two crossed slivers.
+      const a = rng() * Math.PI;
+      const s1 = box(r * 2.4, 0.02, r * 0.5, sx, y - 0.02, sz, a);
+      const s2 = box(r * 2.4, 0.02, r * 0.5, sx, y - 0.02, sz, a + Math.PI / 2);
+      this.buckets.ochre.push(s1, s2);
+    }
+    return this;
+  }
+
+  /**
+   * A false door: the threshold the ka crosses to take its offerings.  Jambs,
+   * a drum roll imitating the rolled-up reed mat, a lintel and a glyph panel.
+   */
+  falseDoor(x, y, z, height = 2.6, facing = 'n', opts = {}) {
+    const yaw = { n: 0, s: Math.PI, e: Math.PI / 2, w: -Math.PI / 2 }[facing] || 0;
+    const put = this._at(x, y, z, yaw);
+    const w = height * 0.62;
+    put('white',
+      box(w, height, 0.34, 0, height / 2, 0.17),
+      box(w * 0.62, height * 0.72, 0.2, 0, height * 0.36, 0.3),
+      box(w * 0.34, height * 0.5, 0.14, 0, height * 0.25, 0.38));
+    // The drum roll over the recess.
+    const drum = new THREE.CylinderGeometry(0.09, 0.09, w * 0.34, 10);
+    drum.rotateZ(Math.PI / 2);
+    drum.translate(0, height * 0.52, 0.42);
+    put('white', drum);
+    put('red', box(w * 0.34, 0.05, 0.16, 0, height * 0.5 - 0.06, 0.44));
+    this.glyphPanelLocal(put, 0, height * 0.62, 0.36, w * 0.5, height * 0.28);
+    this.glyphPanelLocal(put, -w * 0.42, height * 0.4, 0.32, 0.18, height * 0.6);
+    this.glyphPanelLocal(put, w * 0.42, height * 0.4, 0.32, 0.18, height * 0.6);
+    if (opts.name) {
+      this.relic({
+        id: opts.id || `relic-false-door-${Math.round(x)}-${Math.round(z)}`,
+        name: opts.name,
+        site: opts.site,
+        x, y: y + height * 0.6, z,
+        text: opts.text,
+        pm: opts.pm,
+      });
+    }
+    return this;
+  }
+
+  /** Glyph plane inside an artifact's own local frame. */
+  glyphPanelLocal(put, lx, ly, lz, width, height, tile = 0.9) {
+    const g = new THREE.PlaneGeometry(width, height);
+    const uv = g.attributes.uv;
+    for (let i = 0; i < uv.count; i++) {
+      uv.setXY(i, uv.getX(i) * (width / tile), uv.getY(i) * (height / tile));
+    }
+    g.translate(lx, ly, lz);
+    put('glyphPainted', g);
+    return this;
+  }
+
+  /* ---------------------------------------------------------- artifacts */
+
+  /** Low alabaster offering table, loaded with bread, a haunch and two jars. */
+  offeringTable(x, y, z, ry, opts = {}) {
+    const put = this._at(x, y, z, ry);
+    put('alabaster',
+      box(1.5, 0.14, 0.92, 0, 0.62, 0),
+      box(0.22, 0.62, 0.22, -0.52, 0.31, 0),
+      box(0.22, 0.62, 0.22, 0.52, 0.31, 0),
+      // The channel and basin cut into the top for the libation.
+      box(0.2, 0.05, 0.5, 0, 0.7, 0.2));
+    put('linen',
+      ball(0.16, -0.34, 0.75, -0.14, 1, 0.55, 1),
+      ball(0.15, -0.1, 0.75, -0.18, 1, 0.55, 1),
+      ball(0.14, -0.22, 0.82, -0.16, 1, 0.5, 1));
+    put('red', ball(0.13, 0.16, 0.76, -0.1, 1.5, 0.7, 1));
+    put('alabaster',
+      cyl(0.07, 0.09, 0.3, 0.42, 0.69, 0.16, 10),
+      cyl(0.07, 0.09, 0.26, 0.58, 0.69, -0.04, 10));
+    this.solid(x, y, z, 1.7, 0.78, 1.1, 'offering-table');
+    if (opts.site) {
+      this.relic({
+        id: opts.id || `relic-offering-${Math.round(x)}-${Math.round(z)}`,
+        name: opts.name || 'Offering Table',
+        site: opts.site,
+        x, y: y + 1.0, z,
+        text: opts.text ||
+          'Alabaster, with a libation channel cut across the top. The offering formula asks that the king ' +
+          'be given “a thousand of bread, a thousand of beer, a thousand of oxen and fowl” — the ration ' +
+          'the ka draws on for ever.',
+        pm: opts.pm || 'Work package 8.4 — funerary equipment. Zero float: the handover date is the funeral.',
+      });
+    }
+    return this;
+  }
+
+  /** Canopic chest: alabaster, four compartments, four stopper heads. */
+  canopicChest(x, y, z, ry, opts = {}) {
+    const put = this._at(x, y, z, ry);
+    put('alabaster',
+      box(0.94, 0.72, 0.94, 0, 0.36, 0),
+      box(1.04, 0.1, 1.04, 0, 0.77, 0));
+    // The Four Sons of Horus: human, baboon, jackal, falcon.
+    const heads = [[-0.24, -0.24], [0.24, -0.24], [-0.24, 0.24], [0.24, 0.24]];
+    const tints = ['alabaster', 'cedar', 'black', 'ochre'];
+    heads.forEach(([hx, hz], i) => {
+      put('alabaster', cyl(0.11, 0.13, 0.16, hx, 0.82, hz, 10));
+      put(tints[i], ball(0.12, hx, 1.03, hz, 1, 1.15, 1));
+      put(tints[i], box(0.2, 0.13, 0.12, hx, 1.0, hz - 0.1));
+    });
+    this.glyphPanelLocal(put, 0, 0.4, 0.48, 0.76, 0.5, 0.7);
+    this.solid(x, y, z, 1.1, 1.1, 1.1, 'canopic');
+    this.relic({
+      id: opts.id || `relic-canopic-${Math.round(x)}-${Math.round(z)}`,
+      name: opts.name || 'Canopic Chest',
+      site: opts.site,
+      x, y: y + 1.2, z,
+      text: opts.text ||
+        'Four compartments under four stoppers — the Sons of Horus, who guard the lungs, stomach, ' +
+        'intestines and liver. The heart stayed in the body; it had to be weighed.',
+      pm: 'Work package 8.4 — funerary equipment, procured in parallel with the chamber fit-out.',
+    });
+    return this;
+  }
+
+  /** A cluster of sealed alabaster and pottery jars against a wall. */
+  jarCluster(x, y, z, ry, count = 5, rng = Math.random) {
+    const put = this._at(x, y, z, ry);
+    for (let i = 0; i < count; i++) {
+      const jx = (i - (count - 1) / 2) * 0.36 + (rng() - 0.5) * 0.06;
+      const jz = (rng() - 0.5) * 0.22;
+      const h = 0.42 + rng() * 0.3;
+      const r = 0.13 + rng() * 0.05;
+      const mat = rng() < 0.45 ? 'alabaster' : 'red';
+      put(mat, cyl(r * 0.55, r, h, jx, 0, jz, 10));
+      put(mat, ball(r * 0.62, jx, h + 0.02, jz, 1, 0.7, 1));
+      put('linen', cyl(r * 0.6, r * 0.6, 0.05, jx, h + 0.06, jz, 8));
+    }
+    return this;
+  }
+
+  /**
+   * A ka-statue: the stone body the spirit inhabits if the mummy is destroyed.
+   * Striding pose, nemes headdress, false beard, left foot forward.
+   */
+  kaStatue(x, y, z, ry, opts = {}) {
+    const scale = opts.scale || 1;
+    const put = this._at(x, y, z, ry);
+    const s = (g) => { g.scale(scale, scale, scale); return g; };
+    put('white',
+      s(box(0.86, 0.16, 1.1, 0, 0.08, 0.06)),            // plinth
+      s(box(0.28, 0.9, 0.32, -0.17, 0.16, -0.14)),        // forward leg
+      s(box(0.28, 0.9, 0.32, 0.17, 0.16, 0.16)),          // rear leg
+      s(box(0.62, 0.42, 0.4, 0, 1.02, 0)),                // kilt
+      s(box(0.56, 0.66, 0.34, 0, 1.4, 0)),                // torso
+      s(box(0.14, 0.6, 0.16, -0.33, 1.44, -0.02)),        // arms held at the sides
+      s(box(0.14, 0.6, 0.16, 0.33, 1.44, -0.02)),
+      s(box(0.2, 0.12, 0.2, 0, 2.06, 0)));                // neck
+    put('white', s(ball(0.19, 0, 2.2, 0, 1, 1.15, 1.05)));
+    // Nemes: the striped headcloth, lappets falling to the chest.
+    put('blue',
+      s(box(0.46, 0.3, 0.44, 0, 2.3, 0.02)),
+      s(box(0.12, 0.42, 0.2, -0.2, 2.02, -0.14)),
+      s(box(0.12, 0.42, 0.2, 0.2, 2.02, -0.14)));
+    put('gold',
+      s(box(0.46, 0.06, 0.44, 0, 2.46, 0.02)),
+      s(box(0.08, 0.2, 0.1, 0, 2.02, -0.2)),              // false beard
+      s(box(0.14, 0.1, 0.12, 0, 2.42, -0.22)));           // uraeus
+    this.solid(x, y, z, 1.0 * scale, 2.5 * scale, 1.2 * scale, 'statue');
+    if (opts.site) {
+      this.relic({
+        id: opts.id || `relic-ka-${Math.round(x)}-${Math.round(z)}`,
+        name: opts.name || 'Ka-Statue',
+        site: opts.site,
+        x, y: y + 2.2 * scale, z,
+        text: opts.text ||
+          'Sealed in a serdab with only a narrow slot to see and smell through. If the body failed, the ' +
+          'ka could inhabit the stone instead — redundancy engineered into the afterlife.',
+        pm: 'Work package 8.4 — sculpture, on the same granite and alabaster supply chain as the chamber.',
+      });
+    }
+    return this;
+  }
+
+  /** Gilded shrine with a recumbent Anubis jackal on the lid. */
+  anubisShrine(x, y, z, ry, opts = {}) {
+    const put = this._at(x, y, z, ry);
+    put('cedar', box(1.26, 0.62, 0.72, 0, 0.31, 0));
+    put('gold',
+      box(1.32, 0.08, 0.78, 0, 0.66, 0),
+      // Cavetto cornice: the flared top the Egyptians put on every shrine.
+      box(1.4, 0.12, 0.86, 0, 0.74, 0),
+      box(0.16, 0.34, 0.16, -0.5, 0.0, -0.24),
+      box(0.16, 0.34, 0.16, 0.5, 0.0, -0.24));
+    // The jackal: long body, upright ears, tail hanging over the edge.
+    put('black',
+      box(0.28, 0.24, 0.86, 0, 0.8, 0.02),
+      box(0.16, 0.14, 0.34, 0, 0.92, -0.44),
+      box(0.05, 0.24, 0.06, -0.06, 1.04, -0.5),
+      box(0.05, 0.24, 0.06, 0.06, 1.04, -0.5),
+      box(0.07, 0.07, 0.4, 0, 0.82, 0.6));
+    put('gold', box(0.3, 0.06, 0.2, 0, 0.94, -0.42));
+    this.glyphPanelLocal(put, 0, 0.32, 0.37, 1.0, 0.4, 0.8);
+    this.solid(x, y, z, 1.5, 1.1, 1.0, 'shrine');
+    this.relic({
+      id: opts.id || `relic-anubis-${Math.round(x)}-${Math.round(z)}`,
+      name: opts.name || 'Shrine of Anubis',
+      site: opts.site,
+      x, y: y + 1.1, z,
+      text: opts.text ||
+        'Anubis, “he who is upon his mountain”, keeps the necropolis. The jackal was the animal that ' +
+        'actually haunted the desert cemeteries — better to have it as a guardian than as a scavenger.',
+      pm: 'Work package 8.4 — funerary equipment.',
+    });
+    return this;
+  }
+
+  /** Cedar model boat: the vessel the king sails with the sun. */
+  modelBoat(x, y, z, ry, opts = {}) {
+    const put = this._at(x, y, z, ry);
+    const hull = [];
+    // Hull: a shallow crescent, swept up into papyriform prow and stern.
+    for (let i = 0; i < 11; i++) {
+      const t = i / 10;
+      const lz = (t - 0.5) * 3.4;
+      const rise = Math.pow(Math.abs(t - 0.5) * 2, 2.6) * 0.9;
+      const w = 0.62 * (1 - Math.pow(Math.abs(t - 0.5) * 2, 2) * 0.72);
+      hull.push(box(w, 0.3 + rise, 0.34, 0, 0.15 + rise / 2, lz));
+    }
+    put('cedar', ...hull);
+    put('cedar',
+      box(0.7, 0.06, 0.9, 0, 0.32, 0.1),
+      box(0.5, 0.44, 0.66, 0, 0.34, 0.12),
+      box(0.12, 0.9, 0.12, 0, 0.3, -0.5));
+    put('linen', box(0.56, 0.5, 0.06, 0, 0.42, -0.55));
+    // Steering oars over the stern quarter.
+    for (const side of [-1, 1]) {
+      const oar = box(0.06, 0.06, 1.1, side * 0.3, 0.42, 1.3);
+      oar.applyMatrix4(new THREE.Matrix4().makeRotationX(0.3));
+      put('cedar', oar, box(0.16, 0.02, 0.4, side * 0.34, 0.12, 1.86));
+    }
+    this.solid(x, y, z, 1.1, 0.9, 3.6, 'boat');
+    this.relic({
+      id: opts.id || `relic-boat-${Math.round(x)}-${Math.round(z)}`,
+      name: opts.name || 'Model Solar Barque',
+      site: opts.site,
+      x, y: y + 1.0, z,
+      text: opts.text ||
+        'A working boat in miniature, cedar from Byblos. The full-size vessel buried on the south side ' +
+        'came apart into 1 224 pieces and went back together with rope lashings and no metal at all.',
+      pm: 'Work package 8.3 — boat pits. Sealed before handover; no float whatsoever.',
+    });
+    return this;
+  }
+
+  /** A round-topped stela, the standing record of who built and who owns. */
+  stela(x, y, z, ry, opts = {}) {
+    const put = this._at(x, y, z, ry);
+    const h = opts.height || 1.9;
+    const w = h * 0.56;
+    put('white', box(w, h - w / 2, 0.26, 0, (h - w / 2) / 2, 0));
+    const top = new THREE.CylinderGeometry(w / 2, w / 2, 0.26, 18, 1, false, 0, Math.PI);
+    top.rotateX(Math.PI / 2);
+    top.rotateZ(Math.PI);
+    top.translate(0, h - w / 2, 0);
+    put('white', top);
+    put('white', box(w * 1.24, 0.16, 0.42, 0, 0.08, 0));
+    this.glyphPanelLocal(put, 0, h * 0.46, 0.14, w * 0.82, h * 0.66, 0.8);
+    if (opts.site) {
+      this.relic({
+        id: opts.id || `relic-stela-${Math.round(x)}-${Math.round(z)}`,
+        name: opts.name || 'Inscribed Stela',
+        site: opts.site,
+        x, y: y + h * 0.7, z,
+        text: opts.text,
+        pm: opts.pm || 'Work package 8.5 — closure and handover documentation.',
+      });
+    }
+    return this;
+  }
+
+  /** The tools that actually cut the stone, laid out on a reed mat. */
+  toolCache(x, y, z, ry, opts = {}) {
+    const put = this._at(x, y, z, ry);
+    put('linen', box(1.5, 0.03, 0.94, 0, 0.015, 0));
+    put('copper',
+      box(0.05, 0.03, 0.3, -0.5, 0.05, -0.14),
+      box(0.05, 0.03, 0.3, -0.4, 0.05, -0.1),
+      box(0.05, 0.03, 0.3, -0.3, 0.05, -0.16),
+      box(0.09, 0.04, 0.22, -0.42, 0.05, 0.24),
+      box(0.28, 0.03, 0.06, 0.5, 0.05, -0.26));
+    put('cedar',
+      box(0.07, 0.07, 0.42, 0.06, 0.05, 0.0),
+      box(0.14, 0.14, 0.14, 0.06, 0.06, -0.26),
+      box(0.05, 0.05, 0.9, 0.42, 0.04, 0.16),
+      box(0.5, 0.04, 0.05, 0.42, 0.06, 0.16));
+    // Dolerite pounders: the hard round stones that shaped the granite.
+    put('black',
+      ball(0.11, 0.34, 0.11, -0.2),
+      ball(0.1, 0.52, 0.1, -0.06),
+      ball(0.12, 0.44, 0.12, 0.1));
+    this.relic({
+      id: opts.id || `relic-tools-${Math.round(x)}-${Math.round(z)}`,
+      name: opts.name || 'Masons’ Tool Cache',
+      site: opts.site,
+      x, y: y + 0.6, z,
+      text: opts.text ||
+        'Copper chisels, wooden mallets, a plumb-bob square and dolerite pounders. Copper cuts limestone ' +
+        'but not granite: granite was bruised away with the dolerite, then ground smooth with quartz sand.',
+      pm: 'Work packages 2.x — quarrying and dressing. Tool consumption is a real cost line in the model.',
+    });
+    return this;
+  }
+
+  /** The lid the robbers levered off, left leaning where it fell. */
+  brokenLid(x, y, z, ry, w = 2.4, d = 1.1) {
+    const put = this._at(x, y, z, ry);
+    const slab = box(w * 0.62, 0.22, d, -w * 0.2, 0.11, 0);
+    const leaning = box(w * 0.44, 0.22, d, 0, 0, 0);
+    leaning.applyMatrix4(
+      new THREE.Matrix4().makeRotationZ(-0.55).setPosition(w * 0.3, 0.42, 0)
+    );
+    put('granite', slab, leaning);
+    return this;
+  }
+
+  /** Merge every bucket into the scene: about a dozen draw calls in total. */
+  finish(scene) {
+    this.meshes = [];
+    for (const [key, parts] of Object.entries(this.buckets)) {
+      if (!parts.length) continue;
+      const geo = mergeGeometries(parts);
+      if (!geo.attributes.position.count) continue;
+      const mesh = new THREE.Mesh(geo, this.materials[key]);
+      mesh.name = `relics-${key}`;
+      mesh.castShadow = false;
+      mesh.receiveShadow = false;
+      scene.add(mesh);
+      this.meshes.push(mesh);
+    }
+    return this;
+  }
+
+  dispose() {
+    for (const m of this.meshes || []) m.geometry.dispose();
+    for (const m of Object.values(this.materials)) m.dispose();
+  }
+}
+
 /* ================= src/world/monuments.js ================= */
+
 
 
 
@@ -59712,6 +60326,16 @@ function sphinxGeometry() {
 }
 
 /** Megalithic temple: battered outer wall, pillared hall, inner sanctuary. */
+/**
+ * A temple: enclosure walls with one gate, a paved court, and a roofed
+ * colonnade around it.
+ *
+ * Returns colliders alongside the geometry.  Registering the mesh's own
+ * bounding box instead - which is what this used to do - turns the whole
+ * temple into one solid block, so the court and the colonnade that were
+ * modelled here could never be walked into.  Every wall segment, pillar and
+ * roof slab is its own box, and the gate is simply the gap left between them.
+ */
 function templeGeometry(spec, opts = {}) {
   const {
     wallHeight = 12,
@@ -59724,25 +60348,38 @@ function templeGeometry(spec, opts = {}) {
   const w = spec.w;
   const d = spec.d;
   const parts = [];
+  const colliders = [];
   const hw = w / 2;
   const hd = d / 2;
   const gate = 5.2;
+
+  const solid = (sx, sy, sz, cx, cy, cz) => colliders.push({ x: cx, y: cy, z: cz, w: sx, h: sy, d: sz });
 
   const wallRun = (len, thick, cx, cz, horizontal, hole) => {
     if (!hole) {
       parts.push(horizontal ? box(len, wallHeight, thick, cx, wallHeight / 2, cz)
                             : box(thick, wallHeight, len, cx, wallHeight / 2, cz));
+      if (horizontal) solid(len, wallHeight, thick, cx, wallHeight / 2, cz);
+      else solid(thick, wallHeight, len, cx, wallHeight / 2, cz);
       return;
     }
+    // The gateway: two wall stubs with a lintel over the gap between them.
     const side = (len - gate) / 2;
+    const lintelH = wallHeight - 7.2;
     if (horizontal) {
       parts.push(box(side, wallHeight, thick, cx - (gate + side) / 2, wallHeight / 2, cz));
       parts.push(box(side, wallHeight, thick, cx + (gate + side) / 2, wallHeight / 2, cz));
-      parts.push(box(gate, wallHeight - 7.2, thick, cx, wallHeight - (wallHeight - 7.2) / 2, cz));
+      parts.push(box(gate, lintelH, thick, cx, wallHeight - lintelH / 2, cz));
+      solid(side, wallHeight, thick, cx - (gate + side) / 2, wallHeight / 2, cz);
+      solid(side, wallHeight, thick, cx + (gate + side) / 2, wallHeight / 2, cz);
+      solid(gate, lintelH, thick, cx, wallHeight - lintelH / 2, cz);
     } else {
       parts.push(box(thick, wallHeight, side, cx, wallHeight / 2, cz - (gate + side) / 2));
       parts.push(box(thick, wallHeight, side, cx, wallHeight / 2, cz + (gate + side) / 2));
-      parts.push(box(thick, wallHeight - 7.2, gate, cx, wallHeight - (wallHeight - 7.2) / 2, cz));
+      parts.push(box(thick, lintelH, gate, cx, wallHeight - lintelH / 2, cz));
+      solid(thick, wallHeight, side, cx, wallHeight / 2, cz - (gate + side) / 2);
+      solid(thick, wallHeight, side, cx, wallHeight / 2, cz + (gate + side) / 2);
+      solid(thick, lintelH, gate, cx, wallHeight - lintelH / 2, cz);
     }
   };
 
@@ -59751,30 +60388,50 @@ function templeGeometry(spec, opts = {}) {
   wallRun(d - wallThickness * 2, wallThickness, -hw + wallThickness / 2, 0, false, entrance === 'west');
   wallRun(d - wallThickness * 2, wallThickness, hw - wallThickness / 2, 0, false, entrance === 'east');
 
-  // Paved floor.
+  // Paved floor, raised a step above the sand outside.
   parts.push(box(w, 0.7, d, 0, -0.35, 0));
+  solid(w, 0.7, d, 0, -0.35, 0);
 
   if (courtyard && pillars > 0) {
     const spanX = w - wallThickness * 2 - 7;
     const spanZ = d - wallThickness * 2 - 7;
+    const pillarH = wallHeight - 2.4;
+    // The gateway runs through the middle of the court on the entrance axis.
+    // An odd pillar count puts one of the colonnade pillars exactly on that
+    // centreline and quietly walls the temple up again, so anything standing
+    // in the doorway's path is left out.
+    const alongX = entrance === 'east' || entrance === 'west';
+    const inGateway = (px, pz) =>
+      alongX ? Math.abs(pz) < gate / 2 + pillarSize : Math.abs(px) < gate / 2 + pillarSize;
     for (let i = 0; i < pillars; i++) {
       for (const side of [-1, 1]) {
         const t = (i + 0.5) / pillars;
-        parts.push(squarePillar(pillarSize, wallHeight - 2.4, lerp(-spanX / 2, spanX / 2, t), 0, side * (spanZ / 2)));
-        parts.push(squarePillar(pillarSize, wallHeight - 2.4, side * (spanX / 2), 0, lerp(-spanZ / 2, spanZ / 2, t)));
+        const ax = lerp(-spanX / 2, spanX / 2, t);
+        const az = lerp(-spanZ / 2, spanZ / 2, t);
+        for (const [px, pz] of [[ax, side * (spanZ / 2)], [side * (spanX / 2), az]]) {
+          if (inGateway(px, pz)) continue;
+          parts.push(squarePillar(pillarSize, pillarH, px, 0, pz));
+          solid(pillarSize, pillarH, pillarSize, px, pillarH / 2, pz);
+        }
       }
     }
     // Roof slabs over the colonnade only, leaving the court open to the sky.
     const roofW = wallThickness + pillarSize + 4;
-    parts.push(box(w, 1.4, roofW, 0, wallHeight - 0.7, -hd + roofW / 2));
-    parts.push(box(w, 1.4, roofW, 0, wallHeight - 0.7, hd - roofW / 2));
-    parts.push(box(roofW, 1.4, d - roofW * 2, -hw + roofW / 2, wallHeight - 0.7, 0));
-    parts.push(box(roofW, 1.4, d - roofW * 2, hw - roofW / 2, wallHeight - 0.7, 0));
+    const slabs = [
+      [w, 1.4, roofW, 0, wallHeight - 0.7, -hd + roofW / 2],
+      [w, 1.4, roofW, 0, wallHeight - 0.7, hd - roofW / 2],
+      [roofW, 1.4, d - roofW * 2, -hw + roofW / 2, wallHeight - 0.7, 0],
+      [roofW, 1.4, d - roofW * 2, hw - roofW / 2, wallHeight - 0.7, 0],
+    ];
+    for (const [sx, sy, sz, cx, cy, cz] of slabs) {
+      parts.push(box(sx, sy, sz, cx, cy, cz));
+      solid(sx, sy, sz, cx, cy, cz);
+    }
   }
 
   const geo = mergeGeometries(parts);
   scaleUvByWorldSize(geo, 2.6);
-  return geo;
+  return { geometry: geo, colliders };
 }
 
 /** A processional causeway: raised embankment with parapet walls. */
@@ -59838,6 +60495,8 @@ class MonumentSystem {
     this.collision = collision;
     this.torchSites = [];
     this.pennantSites = [];
+    this.relics = new RelicKit(textures, quality);
+    this.rng = makeRng(7731);
 
     const lime = textures.limestone();
     const gran = textures.granite();
@@ -59897,6 +60556,11 @@ class MonumentSystem {
     this._buildEnclosureWalls();
   }
 
+  /** Points of interest contributed by the temple furnishings. */
+  get relicPoints() {
+    return this.relics.relics;
+  }
+
   _add(geometry, material, x, y, z, ry = 0, tag = '', collide = true) {
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(x, y, z);
@@ -59932,54 +60596,61 @@ class MonumentSystem {
     wallParts.push(box(4, h, ed * 2, -ew, h / 2, 0));
     const wallGeo = mergeGeometries(wallParts);
     scaleUvByWorldSize(wallGeo, 2.4);
-    this._add(wallGeo, this.materials.weathered, SPHINX.x, SPHINX.enclosureY, SPHINX.z, 0, 'sphinx-enclosure');
+    // collide:false - the bounding box of these three walls is the whole
+    // quarry, which would seal the Sphinx, its temple and the valley temple
+    // inside one solid block. Each wall gets its own collider instead.
+    this._add(wallGeo, this.materials.weathered, SPHINX.x, SPHINX.enclosureY, SPHINX.z, 0, 'sphinx-enclosure', false);
+    for (const [sx, sz, cx, cz] of [
+      [ew * 2 + 8, 4, 0, -ed],
+      [ew * 2 + 8, 4, 0, ed],
+      [4, ed * 2, -ew, 0],
+    ]) {
+      this.collision.addCenteredBox(
+        SPHINX.x + cx, SPHINX.enclosureY + h / 2, SPHINX.z + cz, sx, h, sz, 'sphinx-enclosure'
+      );
+    }
   }
 
   _buildTemples() {
     const t = TEMPLES;
     this.temples = {};
 
-    this.temples.sphinxTemple = this._add(
-      templeGeometry(t.sphinxTemple, { wallHeight: 10.5, pillars: 5, pillarSize: 2.6, entrance: 'east' }),
-      this.materials.limestone,
-      t.sphinxTemple.x, t.sphinxTemple.y, t.sphinxTemple.z, 0, 'temple-sphinx'
-    );
+    const build = (key, material, opts) => {
+      const spec = t[key];
+      const built = templeGeometry(spec, opts);
+      // collide:false - the per-part colliders below replace the single
+      // whole-mesh box that used to seal the temple shut.
+      const mesh = this._add(built.geometry, material, spec.x, spec.y, spec.z, 0, `temple-${key}`, false);
+      for (const c of built.colliders) {
+        this.collision.addCenteredBox(
+          spec.x + c.x, spec.y + c.y, spec.z + c.z, c.w, c.h, c.d, `temple-${key}`
+        );
+      }
+      this.temples[key] = mesh;
+      return spec;
+    };
 
-    // The Khafre valley temple: limestone core, Aswan granite sheathing.
-    this.temples.khafreValley = this._add(
-      templeGeometry(t.khafreValley, { wallHeight: 13, pillars: 4, pillarSize: 3.4, entrance: 'east' }),
-      this.materials.granite,
-      t.khafreValley.x, t.khafreValley.y, t.khafreValley.z, 0, 'temple-khafre-valley'
-    );
-
-    this.temples.khafreMortuary = this._add(
-      templeGeometry(t.khafreMortuary, { wallHeight: 11.5, pillars: 5, entrance: 'east' }),
-      this.materials.limestone,
-      t.khafreMortuary.x, t.khafreMortuary.y, t.khafreMortuary.z, 0, 'temple-khafre-mortuary'
-    );
-
-    this.temples.menkaureMortuary = this._add(
-      templeGeometry(t.menkaureMortuary, { wallHeight: 9.5, pillars: 3, entrance: 'east' }),
-      this.materials.limestone,
-      t.menkaureMortuary.x, t.menkaureMortuary.y, t.menkaureMortuary.z, 0, 'temple-menkaure'
-    );
-
-    this.temples.khufuValley = this._add(
-      templeGeometry(t.khufuValley, { wallHeight: 11, pillars: 4, entrance: 'east' }),
-      this.materials.limestone,
-      t.khufuValley.x, t.khufuValley.y, t.khufuValley.z, 0, 'temple-khufu-valley'
-    );
+    build('sphinxTemple', this.materials.limestone,
+      { wallHeight: 10.5, pillars: 5, pillarSize: 2.6, entrance: 'east' });
+    // The Khafre valley temple: limestone cores sheathed in Aswan granite.
+    build('khafreValley', this.materials.granite,
+      { wallHeight: 13, pillars: 4, pillarSize: 3.4, entrance: 'east' });
+    build('khafreMortuary', this.materials.limestone,
+      { wallHeight: 11.5, pillars: 5, entrance: 'east' });
+    build('menkaureMortuary', this.materials.limestone,
+      { wallHeight: 9.5, pillars: 3, entrance: 'east' });
+    build('khufuValley', this.materials.limestone,
+      { wallHeight: 11, pillars: 4, entrance: 'east' });
 
     // Khufu's mortuary temple: basalt pavement against the pyramid's east face.
     const km = t.khufuMortuary;
     const pave = box(km.w, 0.8, km.d, 0, -0.4, 0);
     scaleUvByWorldSize(pave, 2.0);
     this._add(pave, this.materials.basalt, km.x, km.y, km.z, 0, 'khufu-mortuary-pavement', false);
-    this.temples.khufuMortuary = this._add(
-      templeGeometry(km, { wallHeight: 10.5, pillars: 4, pillarSize: 2.8, entrance: 'east' }),
-      this.materials.limestone,
-      km.x, km.y, km.z, 0, 'temple-khufu-mortuary'
-    );
+    build('khufuMortuary', this.materials.limestone,
+      { wallHeight: 10.5, pillars: 4, pillarSize: 2.8, entrance: 'east' });
+
+    this._furnishTemples();
 
     for (const key of Object.keys(this.temples)) {
       const spec = t[key];
@@ -59990,6 +60661,101 @@ class MonumentSystem {
       // Cedar flagstaffs outside them, streaming east on the prevailing wind.
       this.pennantSites.push({ x: spec.x + spec.w / 2 + 5.6, y: spec.y, z: spec.z - 7.2, height: 14.5, yaw: 0 });
       this.pennantSites.push({ x: spec.x + spec.w / 2 + 5.6, y: spec.y, z: spec.z + 7.2, height: 14.5, yaw: 0 });
+    }
+  }
+
+  /**
+   * What is actually inside the temples now that they can be walked into.
+   *
+   * The gateway runs east-west through the middle of each court, so nothing
+   * is placed on that centreline: the way in stays clear.
+   */
+  _furnishTemples() {
+    const t = TEMPLES;
+    const R = this.relics;
+    const rng = this.rng;
+
+    // ---- Khafre's valley temple: the T-shaped granite hall ----
+    const kv = t.khafreValley;
+    const inset = kv.w / 2 - 9.5;
+    // Twenty-three seated statues of the king stood around this hall. The
+    // emplacements are known; the statues mostly are not.
+    for (let i = 0; i < 5; i++) {
+      const z = kv.z - inset + (i * 2 * inset) / 4;
+      if (Math.abs(z - kv.z) < 4.5) continue;         // keep the gate axis clear
+      R.kaStatue(kv.x - inset, kv.y, z, Math.PI * 0.5, { scale: 1.15, site: null,
+        id: `relic-khafre-valley-statue-${i}`,
+        name: 'Seated Khafre',
+        text:
+          'Twenty-three of these stood around this hall in polished diorite, alabaster and schist. ' +
+          'Auguste Mariette found one of them face-down in a well shaft in 1860, intact: Khafre enthroned ' +
+          'with Horus folding his wings around the back of the king\u2019s head. It is the finest surviving ' +
+          'sculpture of the Old Kingdom.' });
+    }
+    R.falseDoor(kv.x + 2.0, kv.y, kv.z - kv.d / 2 + 5.4, 3.2, 's', {
+      site: null,
+      id: 'relic-khafre-valley-door',
+      name: 'Sanctuary Door',
+      text:
+        'Beyond it the causeway climbs 500 m to the mortuary temple and the pyramid. The king\u2019s body ' +
+        'came up this way; the offerings came down it every day afterwards, in principle for ever.',
+    });
+    R.glyphPanel(kv.x - inset - 0.4, kv.y + 2.2, kv.z + kv.d / 2 - 6.0, 7.0, 2.4, 's', { tile: 2.6 });
+    R.glyphPanel(kv.x + inset + 0.4, kv.y + 2.2, kv.z - kv.d / 2 + 6.0, 7.0, 2.4, 'n', { tile: 2.6, painted: true });
+    R.offeringTable(kv.x - 3.0, kv.y, kv.z + kv.d / 2 - 6.6, 0, { site: null });
+    this.torchSites.push({ x: kv.x - inset + 1.6, y: kv.y + 1.2, z: kv.z - 7.0, scale: 1.0 });
+    this.torchSites.push({ x: kv.x - inset + 1.6, y: kv.y + 1.2, z: kv.z + 7.0, scale: 1.0 });
+
+    // ---- the Sphinx temple: two sanctuaries, for the rising and setting sun ----
+    const st = t.sphinxTemple;
+    for (const [side, name] of [[-1, 'Eastern Sanctuary'], [1, 'Western Sanctuary']]) {
+      R.stela(st.x + side * (st.w / 2 - 8.0), st.y, st.z + side * 6.5, side < 0 ? Math.PI * 0.5 : -Math.PI * 0.5, {
+        site: null,
+        id: `relic-sphinx-${side < 0 ? 'east' : 'west'}`,
+        name,
+        height: 2.4,
+        text:
+          'Twin sanctuaries face each other across the court, one for the sun as it rises and one for the ' +
+          'sun as it sets. At the equinox, seen from here, the sun goes down on the shoulder of Khafre\u2019s ' +
+          'pyramid \u2014 the hieroglyph for “horizon”, built at full size.',
+      });
+    }
+    R.offeringTable(st.x - 4.0, st.y, st.z - st.d / 2 + 6.4, 0, { site: null });
+    R.offeringTable(st.x - 4.0, st.y, st.z + st.d / 2 - 6.4, Math.PI, { site: null });
+
+    // ---- mortuary temples: the cult that had to keep running ----
+    for (const [key, label] of [
+      ['khufuMortuary', 'Khufu'],
+      ['khafreMortuary', 'Khafre'],
+      ['menkaureMortuary', 'Menkaure'],
+    ]) {
+      const m = t[key];
+      R.falseDoor(m.x - m.w / 2 + 5.0, m.y, m.z + 6.2, 3.0, 'e', {
+        site: null,
+        id: `relic-${key}-door`,
+        name: `False Door of ${label}`,
+        text:
+          'The mortuary temple is where the offerings were actually made, every day, by a priesthood ' +
+          'endowed with land to pay for it. The tomb is the deliverable; this is the maintenance contract.',
+        pm: 'Work package 7.x — the operating phase the capital project exists to hand over to.',
+      });
+      R.offeringTable(m.x - m.w / 2 + 8.2, m.y, m.z + 6.2, -Math.PI * 0.5, { site: null });
+      R.jarCluster(m.x - m.w / 2 + 6.4, m.y, m.z - 6.6, 0, 5, rng);
+      R.kaStatue(m.x - m.w / 2 + 5.6, m.y, m.z - 9.4, Math.PI * 0.5, { site: null, scale: 0.95,
+        id: `relic-${key}-statue`, name: `Ka-Statue of ${label}` });
+    }
+
+    // ---- Khufu's valley temple ----
+    const kfv = t.khufuValley;
+    R.offeringTable(kfv.x - 6.0, kfv.y, kfv.z - 7.2, 0, { site: null });
+    R.modelBoat(kfv.x - 8.5, kfv.y, kfv.z + 8.0, Math.PI * 0.5, { site: null,
+      id: 'relic-khufu-valley-boat',
+      name: 'Boat at the Landing' });
+    R.toolCache(kfv.x + 6.0, kfv.y, kfv.z + 9.0, Math.PI, { site: null, id: 'relic-khufu-valley-tools' });
+
+    R.finish(this.group);
+    for (const c of R.colliders) {
+      this.collision.addBox(c.minX, c.minY, c.minZ, c.maxX, c.maxY, c.maxZ, c.tag);
     }
   }
 
@@ -61137,24 +61903,648 @@ class WorkerSystem {
   }
 }
 
+/* ================= src/world/tombs.js ================= */
+
+
+
+
+/**
+ * The interiors of Khafre's and Menkaure's pyramids.
+ *
+ * Khufu's interior is built by InteriorSystem itself, in coordinates that
+ * happen to be world coordinates because Khufu sits at the origin.  The other
+ * two pyramids stand hundreds of metres away, so this module works in a local
+ * frame - X east of the pyramid's own axis, Y above its base course, Z north-
+ * negative - and TombBuilder maps that frame into the shared interior scene.
+ *
+ * All three interiors live in one scene: they are far enough apart that the
+ * fog closes long before one is visible from another, and a single scene keeps
+ * one collision world, one torch budget and one set of merged draw calls.
+ */
+
+const DEG = Math.PI / 180;
+
+/**
+ * Geometry helper bound to one pyramid's local frame.
+ *
+ * Every method takes local coordinates and pushes world-space geometry into
+ * the caller's material buckets, so the tomb builders below read as a
+ * description of the monument rather than as coordinate arithmetic.
+ */
+class TombBuilder {
+  constructor(ctx) {
+    const p = ctx.pyramid;
+    this.pyramid = p;
+    this.ox = p.x;
+    this.oy = p.baseY;
+    this.oz = p.z;
+    this.site = ctx.site;
+    this.parts = ctx.parts;
+    this.colliders = ctx.colliders;
+    this.torchSites = ctx.torchSites;
+    this.nodes = ctx.nodes;
+    this.viewpoints = ctx.viewpoints;
+    this.relics = ctx.relics;
+    this.wall = ctx.wall || 1.1;
+    this.slope = (ctx.passageAngleDeg || 26.5) * DEG;
+    this.passageWidth = ctx.passageWidth || 1.05;
+    this.passageHeight = ctx.passageHeight || 1.2;
+  }
+
+  /** Z of the pyramid's north face at a given height above the base. */
+  faceZ(height) {
+    const p = this.pyramid;
+    return -(p.baseLength / 2) * (1 - height / p.designHeight);
+  }
+
+  world(lx, ly, lz) {
+    return new THREE.Vector3(this.ox + lx, this.oy + ly, this.oz + lz);
+  }
+
+  /** Axis-aligned box in the local frame. */
+  part(bucket, w, h, d, lx, ly, lz) {
+    this.parts[bucket].push(box(w, h, d, this.ox + lx, this.oy + ly, this.oz + lz));
+    return this;
+  }
+
+  /** Box in a passage's tilted frame, as interior.js does for Khufu. */
+  _tilted(w, h, d, lx, ly, lz, rx, cx, cy, cz) {
+    const g = new THREE.BoxGeometry(w, h, d);
+    const m = new THREE.Matrix4().makeRotationX(rx);
+    const v = new THREE.Vector3(lx, ly, lz).applyMatrix4(m);
+    m.setPosition(cx + v.x, cy + v.y, cz + v.z);
+    g.applyMatrix4(m);
+    return g;
+  }
+
+  /**
+   * A straight passage from (y0,z0) to (y1,z1) in the plane x = lx.
+   *
+   * The shell is four slabs in the tilted frame; collision is a staircase of
+   * axis-aligned boxes, because the player's collider is axis-aligned and a
+   * tilted floor would either catch or drop them.  Steps of 0.9 m sit inside
+   * the 0.55 m interior step height once the slope is 26.5 degrees.
+   */
+  passage(bucket, lx, y0, z0, y1, z1, width, height, opts = {}) {
+    const thickness = opts.thickness || this.wall;
+    const dz = z1 - z0;
+    const dy = y1 - y0;
+    const len = Math.hypot(dz, dy);
+    if (len < 1e-4) return this;
+    const rx = -Math.atan2(dy, dz);
+    const cx = this.ox + lx;
+    const cy = this.oy + (y0 + y1) / 2;
+    const cz = this.oz + (z0 + z1) / 2;
+    const list = this.parts[bucket];
+
+    list.push(this._tilted(width + thickness * 2, thickness, len, 0, -thickness / 2, 0, rx, cx, cy, cz));
+    list.push(this._tilted(width + thickness * 2, thickness, len, 0, height + thickness / 2, 0, rx, cx, cy, cz));
+    list.push(this._tilted(thickness, height, len, -width / 2 - thickness / 2, height / 2, 0, rx, cx, cy, cz));
+    list.push(this._tilted(thickness, height, len, width / 2 + thickness / 2, height / 2, 0, rx, cx, cy, cz));
+
+    const steps = Math.max(2, Math.ceil(Math.abs(dz) / 0.9));
+    for (let i = 0; i < steps; i++) {
+      const zA = this.oz + z0 + dz * (i / steps);
+      const zB = this.oz + z0 + dz * ((i + 1) / steps);
+      const yA = this.oy + y0 + dy * (i / steps);
+      const yB = this.oy + y0 + dy * ((i + 1) / steps);
+      const yFloor = Math.min(yA, yB);
+      const yCeil = Math.max(yA, yB) + height;
+      this.colliders.push({
+        minX: cx - width / 2, maxX: cx + width / 2,
+        minY: yFloor - 3.0, maxY: yFloor,
+        minZ: Math.min(zA, zB), maxZ: Math.max(zA, zB), tag: 'passage-floor',
+      });
+      this.colliders.push({
+        minX: cx - width / 2, maxX: cx + width / 2,
+        minY: yCeil, maxY: yCeil + 2.0,
+        minZ: Math.min(zA, zB), maxZ: Math.max(zA, zB), tag: 'passage-ceiling',
+      });
+    }
+    const yLo = this.oy + Math.min(y0, y1) - 1;
+    const yHi = this.oy + Math.max(y0, y1) + height + 1;
+    for (const side of [-1, 1]) {
+      this.colliders.push({
+        minX: side < 0 ? cx - width / 2 - thickness : cx + width / 2,
+        maxX: side < 0 ? cx - width / 2 : cx + width / 2 + thickness,
+        minY: yLo, maxY: yHi,
+        minZ: this.oz + Math.min(z0, z1), maxZ: this.oz + Math.max(z0, z1),
+        tag: 'passage-wall',
+      });
+    }
+    return this;
+  }
+
+  /** Rectangular room with doorways, plus its collision shell. */
+  room(bucket, lx, floorY, lz, w, d, h, openings = [], opts = {}) {
+    const thickness = opts.thickness || this.wall;
+    const cx = this.ox + lx;
+    const cy = this.oy + floorY;
+    const cz = this.oz + lz;
+    const geo = hollowRoom(w, d, h, thickness, openings, opts);
+    geo.translate(cx, cy, cz);
+    scaleUvByWorldSize(geo, opts.uvUnit || 2.0);
+    this.parts[bucket].push(geo);
+
+    const hw = w / 2;
+    const hd = d / 2;
+    this.colliders.push({
+      minX: cx - hw - thickness, maxX: cx + hw + thickness,
+      minY: cy - 3, maxY: cy,
+      minZ: cz - hd - thickness, maxZ: cz + hd + thickness, tag: 'room-floor',
+    });
+    if (opts.ceiling !== false) {
+      this.colliders.push({
+        minX: cx - hw - thickness, maxX: cx + hw + thickness,
+        minY: cy + h, maxY: cy + h + 2,
+        minZ: cz - hd - thickness, maxZ: cz + hd + thickness, tag: 'room-ceiling',
+      });
+    }
+    const segmentsFor = (half, wallId) => {
+      const holes = openings
+        .filter((o) => o.wall === wallId)
+        .map((o) => [o.offset - o.width / 2, o.offset + o.width / 2])
+        .sort((p, q) => p[0] - q[0]);
+      const segs = [];
+      let cursor = -half;
+      for (const [a, b] of holes) {
+        if (a > cursor) segs.push([cursor, a]);
+        cursor = Math.max(cursor, b);
+      }
+      if (cursor < half) segs.push([cursor, half]);
+      return segs;
+    };
+    for (const [wallId, horizontal] of [['n', true], ['s', true], ['w', false], ['e', false]]) {
+      const half = horizontal ? hw : hd;
+      for (const [a, b] of segmentsFor(half, wallId)) {
+        if (horizontal) {
+          const z = wallId === 'n' ? cz - hd - thickness : cz + hd;
+          this.colliders.push({
+            minX: cx + a, maxX: cx + b, minY: cy, maxY: cy + h + 1,
+            minZ: z, maxZ: z + thickness, tag: 'room-wall',
+          });
+        } else {
+          const x = wallId === 'w' ? cx - hw - thickness : cx + hw;
+          this.colliders.push({
+            minX: x, maxX: x + thickness, minY: cy, maxY: cy + h + 1,
+            minZ: cz + a, maxZ: cz + b, tag: 'room-wall',
+          });
+        }
+      }
+    }
+    return this;
+  }
+
+  /** Saddle roof over a room, as over Khafre's burial chamber. */
+  gable(bucket, lx, ly, lz, w, d, rise) {
+    const geo = gableRoof(w + this.wall * 2, d + this.wall * 2, rise, 0.95);
+    geo.translate(this.ox + lx, this.oy + ly, this.oz + lz);
+    scaleUvByWorldSize(geo, 1.8);
+    this.parts[bucket].push(geo);
+    this.colliders.push({
+      minX: this.ox + lx - w / 2 - this.wall, maxX: this.ox + lx + w / 2 + this.wall,
+      minY: this.oy + ly + rise - 0.4, maxY: this.oy + ly + rise + 1.6,
+      minZ: this.oz + lz - d / 2 - this.wall, maxZ: this.oz + lz + d / 2 + this.wall,
+      tag: 'gable',
+    });
+    return this;
+  }
+
+  torch(lx, ly, lz, scale = 0.8) {
+    this.torchSites.push({ x: this.ox + lx, y: this.oy + ly, z: this.oz + lz, scale });
+    return this;
+  }
+
+  /** Torches at a fixed spacing along a sloping run. */
+  lineTorches(lx, y0, z0, y1, z1, spacing = 8) {
+    const len = Math.hypot(z1 - z0, y1 - y0);
+    const n = Math.max(1, Math.floor(len / spacing));
+    for (let i = 1; i <= n; i++) {
+      const t = i / (n + 1);
+      this.torch(lx + (i % 2 === 0 ? 0.42 : -0.42), y0 + (y1 - y0) * t + 0.78, z0 + (z1 - z0) * t, 0.55);
+    }
+    return this;
+  }
+
+  node(name, lx, ly, lz) {
+    this.nodes[`${this.site}.${name}`] = this.world(lx, ly, lz);
+    return this;
+  }
+
+  viewpoint(name, lx, ly, lz, yaw) {
+    this.viewpoints[`${this.site}.${name}`] = { position: this.world(lx, ly, lz), yaw };
+    return this;
+  }
+}
+
+/* ------------------------------------------------------------------ Khafre */
+
+/**
+ * Khafre: two entrances on the north, a single long horizontal passage, and a
+ * burial chamber cut into the bedrock with a gabled limestone roof.  Simpler
+ * than Khufu's, and the plan Belzoni forced his way into in March 1818.
+ */
+function buildKhafre(ctx) {
+  const K = KHAFRE_INTERIOR;
+  const b = new TombBuilder({
+    ...ctx,
+    site: 'khafre',
+    pyramid: PYRAMIDS.khafre,
+    passageAngleDeg: K.passageAngleDeg,
+    passageWidth: K.passageWidth,
+    passageHeight: K.passageHeight,
+  });
+  const relics = ctx.relics;
+  const rng = ctx.rng;
+  const PW = K.passageWidth;
+  const PH = K.passageHeight;
+  const slope = K.passageAngleDeg * DEG;
+  const axis = K.upperEntrance.x;
+
+  // ---- upper entrance, 11.54 m up the north face, granite-lined ----
+  const entryY = K.upperEntrance.y;
+  const entryZ = b.faceZ(entryY);
+  b.passage('granite', axis, entryY, entryZ - 2.6, entryY, entryZ + 1.8, PW, PH);
+  b.node('entrance', axis, entryY, entryZ + 2.4);
+  b.viewpoint('entrance', axis, entryY, entryZ + 2.4, Math.PI);
+
+  // ---- descending passage down to the horizontal run ----
+  const horizY = K.horizontalY;
+  const descLen = (entryY - horizY) / Math.sin(slope);
+  const descEndZ = entryZ + 1.8 + descLen * Math.cos(slope);
+  b.passage('granite', axis, entryY, entryZ + 1.8, horizY, descEndZ, PW, PH);
+  b.lineTorches(axis, entryY, entryZ + 1.8, horizY, descEndZ, 8);
+  b.node('descending', axis, entryY - 5, entryZ + 12);
+  b.viewpoint('descending', axis, (entryY + horizY) / 2, (entryZ + descEndZ) / 2, Math.PI);
+
+  // ---- the long horizontal passage to the chamber ----
+  const bc = K.burialChamber;
+  const chamberZ = 0;                       // the chamber sits on the pyramid's axis
+  const chamberNorthZ = chamberZ - bc.d / 2;
+  b.passage('limestone', axis, horizY, descEndZ, horizY, chamberNorthZ - 2.2, PW, PH);
+  b.lineTorches(axis, horizY, descEndZ, horizY, chamberNorthZ - 2.2, 9);
+  // The last few metres step down and widen into the chamber's doorway.
+  b.passage('limestone', axis, horizY, chamberNorthZ - 2.2, bc.floorY, chamberNorthZ, PW, PH + 0.7);
+
+  // ---- the burial chamber ----
+  b.room('limestone', axis, bc.floorY, chamberZ, bc.w, bc.d, bc.wallH,
+    [{ wall: 'n', offset: 0, width: PW, height: PH + 0.7, sill: 0 }],
+    { ceiling: false, uvUnit: 1.8 });
+  b.gable('limestone', axis, bc.floorY + bc.wallH, chamberZ, bc.w, bc.d, bc.apexH - bc.wallH);
+  b.node('burialChamber', axis, bc.floorY, chamberZ);
+  b.viewpoint('burialChamber', axis + bc.w / 2 - 2.4, bc.floorY, chamberZ, Math.PI * 0.5);
+  for (const side of [-1, 1]) {
+    b.torch(axis + side * (bc.w / 2 - 3.6), bc.floorY + 2.1, chamberZ - bc.d / 2 + 0.6, 1.0);
+    b.torch(axis + side * (bc.w / 2 - 3.6), bc.floorY + 2.1, chamberZ + bc.d / 2 - 0.6, 1.0);
+  }
+
+  const wx = b.ox + axis;
+  const wy = b.oy + bc.floorY;
+  const wz = b.oz + chamberZ;
+
+  // The granite sarcophagus, sunk to its lip in the chamber floor at the west
+  // end - Belzoni found it empty but for cattle bone and an Arabic inscription.
+  const sar = K.sarcophagus;
+  const sx = wx - bc.w / 2 + 2.4;
+  const sunk = 0.42;
+  for (const g of [
+    box(sar.w, sar.h - sunk, 0.16, sx, wy + (sar.h - sunk) / 2, wz - sar.d / 2),
+    box(sar.w, sar.h - sunk, 0.16, sx, wy + (sar.h - sunk) / 2, wz + sar.d / 2),
+    box(0.16, sar.h - sunk, sar.d, sx - sar.w / 2, wy + (sar.h - sunk) / 2, wz),
+    box(0.16, sar.h - sunk, sar.d, sx + sar.w / 2, wy + (sar.h - sunk) / 2, wz),
+    box(sar.w, 0.12, sar.d, sx, wy - sunk + 0.06, wz),
+  ]) ctx.parts.granite.push(g);
+  ctx.colliders.push({
+    minX: sx - sar.w / 2 - 0.1, maxX: sx + sar.w / 2 + 0.1,
+    minY: wy, maxY: wy + sar.h - sunk,
+    minZ: wz - sar.d / 2 - 0.1, maxZ: wz + sar.d / 2 + 0.1, tag: 'sarcophagus',
+  });
+  relics.brokenLid(sx + 2.3, wy, wz + 0.2, 0.18, sar.w, sar.d + 0.2);
+  relics.relic({
+    id: 'relic-khafre-sarcophagus',
+    name: 'Khafre’s Sarcophagus',
+    site: 'khafre',
+    x: sx, y: wy + 1.3, z: wz,
+    text:
+      'Polished Aswan granite, sunk to its lip in the chamber floor so that it could never be dragged ' +
+      'out. Belzoni broke in on 2 March 1818 and found it open, empty, and already inscribed by earlier ' +
+      'visitors — the tomb had been robbed more than two thousand years before him.',
+    pm: 'Work package 6.5 — the burial chamber. Placing the box before roofing is an irreversible sequence.',
+  });
+
+  // Belzoni's own graffito on the south wall, and the register above it.
+  relics.glyphPanel(wx - 2.0, wy + 1.4, wz + bc.d / 2 - 0.06, 5.2, 1.7, 's', { tile: 2.2 });
+  relics.glyphPanel(wx + 3.4, wy + 1.5, wz - bc.d / 2 + 0.06, 4.2, 1.6, 'n', { tile: 2.2, painted: true });
+  relics.cartouche(wx - bc.w / 2 + 0.9, wy + 2.1, wz - 1.1, 1.2, 'e');
+  relics.cartouche(wx - bc.w / 2 + 0.9, wy + 2.1, wz + 1.1, 1.2, 'e');
+  relics.relic({
+    id: 'relic-khafre-graffito',
+    name: 'Belzoni’s Graffito',
+    site: 'khafre',
+    x: wx - 2.0, y: wy + 1.8, z: wz + bc.d / 2 - 0.4,
+    text:
+      `Painted in lamp-black on the south wall: “${K.graffito}”. Giovanni Belzoni — circus strongman, ` +
+      'hydraulic engineer, then excavator — cut through 30 m of masonry on a hunch about where the ' +
+      'passage had to be. He was right, and the graffito is still there.',
+    pm: 'A reminder that the record of a project outlives the project: document your closure.',
+  });
+
+  // Grave goods, gathered at the east end where the chamber is widest.
+  relics.offeringTable(wx + bc.w / 2 - 2.4, wy, wz - 0.9, Math.PI * 0.5, { site: 'khafre' });
+  relics.canopicChest(wx + bc.w / 2 - 2.2, wy, wz + 1.3, Math.PI * 0.5, { site: 'khafre' });
+  relics.jarCluster(wx + bc.w / 2 - 4.2, wy, wz + 1.7, 0, 5, rng);
+  relics.kaStatue(wx - 1.2, wy, wz + bc.d / 2 - 1.0, Math.PI, {
+    site: 'khafre',
+    name: 'Ka-Statue of Khafre',
+    text:
+      'The seated diorite Khafre from the valley temple is the finest sculpture of the Old Kingdom: ' +
+      'Horus as a falcon folds his wings around the back of the king’s head. This is its double, left ' +
+      'where the ka could reach it.',
+  });
+
+  // ---- the lower entrance, out in the pavement north of the pyramid ----
+  const lowY = 0;
+  const lowZ = b.faceZ(0) - K.lowerEntrance.groundOffset;
+  const lowFloorY = -4.6;
+  const lowDescLen = (lowY - lowFloorY) / Math.sin(slope);
+  const lowDescEndZ = lowZ + 1.4 + lowDescLen * Math.cos(slope);
+  b.passage('rough', axis, lowY, lowZ - 1.6, lowY, lowZ + 1.4, PW, PH);
+  b.passage('rough', axis, lowY, lowZ + 1.4, lowFloorY, lowDescEndZ, PW, PH);
+  b.node('lowerEntrance', axis, lowY, lowZ + 2.0);
+  b.viewpoint('lowerEntrance', axis, lowY, lowZ + 2.0, Math.PI);
+
+  // Horizontal run south, past the subsidiary chamber, then up to the main passage.
+  const sub = K.subsidiaryChamber;
+  const subCenterZ = lowDescEndZ + 12;
+  b.passage('rough', axis, lowFloorY, lowDescEndZ, lowFloorY, subCenterZ + sub.d / 2 + 6, PW, PH);
+  b.room('rough', axis - sub.w / 2 - PW / 2 - 0.6, lowFloorY, subCenterZ, sub.w, sub.d, sub.h,
+    [{ wall: 'e', offset: 0, width: PW, height: PH, sill: 0 }], { uvUnit: 2.2 });
+  b.passage('rough', axis, lowFloorY, subCenterZ - PW / 2, lowFloorY, subCenterZ + PW / 2, PW, PH);
+  b.node('subsidiary', axis - sub.w / 2 - 1.2, lowFloorY, subCenterZ);
+  b.viewpoint('subsidiary', axis - sub.w / 2 - PW / 2 - 0.6 + sub.w / 2 - 1.4, lowFloorY, subCenterZ, Math.PI * 0.5);
+  b.torch(axis - sub.w - 1.0, lowFloorY + 1.7, subCenterZ - 1.0, 0.75);
+  b.torch(axis - 2.0, lowFloorY + 1.7, subCenterZ + 1.0, 0.75);
+  b.lineTorches(axis, lowFloorY, lowDescEndZ, lowFloorY, subCenterZ + sub.d / 2 + 6, 9);
+
+  // The ascending link that joins the lower system to the main horizontal passage.
+  const joinZ = subCenterZ + sub.d / 2 + 6;
+  const riseLen = (horizY - lowFloorY) / Math.sin(slope);
+  b.passage('rough', axis, lowFloorY, joinZ, horizY, joinZ + riseLen * Math.cos(slope), PW, PH);
+
+  relics.toolCache(b.ox + axis - sub.w / 2 - 1.6, b.oy + lowFloorY, b.oz + subCenterZ + 0.6, 0.3, {
+    site: 'khafre',
+    id: 'relic-khafre-tools',
+  });
+
+  return b;
+}
+
+/* --------------------------------------------------------------- Menkaure */
+
+/**
+ * Menkaure: the smallest of the three and the most elaborate inside - a
+ * panelled chamber that is the only decorated room in any Giza pyramid, six
+ * niches whose purpose is still argued over, and a granite burial chamber
+ * roofed with a barrel vault cut from the underside of paired slabs.
+ */
+function buildMenkaure(ctx) {
+  const M = MENKAURE_INTERIOR;
+  const b = new TombBuilder({
+    ...ctx,
+    site: 'menkaure',
+    pyramid: PYRAMIDS.menkaure,
+    passageAngleDeg: M.passageAngleDeg,
+    passageWidth: M.passageWidth,
+    passageHeight: M.passageHeight,
+  });
+  const relics = ctx.relics;
+  const rng = ctx.rng;
+  const PW = M.passageWidth;
+  const PH = M.passageHeight;
+  const slope = M.passageAngleDeg * DEG;
+  const axis = M.entrance.x;
+
+  // ---- entrance and descending passage ----
+  const entryY = M.entrance.y;
+  const entryZ = b.faceZ(entryY);
+  const pan = M.panelledChamber;
+  b.passage('granite', axis, entryY, entryZ - 2.4, entryY, entryZ + 1.6, PW, PH);
+  b.node('entrance', axis, entryY, entryZ + 2.2);
+  b.viewpoint('entrance', axis, entryY, entryZ + 2.2, Math.PI);
+
+  const descLen = (entryY - pan.floorY) / Math.sin(slope);
+  const descEndZ = entryZ + 1.6 + descLen * Math.cos(slope);
+  b.passage('granite', axis, entryY, entryZ + 1.6, pan.floorY, descEndZ, PW, PH);
+  b.lineTorches(axis, entryY, entryZ + 1.6, pan.floorY, descEndZ, 8);
+  b.viewpoint('descending', axis, (entryY + pan.floorY) / 2, (entryZ + descEndZ) / 2, Math.PI);
+
+  // ---- the panelled chamber ----
+  const panZ = descEndZ + pan.d / 2 + 0.3;
+  b.room('dressed', axis, pan.floorY, panZ, pan.w, pan.d, pan.h,
+    [
+      { wall: 'n', offset: 0, width: PW, height: PH, sill: 0 },
+      { wall: 's', offset: 0, width: PW, height: PH, sill: 0 },
+    ], { uvUnit: 1.4 });
+  b.node('panelledChamber', axis, pan.floorY, panZ);
+  b.viewpoint('panelledChamber', axis, pan.floorY, panZ - pan.d / 2 + 0.9, Math.PI);
+  b.torch(axis - pan.w / 2 + 0.5, pan.floorY + 1.8, panZ, 0.7);
+  b.torch(axis + pan.w / 2 - 0.5, pan.floorY + 1.8, panZ, 0.7);
+
+  const pwx = b.ox + axis;
+  const pwy = b.oy + pan.floorY;
+  const pwz = b.oz + panZ;
+  // The palace-façade panelling this chamber is named for, on both side walls.
+  relics.panelling(pwx - pan.w / 2 + 0.08, pwy, pwz, pan.d - 0.3, pan.h - 0.4, 'e', 4);
+  relics.panelling(pwx + pan.w / 2 - 0.08, pwy, pwz, pan.d - 0.3, pan.h - 0.4, 'w', 4);
+  relics.starCeiling(pwx, pwy + pan.h - 0.06, pwz, pan.w - 0.2, pan.d - 0.2, rng);
+  relics.relic({
+    id: 'relic-menkaure-panelling',
+    name: 'The Panelled Chamber',
+    site: 'menkaure',
+    x: pwx, y: pwy + 1.7, z: pwz,
+    text:
+      'Carved with the recessed niching of a palace façade — the only decoration in the interior of any ' +
+      'Giza pyramid. The pattern imitates the mud-brick and matting front of an archaic royal enclosure: ' +
+      'the tomb as the king’s house, rendered in stone.',
+    pm: 'Work package 6.3 — a late scope addition, and the only decorative package in the WBS.',
+  });
+
+  // ---- horizontal passage with its three portcullis slabs ----
+  const main = M.mainChamber;
+  const mainZ = panZ + pan.d / 2 + 7.4;
+  const mainNorthZ = mainZ - main.d / 2;
+  b.passage('granite', axis, pan.floorY, panZ + pan.d / 2, pan.floorY, mainNorthZ - 2.4, PW, PH + 0.5);
+  for (let i = 0; i < M.portcullisCount; i++) {
+    const pz = panZ + pan.d / 2 + 1.6 + i * 1.5;
+    // Raised in their grooves, as they are today: the slabs were lowered on
+    // the day of the funeral and later smashed through by robbers.
+    b.part('granite', PW + 0.5, 1.35, 0.34, axis, pan.floorY + PH + 0.42, pz);
+    b.part('granite', 0.3, 1.8, 0.4, axis - PW / 2 - 0.28, pan.floorY, pz);
+    b.part('granite', 0.3, 1.8, 0.4, axis + PW / 2 + 0.28, pan.floorY, pz);
+  }
+  // The last stretch steps down into the main chamber.
+  b.passage('granite', axis, pan.floorY, mainNorthZ - 2.4, main.floorY, mainNorthZ, PW, PH + 0.5);
+
+  // ---- the main (ante) chamber, running east-west ----
+  const nicheLx = axis + 4.2;
+  const burLx = axis - 4.6;
+  b.room('dressed', axis, main.floorY, mainZ, main.w, main.d, main.h,
+    [
+      { wall: 'n', offset: 0, width: PW, height: PH + 0.5, sill: 0 },
+      // The stair down to the niches, and the descent to the burial chamber.
+      { wall: 's', offset: nicheLx - axis, width: PW, height: PH + 0.4, sill: 0 },
+      { wall: 's', offset: burLx - axis, width: PW, height: PH + 0.4, sill: 0 },
+    ], { uvUnit: 1.7 });
+  b.node('mainChamber', axis, main.floorY, mainZ);
+  b.viewpoint('mainChamber', axis + main.w / 2 - 2.4, main.floorY, mainZ, Math.PI * 0.5);
+  for (const side of [-1, 1]) {
+    b.torch(axis + side * (main.w / 2 - 1.1), main.floorY + 2.0, mainZ - 1.1, 0.95);
+    b.torch(axis + side * (main.w / 2 - 1.1), main.floorY + 2.0, mainZ + 1.1, 0.95);
+  }
+  b.torch(axis, main.floorY + 2.0, mainZ + 1.2, 0.8);
+
+  const mwx = b.ox + axis;
+  const mwy = b.oy + main.floorY;
+  const mwz = b.oz + mainZ;
+  relics.glyphPanel(mwx - 3.6, mwy + 1.4, mwz - main.d / 2 + 0.05, 4.4, 1.7, 'n', { tile: 2.2, painted: true });
+  relics.glyphPanel(mwx + 3.8, mwy + 1.4, mwz + main.d / 2 - 0.05, 4.0, 1.7, 's', { tile: 2.2 });
+  relics.falseDoor(mwx + main.w / 2 - 0.12, mwy, mwz, 2.9, 'w', {
+    site: 'menkaure',
+    id: 'relic-menkaure-false-door',
+    name: 'False Door of Menkaure',
+    text:
+      'Not a door but a threshold: carved so the ka can pass out to take the offerings laid before it, ' +
+      'and back again. The drum across the top imitates the rolled-up reed mat of a real doorway.',
+    pm: 'Work package 8.4 — the interface between the tomb and the mortuary cult that had to keep running.',
+  });
+  relics.modelBoat(mwx - main.w / 2 + 3.0, mwy, mwz - main.d / 2 + 1.1, 0, { site: 'menkaure' });
+  relics.anubisShrine(mwx - 1.4, mwy, mwz + main.d / 2 - 0.9, Math.PI, { site: 'menkaure' });
+  relics.jarCluster(mwx + 1.8, mwy, mwz + main.d / 2 - 0.7, Math.PI, 6, rng);
+
+  // ---- the six niches, reached by a stair down from the main chamber ----
+  const nic = M.nicheChamber;
+  const nicheZ = mainZ + main.d / 2 + 5.0;
+  b.passage('rough', nicheLx, main.floorY, mainZ + main.d / 2, nic.floorY, nicheZ - nic.d / 2, PW, PH + 0.4);
+  b.room('rough', nicheLx, nic.floorY, nicheZ, nic.w, nic.d, nic.h,
+    [{ wall: 'n', offset: 0, width: PW, height: PH + 0.4, sill: 0 }], { uvUnit: 1.5 });
+  b.node('nicheChamber', nicheLx, nic.floorY, nicheZ);
+  b.viewpoint('nicheChamber', nicheLx - nic.w / 2 + 1.2, nic.floorY, nicheZ, -Math.PI * 0.5);
+  b.torch(nicheLx - nic.w / 2 + 0.4, nic.floorY + 1.7, nicheZ, 0.65);
+  b.torch(nicheLx + nic.w / 2 - 0.4, nic.floorY + 1.7, nicheZ, 0.65);
+  // Four niches in the east wall, two in the north: cut but never used.
+  const nwx = b.ox + nicheLx;
+  const nwy = b.oy + nic.floorY;
+  const nwz = b.oz + nicheZ;
+  for (let i = 0; i < 4; i++) {
+    const nz = nwz - nic.d / 2 + 0.5 + i * ((nic.d - 1.0) / 3);
+    ctx.parts.rough.push(box(0.9, 1.55, 0.62, nwx + nic.w / 2 + 0.2, nwy + 0.78, nz));
+  }
+  for (let i = 0; i < 2; i++) {
+    const nx = nwx - 1.0 + i * 2.0;
+    ctx.parts.rough.push(box(0.62, 1.55, 0.9, nx, nwy + 0.78, nwz - nic.d / 2 - 0.2));
+  }
+  relics.relic({
+    id: 'relic-menkaure-niches',
+    name: 'The Six Niches',
+    site: 'menkaure',
+    x: nwx, y: nwy + 1.6, z: nwz,
+    text:
+      'Six cuttings, four in one wall and two in another, finished to a standard nothing else down here ' +
+      'reaches. Storage for canopic equipment, emplacements for statues of the royal women, or an ' +
+      'abandoned change of plan — the argument has run for a century and a half.',
+    pm: 'The clearest surviving evidence of undocumented scope change anywhere on the plateau.',
+  });
+  relics.stela(nwx - nic.w / 2 + 0.8, nwy, nwz + 0.4, Math.PI * 0.5, {
+    site: 'menkaure',
+    id: 'relic-menkaure-stela',
+    name: 'Foundation Stela',
+    height: 1.7,
+    text:
+      'The founding record: the king’s Horus name, the year of the count, and the name of the pyramid — ' +
+      '“Menkaure is Divine”. The Egyptians dated by cattle counts, not regnal years, which is why the ' +
+      'chronology of this dynasty is still argued about.',
+  });
+
+  // ---- the granite burial chamber under a barrel vault ----
+  const bur = M.burialChamber;
+  const burStartZ = mainZ + main.d / 2;
+  const burCz = burStartZ + 7.4 + bur.d / 2;
+  b.passage('granite', burLx, main.floorY, burStartZ, bur.floorY, burCz - bur.d / 2, PW, PH + 0.4);
+  b.room('granite', burLx, bur.floorY, burCz, bur.w, bur.d, bur.h,
+    [{ wall: 'n', offset: 0, width: PW, height: PH + 0.4, sill: 0 }],
+    { ceiling: false, uvUnit: 1.4 });
+  b.node('burialChamber', burLx, bur.floorY, burCz);
+  b.viewpoint('burialChamber', burLx + bur.w / 2 - 1.5, bur.floorY, burCz, Math.PI * 0.5);
+  b.torch(burLx - bur.w / 2 + 0.5, bur.floorY + 2.0, burCz - 0.7, 0.9);
+  b.torch(burLx + bur.w / 2 - 0.5, bur.floorY + 2.0, burCz + 0.7, 0.9);
+
+  // The vault: paired slabs laid as a gable, then hollowed underneath to a
+  // half-round. Approximated as stepped courses closing to a curve.
+  const bwx = b.ox + burLx;
+  const bwy = b.oy + bur.floorY;
+  const bwz = b.oz + burCz;
+  const vaultSteps = 7;
+  for (let i = 0; i < vaultSteps; i++) {
+    const t = (i + 0.5) / vaultSteps;
+    const half = (bur.w / 2 + 0.4) * Math.cos((t * Math.PI) / 2);
+    const yy = bwy + bur.h + (bur.w / 2) * Math.sin((t * Math.PI) / 2) * 0.62;
+    const thick = (bur.w / 2) * 0.62 / vaultSteps + 0.16;
+    ctx.parts.granite.push(box((half + 0.9) * 2, thick, bur.d + 1.8, bwx, yy, bwz));
+  }
+  ctx.colliders.push({
+    minX: bwx - bur.w / 2 - 0.5, maxX: bwx + bur.w / 2 + 0.5,
+    minY: bwy + bur.h - 0.2, maxY: bwy + bur.h + 2.4,
+    minZ: bwz - bur.d / 2 - 0.5, maxZ: bwz + bur.d / 2 + 0.5, tag: 'vault',
+  });
+
+  // The emplacement where the basalt sarcophagus stood until 1838.
+  const sar = M.sarcophagus;
+  ctx.parts.granite.push(
+    box(sar.w + 0.5, 0.14, sar.d + 0.5, bwx - bur.w / 2 + 1.9, bwy + 0.07, bwz)
+  );
+  relics.relic({
+    id: 'relic-menkaure-sarcophagus',
+    name: 'The Empty Emplacement',
+    site: 'menkaure',
+    x: bwx - bur.w / 2 + 1.9, y: bwy + 1.1, z: bwz,
+    text:
+      'The basalt sarcophagus that stood here was carved with the same palace-façade panelling as the ' +
+      'chamber above. It was shipped for the British Museum in 1838 aboard the Beatrice, which went ' +
+      'down off Cartagena. It is still on the sea floor.',
+    pm: 'Transport risk realised after handover — the one failure mode the register never closes.',
+  });
+  relics.offeringTable(bwx + bur.w / 2 - 1.6, bwy, bwz - 0.3, -Math.PI * 0.5, {
+    site: 'menkaure',
+    id: 'relic-menkaure-offering',
+  });
+  relics.glyphPanel(bwx, bwy + 1.4, bwz + bur.d / 2 - 0.06, 4.6, 1.6, 's', { tile: 2.0, painted: true });
+
+  return b;
+}
+
 /* ================= src/world/interior.js ================= */
 
 
 
 
 
+
+
 /**
- * The interior of the Great Pyramid, at survey dimensions.
+ * The interiors of all three great pyramids.
  *
- * Everything lies in a single vertical plane 7.29 m east of the pyramid's
- * north-south axis - the same plane as the original entrance - exactly as
- * Petrie found it.  Passages are 1.05 m wide and 1.20 m high, so the player
- * has to stoop; the Grand Gallery opens out to 8.74 m; the King's Chamber is
- * red granite with five relieving chambers stacked above it.
+ * The Great Pyramid is built here at survey dimensions: everything lies in a
+ * single vertical plane 7.29 m east of the north-south axis - the same plane
+ * as the original entrance - exactly as Petrie found it.  Passages are 1.05 m
+ * wide and 1.20 m high, so the player has to stoop; the Grand Gallery opens
+ * out to 8.74 m; the King's Chamber is red granite with five relieving
+ * chambers stacked above it.  Khafre's and Menkaure's interiors are built by
+ * ./tombs.js into the same buckets.
  *
- * The interior is a scene of its own.  It is never rendered at the same time
- * as the exterior, which keeps both draw-call counts low and lets the interior
- * run its own fog, torchlight and dust.
+ * All of it is one scene, separate from the plateau.  Only one of the two is
+ * ever rendered, which keeps both draw-call counts low and lets the interior
+ * run its own fog, torchlight and dust.  The three tombs are hundreds of
+ * metres apart, so the fog closes long before one could be seen from another.
  */
 
 const K = KHUFU_INTERIOR;
@@ -61328,15 +62718,87 @@ class InteriorSystem {
 
     this.nodes = {};
     this.viewpoints = {};
+    this.parts = { limestone: [], dressed: [], granite: [], rough: [] };
+    this.relics = new RelicKit(textures, quality);
+
     this._build();
+    this._decorateKhufu();
+
+    // Khufu's own nodes are unprefixed for historical reasons; give every one
+    // of them a site-qualified alias so all three tombs address alike.
+    for (const key of Object.keys(this.nodes)) this.nodes[`khufu.${key}`] = this.nodes[key];
+    for (const key of Object.keys(this.viewpoints)) this.viewpoints[`khufu.${key}`] = this.viewpoints[key];
+
+    const ctx = {
+      parts: this.parts,
+      colliders: this.colliders,
+      torchSites: this.torchSites,
+      nodes: this.nodes,
+      viewpoints: this.viewpoints,
+      relics: this.relics,
+      rng: this.rng,
+    };
+    buildKhafre(ctx);
+    buildMenkaure(ctx);
+
+    this._assemble();
+    this.relics.finish(this.scene);
+    for (const c of this.relics.colliders) this.colliders.push(c);
+    this._buildSites();
     this._buildLighting();
   }
 
+  /** Where the player arrives, and which way they face, for each tomb. */
+  _buildSites() {
+    this.sites = {
+      khufu: {
+        id: 'khufu',
+        name: PYRAMIDS.khufu.name,
+        entry: this.nodes.entrance.clone(),
+        yaw: Math.PI,
+      },
+      khafre: {
+        id: 'khafre',
+        name: PYRAMIDS.khafre.name,
+        entry: this.nodes['khafre.entrance'].clone(),
+        yaw: Math.PI,
+      },
+      menkaure: {
+        id: 'menkaure',
+        name: PYRAMIDS.menkaure.name,
+        entry: this.nodes['menkaure.entrance'].clone(),
+        yaw: Math.PI,
+      },
+    };
+    // Two of the ways in are second doors into a tomb that already has one,
+    // so they get their own arrival point rather than the site's default.
+    this.sites.khufuMamun = {
+      id: 'khufuMamun',
+      site: 'khufu',
+      name: 'Great Pyramid — al-Ma’mun’s tunnel',
+      entry: this.nodes.mamun.clone(),
+      yaw: Math.PI,
+    };
+    // The lower entrance of Khafre is a second way into the same tomb.
+    this.sites.khafreLower = {
+      id: 'khafreLower',
+      site: 'khafre',
+      name: `${PYRAMIDS.khafre.name} — lower entrance`,
+      entry: this.nodes['khafre.lowerEntrance'].clone(),
+      yaw: Math.PI,
+    };
+  }
+
+  /** Points of interest contributed by the relics, for the codex. */
+  get relicPoints() {
+    return this.relics.relics;
+  }
+
   _build() {
-    const lime = [];
-    const dressed = [];
-    const granite = [];
-    const rough = [];
+    const lime = this.parts.limestone;
+    const dressed = this.parts.dressed;
+    const granite = this.parts.granite;
+    const rough = this.parts.rough;
     const colliders = this.colliders;
 
     // ---------------------------------------------------------- entrance
@@ -61521,17 +62983,125 @@ class InteriorSystem {
     this._lineTorches(horizY, ascEndZ, horizY, qcNorthWallZ - 6, 9);
     this._lineTorches(ggStartY, ggStartZ, ggEndY, ggEndZ, 7);
 
-    // ------------------------------------------------------------ assemble
-    this._addMesh(mergeGeometries(lime), this.materials.limestone, 'interior-limestone');
-    this._addMesh(mergeGeometries(dressed), this.materials.dressed, 'interior-dressed');
-    this._addMesh(mergeGeometries(granite), this.materials.granite, 'interior-granite');
-    this._addMesh(mergeGeometries(rough), this.materials.rough, 'interior-rough');
-
-    this._buildShaftMouths();
-
     // Daylight spilling in at the two entrances.
     this._addDaylight(AXIS_X, entryY + PH / 2, entryZ - 2.4, PW, PH);
     this._addDaylight(AXIS_X, mamunY + 1.0, mamunZ - 0.6, 1.5, 2.0);
+  }
+
+  /**
+   * Merge every bucket once all three tombs have contributed to it.  Four
+   * meshes carry the whole of Giza's underground, which is what keeps the
+   * interior at ten draw calls.
+   */
+  _assemble() {
+    this._addMesh(mergeGeometries(this.parts.limestone), this.materials.limestone, 'interior-limestone');
+    this._addMesh(mergeGeometries(this.parts.dressed), this.materials.dressed, 'interior-dressed');
+    this._addMesh(mergeGeometries(this.parts.granite), this.materials.granite, 'interior-granite');
+    this._addMesh(mergeGeometries(this.parts.rough), this.materials.rough, 'interior-rough');
+    this._buildShaftMouths();
+
+    // Daylight at the mouths of the other three ways in.
+    for (const [key, w, h] of [
+      ['khafre.entrance', KHUFU_INTERIOR.passageWidth, KHUFU_INTERIOR.passageHeight],
+      ['khafre.lowerEntrance', KHUFU_INTERIOR.passageWidth, KHUFU_INTERIOR.passageHeight],
+      ['menkaure.entrance', KHUFU_INTERIOR.passageWidth, KHUFU_INTERIOR.passageHeight],
+    ]) {
+      const n = this.nodes[key];
+      if (n) this._addDaylight(n.x, n.y + h / 2, n.z - 4.2, w, h);
+    }
+  }
+
+  /**
+   * Furnish the Great Pyramid.
+   *
+   * A deliberate point of accuracy: unlike every later royal tomb, Khufu's
+   * chambers carry no decoration at all.  The only inscriptions in the whole
+   * monument are the red-ochre gang marks daubed on the blocks of the
+   * relieving chambers before they were sealed - which nobody was ever meant
+   * to see.  Those are here, in the one place they belong, and the grave goods
+   * are the ones the burial would have held.
+   */
+  _decorateKhufu() {
+    const R = this.relics;
+    const rng = this.rng;
+    const kc = this.nodes.kingsChamber;
+    const qc = this.nodes.queensChamber;
+    const sub = this.nodes.subterranean;
+    const dav = this.nodes.davison;
+    const K2 = K.kingsChamber;
+
+    // ---- King's Chamber: bare granite, an open box, and the masons' kit ----
+    R.brokenLid(AXIS_X - K2.w / 2 + 4.6, kc.y, kc.z + 0.4, 0.12, K.sarcophagus.w, K.sarcophagus.d);
+    R.toolCache(AXIS_X + K2.w / 2 - 1.7, kc.y, kc.z + 1.5, -Math.PI * 0.5, {
+      site: 'khufu',
+      id: 'relic-khufu-tools',
+    });
+    R.relic({
+      id: 'relic-khufu-bare-walls',
+      name: 'The Undecorated Chamber',
+      site: 'khufu',
+      x: AXIS_X, y: kc.y + 1.7, z: kc.z - 1.6,
+      text:
+        'Not one hieroglyph. Every later royal tomb is covered in text — the Pyramid Texts begin in ' +
+        'Unas’s pyramid three centuries after this — but Khufu’s chambers are bare polished granite, ' +
+        'joints so fine you cannot slide a blade into them. Whatever the builders believed was doing the ' +
+        'work here, it was not writing.',
+      pm: 'Work package 6.5 — the specification was surface finish, not decoration. Know what you are buying.',
+    });
+
+    // ---- the relieving chambers: the only writing in the pyramid ----
+    if (dav) {
+      R.glyphPanel(AXIS_X - 2.6, dav.y + 0.55, dav.z - K2.d / 2 - 0.5, 3.4, 0.85, 's', { tile: 1.5, painted: true });
+      R.glyphPanel(AXIS_X + 1.9, dav.y + 0.5, dav.z + K2.d / 2 + 0.5, 2.8, 0.8, 'n', { tile: 1.5, painted: true });
+      R.cartouche(AXIS_X - 0.2, dav.y + 0.7, dav.z - K2.d / 2 - 0.46, 0.8, 's');
+      R.relic({
+        id: 'relic-khufu-gang-marks',
+        name: 'The Gang Marks',
+        site: 'khufu',
+        x: AXIS_X - 1.2, y: dav.y + 0.7, z: dav.z - K2.d / 2 - 0.2,
+        text:
+          'Daubed in red ochre on blocks that were about to be walled in for ever: quarry dates, levelling ' +
+          'lines, and the names of the work gangs. One of them reads “the gang: How powerful is the White ' +
+          'Crown of Khnum-Khufu”. It is the only place in the pyramid the king’s name appears, and it was ' +
+          'written by the crew, not for the crew.',
+        pm: 'Work package 6.6 — relieving chambers. The site record survived because nobody curated it.',
+      });
+    }
+
+    // ---- Queen's Chamber: the niche, and the goods the ka would draw on ----
+    if (qc) {
+      R.kaStatue(AXIS_X + K.queensChamber.w / 2 - 0.75, qc.y, qc.z + 0.9, -Math.PI * 0.5, {
+        site: 'khufu',
+        scale: 0.62,
+        id: 'relic-khufu-ka',
+        name: 'The Statue in the Niche',
+        text:
+          'The corbelled niche in the east wall was cut for something and then abandoned half-finished. ' +
+          'The usual reading is a serdab: a sealed cell holding a ka-statue, with a slot for the incense ' +
+          'to reach it. What actually stood here, if anything, nobody knows.',
+      });
+      R.offeringTable(AXIS_X - K.queensChamber.w / 2 + 1.1, qc.y, qc.z - 1.3, Math.PI * 0.5, { site: 'khufu' });
+      R.canopicChest(AXIS_X - K.queensChamber.w / 2 + 1.2, qc.y, qc.z + 1.2, Math.PI * 0.5, { site: 'khufu' });
+      R.jarCluster(AXIS_X + 0.4, qc.y, qc.z + K.queensChamber.d / 2 - 0.6, Math.PI, 4, rng);
+      R.modelBoat(AXIS_X - 0.6, qc.y, qc.z - K.queensChamber.d / 2 + 1.0, 0, { site: 'khufu' });
+    }
+
+    // ---- the subterranean chamber: abandoned mid-cut ----
+    if (sub) {
+      R.jarCluster(sub.x - 4.6, sub.y, sub.z - 2.2, 0, 4, rng);
+      R.stela(sub.x - 5.4, sub.y, sub.z + 1.6, Math.PI * 0.5, {
+        site: 'khufu',
+        id: 'relic-khufu-abandoned',
+        name: 'The Abandoned Chamber',
+        height: 1.6,
+        text:
+          'The first plan put the burial chamber down here, in the bedrock. The floor was left as a ' +
+          'jagged half-cut trench and the crews were moved up into the masonry instead. Two more chambers ' +
+          'were begun and changed before the King’s Chamber was settled on.',
+        pm: 'Work package 6.1 — two full changes of design mid-build, and the schedule absorbed both.',
+      });
+      R.toolCache(sub.x + 3.8, sub.y, sub.z - 1.4, Math.PI, { site: 'khufu', id: 'relic-khufu-sub-tools' });
+    }
   }
 
   _addMesh(geometry, material, name) {
@@ -61767,6 +63337,15 @@ class InteriorSystem {
       ['subterranean', 4.2, 22],
       ['grandGallery', 6.0, 34],
       ['davison', 2.4, 14],
+      // Small chambers need much less than the King's Chamber: the same
+      // intensity in a 3 m room blows straight through the tone mapping and
+      // the walls come back as flat orange.
+      ['khafre.burialChamber', 5.4, 30],
+      ['khafre.subsidiary', 2.4, 16],
+      ['menkaure.panelledChamber', 1.9, 10],
+      ['menkaure.mainChamber', 4.6, 26],
+      ['menkaure.nicheChamber', 1.7, 11],
+      ['menkaure.burialChamber', 2.4, 13],
     ]) {
       const node = this.nodes[key];
       if (!node) continue;
@@ -61794,6 +63373,367 @@ class InteriorSystem {
 
   dispose() {
     this.scene.traverse((o) => {
+      if (o.geometry) o.geometry.dispose();
+    });
+    for (const m of Object.values(this.materials)) m.dispose();
+    this.relics.dispose();
+  }
+}
+
+/* ================= src/world/entrances.js ================= */
+
+
+
+
+/**
+ * The ways in.
+ *
+ * Every pyramid entrance is a hole part-way up a 52-degree face, which is
+ * unreachable on foot: without an approach the player can walk the whole
+ * plateau and never get within twenty metres of a doorway.  This module builds
+ * the stone approach - a stepped ramp from the ground to a landing at the
+ * threshold - marks the opening with the relieving chevrons and a recessed
+ * doorway, and registers the entrance so the interaction key has something to
+ * find.
+ *
+ * Each step of the ramp is its own collider, 0.42 m high, well inside the
+ * 0.72 m the collision world will step the player up, so the approach is
+ * genuinely walkable rather than a piece of scenery.
+ */
+
+const STEP_RISE = 0.42;
+const STEP_RUN = 0.60;
+const RAMP_WIDTH = 3.6;
+const LANDING_DEPTH = 4.0;
+
+class EntranceSystem {
+  constructor(scene, textures, quality, collision, groundAt) {
+    this.group = new THREE.Group();
+    this.group.name = 'entrances';
+    scene.add(this.group);
+    this.collision = collision;
+    this.groundAt = groundAt;
+    this.torchSites = [];
+    this.entrances = [];
+
+    const lime = textures.limestoneAshlar();
+    const aniso = Math.min(quality.settings.anisotropy, quality.maxAnisotropy);
+    for (const t of Object.values(lime)) t.anisotropy = aniso;
+
+    this.materials = {
+      dressed: new THREE.MeshStandardMaterial({
+        map: lime.map,
+        normalMap: lime.normalMap,
+        roughnessMap: lime.roughnessMap,
+        color: 0xcabfa2,
+        roughness: 0.86,
+        metalness: 0,
+      }),
+      // The opening itself: unlit, so it reads as a hole rather than a panel.
+      shadow: new THREE.MeshBasicMaterial({ color: 0x060504, fog: true }),
+    };
+
+    this._parts = [];
+    this._buildAll();
+
+    const geo = mergeGeometries(this._parts);
+    scaleUvByWorldSize(geo, 2.2);
+    const mesh = new THREE.Mesh(geo, this.materials.dressed);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.name = 'entrance-works';
+    this.group.add(mesh);
+
+    if (this._voids.length) {
+      const voidMesh = new THREE.Mesh(mergeGeometries(this._voids), this.materials.shadow);
+      voidMesh.name = 'entrance-voids';
+      this.group.add(voidMesh);
+    }
+  }
+
+  /** North face Z of a pyramid at a given height above its base. */
+  static faceZ(p, height) {
+    return p.z - (p.baseLength / 2) * (1 - height / p.designHeight);
+  }
+
+  _buildAll() {
+    this._voids = [];
+    const khufu = PYRAMIDS.khufu;
+    const khafre = PYRAMIDS.khafre;
+    const menkaure = PYRAMIDS.menkaure;
+
+    // ---- the Great Pyramid: the original entrance, and al-Ma'mun's hole ----
+    this._approach({
+      id: 'khufu',
+      site: 'khufu',
+      name: 'Great Pyramid — Original Entrance',
+      prompt: 'Enter the Great Pyramid',
+      pyramid: khufu,
+      axisX: khufu.x + KHUFU_INTERIOR.entrance.x,
+      height: KHUFU_INTERIOR.entrance.y,
+      doorWidth: KHUFU_INTERIOR.passageWidth,
+      doorHeight: KHUFU_INTERIOR.passageHeight,
+      chevrons: 2,
+    });
+    this._approach({
+      id: 'khufuMamun',
+      site: 'khufu',
+      name: 'Great Pyramid — al-Ma’mun’s Forced Entry',
+      prompt: 'Enter by al-Ma’mun’s tunnel',
+      pyramid: khufu,
+      axisX: khufu.x + KHUFU_INTERIOR.entrance.x,
+      height: 7.0,
+      doorWidth: 1.5,
+      doorHeight: 2.0,
+      chevrons: 0,
+      ragged: true,
+    });
+
+    // ---- Khafre: the upper entrance on the face, the lower in the pavement ----
+    this._approach({
+      id: 'khafre',
+      site: 'khafre',
+      name: 'Pyramid of Khafre — Upper Entrance',
+      prompt: 'Enter the Pyramid of Khafre',
+      pyramid: khafre,
+      axisX: khafre.x + KHAFRE_INTERIOR.upperEntrance.x,
+      height: KHAFRE_INTERIOR.upperEntrance.y,
+      doorWidth: KHAFRE_INTERIOR.passageWidth,
+      doorHeight: KHAFRE_INTERIOR.passageHeight,
+      chevrons: 1,
+    });
+    this._pavementEntrance({
+      id: 'khafreLower',
+      site: 'khafre',
+      name: 'Pyramid of Khafre — Lower Entrance',
+      prompt: 'Enter by the lower passage',
+      pyramid: khafre,
+      axisX: khafre.x + KHAFRE_INTERIOR.lowerEntrance.x,
+      z: EntranceSystem.faceZ(khafre, 0) - KHAFRE_INTERIOR.lowerEntrance.groundOffset,
+      floorY: khafre.baseY,
+      doorWidth: KHAFRE_INTERIOR.passageWidth,
+      doorHeight: KHAFRE_INTERIOR.passageHeight,
+    });
+
+    // ---- Menkaure ----
+    this._approach({
+      id: 'menkaure',
+      site: 'menkaure',
+      name: 'Pyramid of Menkaure — Entrance',
+      prompt: 'Enter the Pyramid of Menkaure',
+      pyramid: menkaure,
+      axisX: menkaure.x + MENKAURE_INTERIOR.entrance.x,
+      height: MENKAURE_INTERIOR.entrance.y,
+      doorWidth: MENKAURE_INTERIOR.passageWidth,
+      doorHeight: MENKAURE_INTERIOR.passageHeight,
+      chevrons: 1,
+    });
+  }
+
+  /**
+   * A stepped ramp from the ground up the north face to a landing at the
+   * threshold, with the doorway recess and its relieving chevrons above.
+   */
+  _approach(spec) {
+    const p = spec.pyramid;
+    const y = p.baseY + spec.height;
+    const faceZ = EntranceSystem.faceZ(p, spec.height);
+
+    // The pyramid's own collision is a stack of coarse stepped bands that
+    // bulges out past the dressed face, so a landing measured from the face
+    // alone can end up buried inside solid pyramid.  Walk north until there is
+    // standing room at head height, and put the landing's inner edge there.
+    const innerZ = this._clearOf(spec.axisX, y + 0.9, faceZ - 1.4, faceZ - 26);
+    const landingZ = innerZ - LANDING_DEPTH / 2;
+
+    // ---- the landing ----
+    // The slab runs all the way back to the face so it reads as one platform;
+    // only the part with standing room over it carries collision.
+    const slabDepth = Math.max(LANDING_DEPTH, faceZ - landingZ + LANDING_DEPTH / 2);
+    this._parts.push(box(RAMP_WIDTH + 1.6, 1.1, slabDepth, spec.axisX, y - 0.55, faceZ - slabDepth / 2));
+    this.collision.addBox(
+      spec.axisX - (RAMP_WIDTH + 1.6) / 2, y - 1.1, landingZ - LANDING_DEPTH / 2,
+      spec.axisX + (RAMP_WIDTH + 1.6) / 2, y, innerZ,
+      'entrance-landing'
+    );
+    // A low parapet either side so the landing does not feel like a diving board.
+    for (const side of [-1, 1]) {
+      const px = spec.axisX + side * (RAMP_WIDTH / 2 + 0.7);
+      this._parts.push(box(0.5, 0.9, LANDING_DEPTH, px, y + 0.45, landingZ));
+      this.collision.addBox(
+        px - 0.25, y, landingZ - LANDING_DEPTH / 2,
+        px + 0.25, y + 0.9, landingZ + LANDING_DEPTH / 2, 'parapet'
+      );
+    }
+
+    // ---- the stepped ramp down to the ground ----
+    this._stepRun(spec.axisX, y, landingZ - LANDING_DEPTH / 2, -1);
+
+    // ---- the doorway ----
+    this._doorway(spec, faceZ, y);
+
+    // ---- the relieving chevrons ----
+    for (let i = 0; i < (spec.chevrons || 0); i++) {
+      const cy = y + spec.doorHeight + 0.9 + i * 1.7;
+      const spread = 2.2 + i * 1.1;
+      const cz = EntranceSystem.faceZ(p, cy - p.baseY) - 0.5;
+      for (const side of [-1, 1]) {
+        // Two great blocks leaning together over the opening.
+        const g = new THREE.BoxGeometry(3.3, 1.15, 1.5);
+        const m = new THREE.Matrix4().makeRotationZ(side * 0.62);
+        m.setPosition(spec.axisX + side * spread * 0.62, cy + 0.7, cz);
+        g.applyMatrix4(m);
+        this._parts.push(g);
+      }
+    }
+
+    this.torchSites.push({ x: spec.axisX - 1.9, y: y + 0.1, z: landingZ + 0.4, scale: 1.0 });
+    this.torchSites.push({ x: spec.axisX + 1.9, y: y + 0.1, z: landingZ + 0.4, scale: 1.0 });
+
+    this.entrances.push({
+      id: spec.id,
+      site: spec.site,
+      name: spec.name,
+      prompt: spec.prompt,
+      outside: new THREE.Vector3(spec.axisX, y, landingZ),
+      radius: 16,
+    });
+  }
+
+  /** A doorway recess cut into the face, framed by dressed jambs and a lintel. */
+  _doorway(spec, faceZ, y) {
+    const w = spec.doorWidth;
+    const h = spec.doorHeight;
+    const frameW = spec.ragged ? w + 1.4 : w + 1.2;
+    if (!spec.ragged) {
+      this._parts.push(
+        box(0.6, h + 0.9, 1.0, spec.axisX - w / 2 - 0.3, y + (h + 0.9) / 2, faceZ - 0.2),
+        box(0.6, h + 0.9, 1.0, spec.axisX + w / 2 + 0.3, y + (h + 0.9) / 2, faceZ - 0.2),
+        box(frameW, 0.7, 1.0, spec.axisX, y + h + 0.35, faceZ - 0.2)
+      );
+    } else {
+      // Al-Ma'mun's men did not cut a doorway; they broke a hole.
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2;
+        this._parts.push(box(
+          0.7 + (i % 3) * 0.3, 0.6 + (i % 2) * 0.4, 0.9,
+          spec.axisX + Math.cos(a) * (w * 0.8 + 0.3),
+          y + h / 2 + Math.sin(a) * (h * 0.7 + 0.3),
+          faceZ - 0.15
+        ));
+      }
+    }
+    // The dark of the passage beyond.
+    this._voids.push(box(w, h, 0.5, spec.axisX, y + h / 2, faceZ + 0.35));
+  }
+
+  /**
+   * The entrance that opens in the pavement rather than in a face: a cut with
+   * retaining walls and a flight of steps down to the passage mouth.
+   */
+  _pavementEntrance(spec) {
+    const groundY = this.groundAt(spec.axisX, spec.z - 8) ?? spec.floorY;
+    const y = spec.floorY;
+    const forecourtZ = spec.z - 3.2;
+
+    this._parts.push(box(RAMP_WIDTH + 2.0, 0.9, 5.0, spec.axisX, y - 0.45, forecourtZ));
+    this.collision.addBox(
+      spec.axisX - (RAMP_WIDTH + 2.0) / 2, y - 0.9, forecourtZ - 2.5,
+      spec.axisX + (RAMP_WIDTH + 2.0) / 2, y, forecourtZ + 2.5,
+      'entrance-forecourt'
+    );
+    // Retaining walls around the cut, in case the pavement stands above it.
+    for (const side of [-1, 1]) {
+      const px = spec.axisX + side * (RAMP_WIDTH / 2 + 1.4);
+      const wallH = Math.max(1.2, groundY - y + 1.2);
+      this._parts.push(box(0.8, wallH, 5.0, px, y + wallH / 2, forecourtZ));
+      this.collision.addBox(px - 0.4, y, forecourtZ - 2.5, px + 0.4, y + wallH, forecourtZ + 2.5, 'retaining');
+    }
+    this._stepRun(spec.axisX, y, forecourtZ - 2.5, -1);
+
+    this._parts.push(
+      box(0.6, spec.doorHeight + 0.8, 0.9, spec.axisX - spec.doorWidth / 2 - 0.3, y + (spec.doorHeight + 0.8) / 2, spec.z - 0.3),
+      box(0.6, spec.doorHeight + 0.8, 0.9, spec.axisX + spec.doorWidth / 2 + 0.3, y + (spec.doorHeight + 0.8) / 2, spec.z - 0.3),
+      box(spec.doorWidth + 1.2, 0.65, 0.9, spec.axisX, y + spec.doorHeight + 0.32, spec.z - 0.3)
+    );
+    this._voids.push(box(spec.doorWidth, spec.doorHeight, 0.5, spec.axisX, y + spec.doorHeight / 2, spec.z + 0.2));
+
+    this.torchSites.push({ x: spec.axisX - 1.9, y: y + 0.1, z: forecourtZ + 0.6, scale: 0.95 });
+    this.torchSites.push({ x: spec.axisX + 1.9, y: y + 0.1, z: forecourtZ + 0.6, scale: 0.95 });
+
+    this.entrances.push({
+      id: spec.id,
+      site: spec.site,
+      name: spec.name,
+      prompt: spec.prompt,
+      outside: new THREE.Vector3(spec.axisX, y, forecourtZ - 0.6),
+      radius: 15,
+    });
+  }
+
+  /**
+   * A flight of steps from the landing down to wherever the ground actually
+   * is, laid one step at a time until it meets it.
+   *
+   * Sampling the terrain once and dividing would leave the flight hanging in
+   * the air, or buried, wherever the ground is not where that one sample said.
+   * Marching instead keeps every riser at exactly STEP_RISE - comfortably
+   * inside the collision world's step height - and stops the moment the tread
+   * reaches ground level, so the last step is one the player walks onto.
+   */
+  _stepRun(x, topY, topZ, dirZ) {
+    let tread = topY;
+    for (let i = 0; i < 120; i++) {
+      tread -= STEP_RISE;
+      const z = topZ + dirZ * (i * STEP_RUN + STEP_RUN / 2);
+      const ground = this.groundAt(x, z) ?? 0;
+      // Each step is carried down past the terrain so the flight reads as a
+      // masonry ramp however the ground falls away beneath it.
+      const bottom = Math.min(tread - 1.0, ground - 3.0);
+      const h = tread - bottom;
+      this._parts.push(box(RAMP_WIDTH, h, STEP_RUN + 0.02, x, bottom + h / 2, z));
+      this.collision.addBox(
+        x - RAMP_WIDTH / 2, bottom, z - STEP_RUN / 2,
+        x + RAMP_WIDTH / 2, tread, z + STEP_RUN / 2,
+        'entrance-step'
+      );
+      if (tread <= ground) break;
+    }
+  }
+
+  /**
+   * The first Z, walking north from `startZ`, with standing room at height
+   * `y` - used to find where the pyramid's collision stack actually ends.
+   * Two samples, because a spot the player's chest clears but their stride
+   * does not is no use to them.
+   */
+  _clearOf(x, y, startZ, limitZ) {
+    for (let z = startZ; z > limitZ; z -= 0.4) {
+      if (!this.collision.isSolid(x, y, z) && !this.collision.isSolid(x, y, z - 0.6)) return z;
+    }
+    return limitZ;
+  }
+
+  /** The entrance the player is standing at, if any. */
+  nearest(position) {
+    let best = null;
+    let bestDist = Infinity;
+    for (const e of this.entrances) {
+      const d = position.distanceTo(e.outside);
+      if (d < e.radius && d < bestDist) {
+        bestDist = d;
+        best = e;
+      }
+    }
+    return best;
+  }
+
+  byId(id) {
+    return this.entrances.find((e) => e.id === id) || null;
+  }
+
+  dispose() {
+    this.group.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
     });
     for (const m of Object.values(this.materials)) m.dispose();
@@ -62571,17 +64511,32 @@ class DustPuffs {
 /* ----------------------------------------------------------------- birds */
 
 const BIRD_VERT = /* glsl */ `
-attribute float aWing;     // -1 = left wing tip, +1 = right wing tip, 0 = body
-attribute vec2 aFlap;      // x = flap rate, y = phase
+attribute float aWing;     // -1 = left wing, +1 = right wing, 0 = body
+attribute float aSpan;     // 0 at the shoulder, 1 at the tip
+attribute vec3 aFlap;      // x = beat rate, y = phase, z = how much it soars
 uniform float uTime;
+varying float vShade;
 
 void main() {
   vec3 p = position;
   if (abs(aWing) > 0.5) {
-    float beat = sin(uTime * aFlap.x + aFlap.y);
-    // The tip swings about the shoulder: up-and-in on the downstroke.
-    p.y += beat * 0.42;
-    p.x *= 1.0 - abs(beat) * 0.22;
+    // Kites and vultures hold the wing out and beat rarely, so the beat is
+    // gated by a slow envelope: mostly a flat soaring profile, with bursts.
+    float burst = smoothstep(0.15, 0.75, sin(uTime * 0.21 + aFlap.y * 0.7));
+    float beatGain = mix(burst, 1.0, 1.0 - aFlap.z);
+    float beat = sin(uTime * aFlap.x + aFlap.y) * beatGain;
+    // The tip travels furthest: the wing bends along its span rather than
+    // pivoting rigidly, which is what makes a beat read as a wing and not
+    // as a hinge.
+    float bend = aSpan * aSpan;
+    p.y += beat * 0.52 * bend;
+    // Held slightly above the horizontal even at rest - the dihedral that
+    // makes a soaring bird a shallow V from head-on.
+    p.y += 0.16 * bend;
+    p.x *= 1.0 - abs(beat) * 0.20 * bend;
+    vShade = 0.72 + 0.28 * (1.0 - abs(beat) * bend);
+  } else {
+    vShade = 1.0;
   }
   vec4 world = instanceMatrix * vec4(p, 1.0);
   gl_Position = projectionMatrix * modelViewMatrix * world;
@@ -62591,8 +64546,11 @@ void main() {
 const BIRD_FRAG = /* glsl */ `
 uniform vec3 uColor;
 uniform float uOpacity;
+varying float vShade;
 void main() {
-  gl_FragColor = vec4(uColor, uOpacity);
+  // Underwing catches the sky and reads paler than the back; the varying
+  // carries the wing's own angle so the silhouette is not a flat cut-out.
+  gl_FragColor = vec4(uColor * vShade, uOpacity);
 }
 `;
 
@@ -62605,31 +64563,68 @@ void main() {
  * different radii and heights, which gives the eastern sky some life without
  * competing for attention with the monuments.
  */
+/**
+ * Birds over the plateau.
+ *
+ * Egyptian vultures and black kites are the two raptors that actually work
+ * this escarpment, and they work it the same way: circle up a thermal off the
+ * hot limestone, glide across, circle up again.  So the flocks here are pinned
+ * to the things that make thermals - the pyramid faces, the quarry, the
+ * harbour - rather than to a point out over the river, which is where they
+ * used to be and where nobody standing on the plateau could ever see them.
+ *
+ * Each bird flies its own slowly-drifting spiral, and the whole flock is
+ * skipped when the camera is far from its centre.
+ */
+
+/** Thermal sources: birds circle over these. Radius is the spiral's size. */
+const THERMALS = [
+  { x: 0, z: -60, y: 210, radius: 130, weight: 3 },      // over Khufu
+  { x: -252, z: 418, y: 205, radius: 120, weight: 2 },   // over Khafre
+  { x: -594, z: 862, y: 150, radius: 95, weight: 1 },    // over Menkaure
+  { x: 268, z: 366, y: 95, radius: 150, weight: 2 },     // the quarry
+  { x: 336, z: 522, y: 78, radius: 110, weight: 2 },     // the Sphinx enclosure
+  { x: 300, z: 1010, y: 88, radius: 160, weight: 1 },    // the workers' town
+];
+
 class BirdFlock {
   constructor(scene, { count = 60, seed = 4242 } = {}) {
     const rng = makeRng(seed);
-    // Body + two swept wings, drawn double-sided so the underside reads from
-    // below.  Only the tip vertex carries a wing id, so the beat pivots about
-    // the shoulder instead of translating the whole panel.
-    const positions = new Float32Array([
-      // body: a dart along -Z, which is the direction of travel
-      0, 0, -0.90, -0.13, 0, 0.42, 0.13, 0, 0.42,
-      // left wing: root leading edge, tip, root trailing edge
-      -0.10, 0, -0.30, -1.05, 0, 0.18, -0.10, 0, 0.36,
-      // right wing
-      0.10, 0, -0.30, 1.05, 0, 0.18, 0.10, 0, 0.36,
-    ]);
-    const wings = new Float32Array([0, 0, 0, 0, -1, 0, 0, 1, 0]);
+    // Body, two cranked wings and a fanned tail.  Each wing is two panels so
+    // it can bend along its span instead of hinging as one rigid plate.
+    const P = [];
+    const wing = [];
+    const span = [];
+    const push = (verts, w, spans) => {
+      for (let i = 0; i < 3; i++) {
+        P.push(verts[i * 3], verts[i * 3 + 1], verts[i * 3 + 2]);
+        wing.push(w);
+        span.push(spans[i]);
+      }
+    };
+    // Body: a dart along -Z, which is the direction of travel.
+    push([0, 0, -1.05, -0.14, 0, 0.46, 0.14, 0, 0.46], 0, [0, 0, 0]);
+    // Tail: a fan behind the body.
+    push([-0.14, 0, 0.46, 0, 0, 0.95, 0.14, 0, 0.46], 0, [0, 0, 0]);
+    for (const side of [-1, 1]) {
+      const s = side;
+      // Inner panel, shoulder to the crank.
+      push([s * 0.10, 0, -0.34, s * 0.62, 0, -0.22, s * 0.10, 0, 0.38], s, [0, 0.5, 0]);
+      push([s * 0.62, 0, -0.22, s * 0.58, 0, 0.30, s * 0.10, 0, 0.38], s, [0.5, 0.5, 0]);
+      // Outer panel, crank to the tip: swept back, as a soaring wing is.
+      push([s * 0.62, 0, -0.22, s * 1.28, 0, 0.16, s * 0.58, 0, 0.30], s, [0.5, 1, 0.5]);
+    }
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute('aWing', new THREE.BufferAttribute(wings, 1));
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3));
+    geo.setAttribute('aWing', new THREE.BufferAttribute(new Float32Array(wing), 1));
+    geo.setAttribute('aSpan', new THREE.BufferAttribute(new Float32Array(span), 1));
     this.geometry = geo;
     this.material = new THREE.ShaderMaterial({
       vertexShader: BIRD_VERT,
       fragmentShader: BIRD_FRAG,
       uniforms: {
         uTime: { value: 0 },
-        uColor: { value: new THREE.Color(0x554b3e) },
+        uColor: { value: new THREE.Color(0x4a4034) },
         uOpacity: { value: 1 },
       },
       transparent: true,
@@ -62641,29 +64636,35 @@ class BirdFlock {
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     scene.add(this.mesh);
 
-    const flap = new Float32Array(count * 2);
+    // Hand the birds out among the thermals in proportion to their weight.
+    const pool = [];
+    for (const t of THERMALS) for (let i = 0; i < t.weight; i++) pool.push(t);
+
+    const flap = new Float32Array(count * 3);
     this.birds = [];
     for (let i = 0; i < count; i++) {
-      // Flocks orbit a few loose centres along the river margin.
-      const flock = Math.floor(rng() * 4);
-      const cx = NILE.x - 260 - flock * 120 + (rng() - 0.5) * 90;
-      const cz = HARBOUR.z - 420 + flock * 340 + (rng() - 0.5) * 120;
+      const t = pool[i % pool.length];
+      const soars = rng() < 0.72;
       const bird = {
-        cx,
-        cz,
-        radius: 55 + rng() * 130,
+        thermal: t,
+        radius: t.radius * (0.32 + rng() * 0.68),
         angle: rng() * Math.PI * 2,
-        speed: (0.055 + rng() * 0.05) * (rng() < 0.5 ? -1 : 1),
-        y: NILE.waterY + 34 + rng() * 66,
-        bobAmp: 1.4 + rng() * 3.2,
-        bobRate: 0.4 + rng() * 0.5,
-        scale: 1.9 + rng() * 1.5,
+        // Everything in one thermal turns the same way, as real birds do.
+        speed: (0.06 + rng() * 0.07) * (t.x + t.z > 0 ? 1 : -1),
+        // Spread through the column: some low over the stone, some specks.
+        height: t.y * (0.28 + rng() * 0.85),
+        climb: 0.5 + rng() * 1.6,
+        climbRate: 0.05 + rng() * 0.06,
+        bobAmp: 0.8 + rng() * 2.4,
+        bobRate: 0.3 + rng() * 0.5,
+        scale: soars ? 3.4 + rng() * 2.2 : 2.2 + rng() * 1.4,
       };
       this.birds.push(bird);
-      flap[i * 2] = 5.5 + rng() * 3.5;
-      flap[i * 2 + 1] = rng() * Math.PI * 2;
+      flap[i * 3] = soars ? 3.2 + rng() * 1.8 : 5.5 + rng() * 3.0;
+      flap[i * 3 + 1] = rng() * Math.PI * 2;
+      flap[i * 3 + 2] = soars ? 1 : 0;
     }
-    this.flap = new THREE.InstancedBufferAttribute(flap, 2);
+    this.flap = new THREE.InstancedBufferAttribute(flap, 3);
     geo.setAttribute('aFlap', this.flap);
 
     this.time = 0;
@@ -62677,27 +64678,28 @@ class BirdFlock {
   update(dt, cameraPosition, light = 1) {
     this.time += dt;
     this.material.uniforms.uTime.value = this.time;
-    // Birds read as silhouettes by day and all but vanish at night.
-    this.material.uniforms.uOpacity.value = 0.25 + light * 0.75;
-    // The flock is only ever seen from the plateau looking east; skip the
-    // matrix work entirely when the camera is nowhere near.
-    if (cameraPosition && cameraPosition.distanceTo(this._pos.set(NILE.x - 320, 0, HARBOUR.z)) > 3200) {
-      this.mesh.visible = false;
-      return;
-    }
+    // Dark against a bright sky, and all but gone once the sun is down.
+    this.material.uniforms.uOpacity.value = 0.3 + light * 0.7;
     this.mesh.visible = true;
     for (let i = 0; i < this.birds.length; i++) {
       const b = this.birds[i];
+      const t = b.thermal;
       b.angle += b.speed * dt;
-      const x = b.cx + Math.cos(b.angle) * b.radius;
-      const z = b.cz + Math.sin(b.angle) * b.radius;
-      const y = b.y + Math.sin(this.time * b.bobRate + b.angle) * b.bobAmp;
+      // The spiral breathes: the bird works up the column and slides back
+      // down it, so the flock never looks like beads on a wire.
+      const climb = Math.sin(this.time * b.climbRate + b.angle * 0.3) * b.climb;
+      const r = b.radius * (0.88 + 0.12 * Math.sin(this.time * 0.07 + b.angle));
+      const x = t.x + Math.cos(b.angle) * r;
+      const z = t.z + Math.sin(b.angle) * r;
+      const y = b.height + climb * 12 + Math.sin(this.time * b.bobRate + b.angle) * b.bobAmp;
       // Heading is the tangent to the circle; the dart points down -Z, so the
-      // yaw that maps -Z onto the velocity is atan2(-vx, -vz).  Bank into the turn.
+      // yaw that maps -Z onto the velocity is atan2(-vx, -vz). Bank into the turn.
       const vx = -Math.sin(b.angle) * b.speed;
       const vz = Math.cos(b.angle) * b.speed;
       const heading = Math.atan2(-vx, -vz);
-      this._euler.set(0, heading, b.speed > 0 ? -0.24 : 0.24, 'YXZ');
+      // Pitch a little nose-up while climbing, nose-down while sinking.
+      const pitch = THREE.MathUtils.clamp(-climb * 0.06, -0.16, 0.16);
+      this._euler.set(pitch, heading, b.speed > 0 ? -0.30 : 0.30, 'YXZ');
       this._quat.setFromEuler(this._euler);
       this._pos.set(x, y, z);
       this._scale.setScalar(b.scale);
@@ -62878,6 +64880,7 @@ class Pennants {
 
 
 
+
 /**
  * The world: everything that exists in 3D, assembled and kept in step with the
  * project simulation.
@@ -62897,6 +64900,9 @@ class World {
     this.interiorCollision = new CollisionWorld(() => -1e6);
     this.interiorCollision.stepHeight = 0.55;
     this.inInterior = false;
+    /** Which tomb the player is inside: 'khufu', 'khafre', 'menkaure' or null. */
+    this.interiorSite = null;
+    this.interiorEntranceId = null;
 
     this.steps = [
       ['Raising the atmosphere', () => this._buildSky()],
@@ -62905,6 +64911,7 @@ class World {
       ['Carving Hor-em-akhet and the temples', () => this._buildMonuments()],
       ['Opening the quarry, the harbour and the workers’ town', () => this._buildSite()],
       ['Scattering boulders, scrub and palms', () => this._buildProps()],
+      ['Building the approaches to the entrances', () => this._buildEntrances()],
       ['Cutting the passages and chambers', () => this._buildInterior()],
       ['Mustering the workforce', () => this._buildWorkers()],
       ['Lighting the torches', () => this._buildTorches()],
@@ -62983,6 +64990,13 @@ class World {
     this.pennants = new Pennants(this.scene, this.monuments.pennantSites, this.site.materials.timber);
   }
 
+  _buildEntrances() {
+    this.entrances = new EntranceSystem(
+      this.scene, this.textures, this.quality, this.collision,
+      (x, z) => terrainHeight(x, z)
+    );
+  }
+
   _buildInterior() {
     this.interior = new InteriorSystem(this.textures, this.quality);
     this.interior.registerCollision(this.interiorCollision);
@@ -63003,16 +65017,10 @@ class World {
     const posts = buildTorchPosts(this.interior.torchSites, this.interior.materials.rough);
     if (posts) this.interior.scene.add(posts);
 
-    // Where the player stands when stepping in from the north face.
-    this.interiorEntry = this.interior.entrancePoint.clone();
-    this.exteriorEntry = this._exteriorEntrancePoint();
-  }
-
-  _exteriorEntrancePoint() {
-    const p = PYRAMIDS.khufu;
-    const y = KHUFU_INTERIOR.entrance.y;
-    const z = -(p.baseLength / 2) * (1 - y / p.designHeight);
-    return new THREE.Vector3(p.x + KHUFU_INTERIOR.entrance.x, p.baseY + y, p.z + z - 6);
+    // Where the player stands when stepping in, and where they come back out.
+    // Both are set by whichever entrance was used; these are the defaults.
+    this.interiorEntry = this.interior.sites.khufu.entry.clone();
+    this.exteriorEntry = this.entrances.byId('khufu').outside.clone();
   }
 
   _buildWorkers() {
@@ -63029,21 +65037,42 @@ class World {
   }
 
   _buildTorches() {
-    this.torches = new TorchSystem(this.scene, this.textures, this.quality, { capacity: 220 });
-    const sites = [...this.monuments.torchSites, ...this.site.torchSites];
+    this.torches = new TorchSystem(this.scene, this.textures, this.quality, { capacity: 260 });
+    const sites = [...this.monuments.torchSites, ...this.site.torchSites, ...this.entrances.torchSites];
     for (const t of sites) this.torches.add(t.x, t.y, t.z, { scale: t.scale, interior: false });
     const posts = buildTorchPosts(sites, this.site.materials.timber);
     if (posts) this.scene.add(posts);
     this.torchSites = sites;
   }
 
-  /** Points of interest, split by which scene they live in. */
+  /**
+   * Points of interest: the hand-written set plus every relic the interiors
+   * registered while they were being built.  Cached, because proximity runs
+   * this every frame.
+   */
   get pointsOfInterest() {
-    return POINTS_OF_INTEREST;
+    if (!this._poiCache) {
+      this._poiCache = [
+        ...POINTS_OF_INTEREST,
+        ...(this.monuments ? this.monuments.relicPoints : []),
+        ...(this.interior ? this.interior.relicPoints : []),
+      ];
+    }
+    return this._poiCache;
+  }
+
+  /**
+   * Which scene a point of interest belongs to: a site id for anything
+   * underground, null for the plateau.  The three hand-written interior
+   * entries predate the other tombs and just say `interior: true`.
+   */
+  static poiSite(poi) {
+    if (!poi.interior) return null;
+    return poi.interior === true ? 'khufu' : poi.interior;
   }
 
   poiWorldPosition(poi) {
-    if (poi.interior) {
+    if (poi.interior === true) {
       const node = this.interior.nodes;
       if (poi.id === 'poi-kings-chamber') return node.kingsChamber.clone().add(new THREE.Vector3(0, 1.7, 0));
       if (poi.id === 'poi-grand-gallery') return node.grandGallery.clone().add(new THREE.Vector3(0, 1.7, 0));
@@ -63060,19 +65089,52 @@ class World {
     return this.inInterior ? this.interiorCollision : this.collision;
   }
 
-  enterInterior() {
+  /**
+   * Step inside through a named entrance.  The entrance decides both which
+   * tomb the player lands in and where they will be put back down when they
+   * leave, so entering by Khafre's lower passage and walking up through the
+   * pyramid puts you back out at the lower entrance, not the upper one.
+   */
+  enterInterior(entranceId = 'khufu') {
+    const entrance = this.entrances.byId(entranceId) || this.entrances.byId('khufu');
+    const spot = this.interior.sites[entrance.id] || this.interior.sites[entrance.site];
     this.inInterior = true;
-    return this.interiorEntry.clone();
+    this.interiorSite = entrance.site;
+    this.interiorEntranceId = entrance.id;
+    this.interiorEntry = spot.entry.clone();
+    this.exteriorEntry = entrance.outside.clone();
+    return { position: this.interiorEntry.clone(), yaw: spot.yaw, name: entrance.name };
   }
 
   exitInterior() {
     this.inInterior = false;
-    return this.exteriorEntry.clone();
+    this.interiorSite = null;
+    const entrance = this.entrances.byId(this.interiorEntranceId);
+    return {
+      position: this.exteriorEntry.clone(),
+      yaw: 0,
+      name: entrance ? entrance.name : 'the plateau',
+    };
   }
 
-  /** Distance from a point to the pyramid entrance, for the enter/exit prompt. */
-  distanceToEntrance(position) {
-    return position.distanceTo(this.inInterior ? this.interiorEntry : this.exteriorEntry);
+  /**
+   * What the interaction key would act on from here: an entrance to step into
+   * from outside, or the way back out when inside.
+   */
+  entranceAt(position) {
+    if (!this.entrances) return null;
+    if (!this.inInterior) return this.entrances.nearest(position);
+    const d = position.distanceTo(this.interiorEntry);
+    if (d > 14) return null;
+    const entrance = this.entrances.byId(this.interiorEntranceId);
+    return {
+      id: this.interiorEntranceId,
+      site: this.interiorSite,
+      name: entrance ? entrance.name : '',
+      prompt: 'Leave the pyramid',
+      outside: this.exteriorEntry,
+      leaving: true,
+    };
   }
 
   /**
@@ -68363,8 +70425,14 @@ class TourDirector {
       });
     }
 
+    // Viewpoint keys are site-qualified ('khafre.burialChamber'); Khufu's are
+    // bare, and resolve to that tomb.
     const wantInterior = !!beat.interior;
-    if (wantInterior !== sim.world.inInterior) sim.toggleInterior(true);
+    const wantSite = wantInterior
+      ? (beat.interior.includes('.') ? beat.interior.split('.')[0] : 'khufu')
+      : null;
+    if (sim.world.inInterior && sim.world.interiorSite !== wantSite) sim.toggleInterior(true);
+    if (wantInterior && !sim.world.inInterior) sim.toggleInterior(true, wantSite);
 
     if (wantInterior) {
       const vp = sim.world.interior.viewpoints[beat.interior];
@@ -68865,34 +70933,47 @@ class Simulator {
     this.world.applyProjectState(state);
   }
 
-  toggleInterior(silent = false) {
-    const target = this.world.inInterior ? this.world.exitInterior() : this.world.enterInterior();
-    this.walker.teleport(target.x, target.y + 1.72, target.z, this.world.inInterior ? Math.PI : 0);
+  /**
+   * Step through an entrance.  `entranceId` picks which one; leaving always
+   * comes back out of whichever one was used to get in.
+   */
+  toggleInterior(silent = false, entranceId = 'khufu') {
+    const target = this.world.inInterior
+      ? this.world.exitInterior()
+      : this.world.enterInterior(entranceId);
+    const p = target.position;
+    this.walker.teleport(p.x, p.y + 1.72, p.z, target.yaw);
     this.engine.postfx.applyLook(PostFX.LOOKS[this.world.inInterior ? 'interior' : 'exterior']);
+    this._poiPromptSite = this.world.interiorSite;
     if (!silent) {
-      this.hud.toast(this.world.inInterior ? 'Entering the Great Pyramid' : 'Back on the plateau');
+      this.hud.toast(this.world.inInterior ? `Entering ${target.name}` : 'Back on the plateau');
       if (this.mode !== 'archaeologist') this.setMode('archaeologist');
     }
   }
 
   interact() {
+    // A relic underfoot beats a doorway a few metres off: the player is
+    // looking at the thing they walked over to look at.
     if (this.nearbyPoi) {
       this.hud.showCodex(this.nearbyPoi);
       if (!this.visitedPoi.has(this.nearbyPoi.id)) {
         this.visitedPoi.add(this.nearbyPoi.id);
-        this.hud.toast(`Discovered: ${this.nearbyPoi.name} (${this.visitedPoi.size}/${POINTS_OF_INTEREST.length})`, 'good');
+        const total = this.world.pointsOfInterest.length;
+        this.hud.toast(`Discovered: ${this.nearbyPoi.name} (${this.visitedPoi.size}/${total})`, 'good');
       }
       return;
     }
-    if (this.world.distanceToEntrance(this.engine.camera.position) < 16) this.toggleInterior();
+    const entrance = this.world.entranceAt(this.engine.camera.position);
+    if (entrance) this.toggleInterior(false, entrance.id);
   }
 
   _updateProximity() {
     const camera = this.engine.camera.position;
+    const site = this.world.interiorSite;
     let best = null;
-    let bestDist = 34;
-    for (const poi of POINTS_OF_INTEREST) {
-      if (!!poi.interior !== this.world.inInterior) continue;
+    let bestDist = 26;
+    for (const poi of this.world.pointsOfInterest) {
+      if (World.poiSite(poi) !== site) continue;
       const p = this.world.poiWorldPosition(poi);
       const d = p.distanceTo(camera);
       if (d < bestDist) {
@@ -68901,10 +70982,12 @@ class Simulator {
       }
     }
     this.nearbyPoi = best;
-    if (best) this.hud.setPrompt(best.name);
-    else if (this.world.distanceToEntrance(camera) < 16) {
-      this.hud.setPrompt(this.world.inInterior ? 'Leave the pyramid' : 'Enter the Great Pyramid');
-    } else this.hud.setPrompt(null);
+    if (best) {
+      this.hud.setPrompt(best.name);
+      return;
+    }
+    const entrance = this.world.entranceAt(camera);
+    this.hud.setPrompt(entrance ? entrance.prompt : null);
   }
 
   /* ------------------------------------------------------------------ loop */
@@ -68997,9 +71080,117 @@ window.__giza = {
   sampleStats() {
     return sim.engine.stats;
   },
+
+  /**
+   * Walk the ground profile of each entrance approach.
+   *
+   * The question this answers is the one that matters: can a player on foot
+   * actually get to the doorway?  Sampling the collision world's ground height
+   * every 30 cm along the approach and taking the largest single rise tells us
+   * whether the flight is climbable, without having to simulate input.  Any
+   * rise above the collision world's step height is a wall, not a stair.
+   */
+  entranceReport() {
+    const out = [];
+    for (const e of sim.world.entrances.entrances) {
+      const ceiling = e.outside.y + 1.5;
+      let previous = null;
+      let worstRise = 0;
+      let reached = -Infinity;
+      for (let d = 34; d >= 0; d -= 0.3) {
+        const z = e.outside.z - d;
+        const h = sim.world.collision.groundAt(e.outside.x, z, ceiling);
+        if (previous !== null) worstRise = Math.max(worstRise, h - previous);
+        previous = h;
+        reached = Math.max(reached, h);
+      }
+      out.push({
+        id: e.id,
+        site: e.site,
+        landingY: Number(e.outside.y.toFixed(2)),
+        reachedY: Number(reached.toFixed(2)),
+        worstRise: Number(worstRise.toFixed(2)),
+        stepHeight: sim.world.collision.stepHeight,
+        walkable: worstRise <= sim.world.collision.stepHeight + 1e-6 && reached >= e.outside.y - 0.35,
+      });
+    }
+    return out;
+  },
+
+  /** Enter through a named entrance and report where the player ended up. */
+  probeEntrance(id) {
+    if (sim.world.inInterior) sim.toggleInterior(true);
+    sim.toggleInterior(true, id);
+    // The walker's own position, not the camera's: the camera only catches up
+    // on the next rendered frame, and a stale reading here would be measured
+    // against the exterior scene.
+    const p = sim.walker.position;
+    const feet = p.y - 1.72;
+    const floor = sim.world.interiorCollision.groundAt(p.x, p.z, p.y);
+    return {
+      id,
+      site: sim.world.interiorSite,
+      inInterior: sim.world.inInterior,
+      // A standing player should be within a few centimetres of the floor,
+      // not embedded in it and not hovering above it.
+      floorGap: Number((feet - floor).toFixed(2)),
+      canLeave: !!sim.world.entranceAt(p),
+    };
+  },
+
+  /**
+   * Walk in through each temple gate and check the way is clear.
+   *
+   * Every temple is modelled hollow, but a single whole-mesh collider - or an
+   * odd number of colonnade pillars, which puts one squarely in the doorway -
+   * seals it shut without anything visibly changing.  This walks the gate axis
+   * at head height and reports anything standing in it.
+   */
+  templeReport() {
+    const out = [];
+    for (const [id, mesh] of Object.entries(sim.world.monuments.temples)) {
+      const spec = TEMPLES[id];
+      if (!spec || !mesh) continue;
+      const collision = sim.world.collision;
+      const solid = (d) => collision.isSolid(spec.x + d, spec.y + 1.7, spec.z);
+      // The gateway proper: from just outside the wall to just inside the
+      // court. This is the question "can I get in", and it is separate from
+      // whether something else is standing in the court once you are.
+      let gateBlocked = false;
+      for (let d = spec.w / 2 + 1; d >= spec.w / 2 - 7; d -= 0.4) {
+        if (solid(d)) { gateBlocked = true; break; }
+      }
+      // Anything solid further in is reported but is not a way-in failure.
+      let obstruction = null;
+      for (let d = spec.w / 2 - 7; d >= 0; d -= 0.4) {
+        if (solid(d)) { obstruction = Number(d.toFixed(1)); break; }
+      }
+      out.push({
+        id,
+        courtFloor: Number(collision.groundAt(spec.x, spec.z, spec.y + 3).toFixed(2)),
+        gateBlocked,
+        obstruction,
+      });
+    }
+    return out;
+  },
+
+  /** Relics registered by the interiors, grouped by tomb. */
+  relicReport() {
+    const bySite = {};
+    const all = [...sim.world.monuments.relicPoints, ...sim.world.interior.relicPoints];
+    for (const r of all) bySite[r.site || 'plateau'] = (bySite[r.site || 'plateau'] || 0) + 1;
+    return { total: all.length, bySite };
+  },
   testScenario(cfg) {
     const wantInterior = !!cfg.interior;
-    if (wantInterior !== sim.world.inInterior) sim.toggleInterior(true);
+    // Viewpoint keys are site-qualified ('khafre.burialChamber'); Khufu's are
+    // bare for historical reasons and resolve to that site.
+    const wantSite = wantInterior
+      ? (cfg.site || (cfg.interior.includes('.') ? cfg.interior.split('.')[0] : 'khufu'))
+      : null;
+    if (sim.world.inInterior && sim.world.interiorSite !== wantSite) sim.toggleInterior(true);
+    if (wantInterior && !sim.world.inInterior) sim.toggleInterior(true, wantSite);
     if (wantInterior) {
       const vp = sim.world.interior.viewpoints[cfg.interior];
       const node = vp ? vp.position : sim.world.interior.nodes[cfg.interior];

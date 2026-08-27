@@ -65,6 +65,7 @@ Four further passes closed the gaps this audit had itself recorded as residual r
 | **10 — Persistence** | Session save/load, four slots, export/import; Monte Carlo chunked across frames | A taught session can be paused, moved to another machine and resumed on the same random stream |
 | **11 — Motion and feel** | Haul ropes, footfall and sledge dust, slope-limited walking, bird flocks, temple standards | The plateau reads as inhabited rather than dressed |
 | **12 — Touch and mobile** | Drawn virtual stick, per-mode action pad, pinch zoom, four responsive breakpoints | Fully playable on a phone; the dashboard is genuinely usable on a tablet |
+| **13 — Getting inside** | Approach stairs to every entrance, Khafre and Menkaure interiors, hieroglyphs and grave goods, walkable temples, plateau bird flocks | Five ways in, three tombs, six open temples, twenty-nine relics; every one of them asserted in the harness |
 
 ---
 
@@ -109,6 +110,15 @@ is recorded because the class of bug is more interesting than the instance.
 | 32 | Dust puffs were invisible | Art direction | Sand-coloured dust against sand, at a third of the size it needed | Pale warm dust, larger and slower to fade; verified by a diagnostic pass with the colour forced |
 | 33 | Birds were invisible against the sky | Art direction | White birds on a bright horizon | Near-black silhouettes whose opacity follows the sky's day factor, and a wing whose tip alone pivots so the shape reads |
 | 34 | The mode switch would not hide on a phone | CSS | `:first-of-type` matches the first element of that *tag*, and the wordmark is also a `div` | An explicit class on the mode switch |
+| 35 | **The pyramids could not be entered at all** | Reachability | The trigger point sat 16.9 m up the north face with a 16 m radius, so a player standing on the ground was always just outside it — and there was no stair, so there was no way to get closer | A stone approach stair to a landing at every doorway, each step its own 0.42 m collider, and a trigger measured from the landing |
+| 36 | Landings were buried inside the pyramid | Collision | The pyramid's collision is a stack of coarse stepped bands that bulges out past the dressed face, so a landing measured from the face alone ended up inside solid rock | The landing's inner edge is found by probing the collision world for standing room, not computed from the face |
+| 37 | Stair flights hung in the air or were buried | Terrain | The flight's length came from a single terrain sample, so it was wrong everywhere the ground was not at that height | Steps are laid one at a time and stop when the tread meets the ground |
+| 38 | **Every temple was a solid block** | Collision | `addObject3D` registers one whole-mesh AABB, so the hollow court and colonnade that were modelled could never be walked into | Per-wall, per-pillar and per-slab colliders; the gate is the gap left between them |
+| 39 | An odd colonnade pillar count sealed the gate | Geometry | With 3 or 5 pillars a side, one lands exactly on the entrance centreline | Anything standing in the gateway's path is left out |
+| 40 | The Sphinx enclosure sealed the whole quarry | Collision | Same whole-mesh AABB: the bounding box of three walls is the enclosure, so the Sphinx, its temple and the valley temple were inside one solid block | Each wall registered separately |
+| 41 | Hieroglyphs were built and never used | Dead code | `materials.glyphs` was constructed in `interior.js` and referenced nowhere | A relic kit that actually applies them, in the places they are attested |
+| 42 | Menkaure's burial passage cut through the main chamber | Geometry | The descent started inside the room rather than at its wall, and the room had no opening for it | Passages start at the wall face, and the room carries a doorway for each |
+| 43 | New chambers were blown out and viewpoints stood in walls | Art direction | King's-Chamber fill intensities applied to 3 m rooms, and viewpoints placed against the nearest surface | Fill lights sized to the room; viewpoints stand at one end and look down the long axis |
 
 ---
 
@@ -116,15 +126,21 @@ is recorded because the class of bug is more interesting than the instance.
 
 ```
 ================ SMOKE TEST SUMMARY ================
-scenarios      : 8      (all four modes, five times of day, exterior and two interiors)
+scenarios      : 14     (all four modes, five times of day, two entrance approaches,
+                         and six interiors across all three pyramids)
 panels         : 12     (every dashboard panel opened and rendered)
 viewports      : 3      (phone 412x915, tablet 1024x768, landscape phone 844x390)
+entrances      : 5      ground profile walked; worst riser 0.42 m against a 0.72 m
+                         step height, every one leads inside and back out again
+temples        : 6      gate axis walked at head height; every gate clear
+relics         : 29     discoverable, across three tombs and the temples
 touch controls : stick axes, four action buttons, hold / tap / latch semantics
 walker checks  : 8 exterior points, drift 0.00 m at every one
 project run    : full 7 241-day simulation to completion
-min fps        : 13.4   (SwiftShader software rasteriser, 1600 x 900, no GPU)
+min fps        : 12.7   (SwiftShader software rasteriser, 1600 x 900, no GPU)
 console errors : 0
 console warns  : 0
+assertions     : 0 failed
 RESULT: PASS
 ```
 
@@ -160,5 +176,7 @@ realistic overrun that leaves the player something to improve on.
 | SSAO fades beyond 240 m | Depth precision, not a design choice. Distant block work loses its contact shadows; nothing is incorrect, and the alternative is horizon speckle. |
 | Monte Carlo still on the main thread | Now chunked across frames, so it no longer stalls the renderer, but it competes with it. A Web Worker would be cleaner. |
 | Saves are browser-local | `localStorage` is per-origin and per-device. Export/import as text covers moving a session between machines, but there is no server and never will be. |
+| Queen's pyramid G1-b overlaps Khufu's mortuary temple | A pre-existing overlap in the plateau layout data, surfaced once the temples became walkable: the gate and court are open, but a corner of G1-b intrudes about 5 m in. Untangling it means moving the queens' row, the causeway and the temple together, which is a layout change rather than a fix. The harness reports it on every run so it cannot be forgotten. |
+| Causeway embankments block on their long sides | They are raised roads 3 m high with parapets, so they are walked along, not across. Correct behaviour, but worth knowing when crossing the plateau on foot. |
 | Model idealisations | Six, all enumerated in `docs/PROJECT_MANAGEMENT.md` §12. |
 | Reconstruction vs evidence | Enumerated in `docs/HISTORICAL_SOURCES.md` §3. A presenter should say which is which. |

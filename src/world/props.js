@@ -768,17 +768,32 @@ export class DustPuffs {
 /* ----------------------------------------------------------------- birds */
 
 const BIRD_VERT = /* glsl */ `
-attribute float aWing;     // -1 = left wing tip, +1 = right wing tip, 0 = body
-attribute vec2 aFlap;      // x = flap rate, y = phase
+attribute float aWing;     // -1 = left wing, +1 = right wing, 0 = body
+attribute float aSpan;     // 0 at the shoulder, 1 at the tip
+attribute vec3 aFlap;      // x = beat rate, y = phase, z = how much it soars
 uniform float uTime;
+varying float vShade;
 
 void main() {
   vec3 p = position;
   if (abs(aWing) > 0.5) {
-    float beat = sin(uTime * aFlap.x + aFlap.y);
-    // The tip swings about the shoulder: up-and-in on the downstroke.
-    p.y += beat * 0.42;
-    p.x *= 1.0 - abs(beat) * 0.22;
+    // Kites and vultures hold the wing out and beat rarely, so the beat is
+    // gated by a slow envelope: mostly a flat soaring profile, with bursts.
+    float burst = smoothstep(0.15, 0.75, sin(uTime * 0.21 + aFlap.y * 0.7));
+    float beatGain = mix(burst, 1.0, 1.0 - aFlap.z);
+    float beat = sin(uTime * aFlap.x + aFlap.y) * beatGain;
+    // The tip travels furthest: the wing bends along its span rather than
+    // pivoting rigidly, which is what makes a beat read as a wing and not
+    // as a hinge.
+    float bend = aSpan * aSpan;
+    p.y += beat * 0.52 * bend;
+    // Held slightly above the horizontal even at rest - the dihedral that
+    // makes a soaring bird a shallow V from head-on.
+    p.y += 0.16 * bend;
+    p.x *= 1.0 - abs(beat) * 0.20 * bend;
+    vShade = 0.72 + 0.28 * (1.0 - abs(beat) * bend);
+  } else {
+    vShade = 1.0;
   }
   vec4 world = instanceMatrix * vec4(p, 1.0);
   gl_Position = projectionMatrix * modelViewMatrix * world;
@@ -788,8 +803,11 @@ void main() {
 const BIRD_FRAG = /* glsl */ `
 uniform vec3 uColor;
 uniform float uOpacity;
+varying float vShade;
 void main() {
-  gl_FragColor = vec4(uColor, uOpacity);
+  // Underwing catches the sky and reads paler than the back; the varying
+  // carries the wing's own angle so the silhouette is not a flat cut-out.
+  gl_FragColor = vec4(uColor * vShade, uOpacity);
 }
 `;
 
@@ -802,31 +820,68 @@ void main() {
  * different radii and heights, which gives the eastern sky some life without
  * competing for attention with the monuments.
  */
+/**
+ * Birds over the plateau.
+ *
+ * Egyptian vultures and black kites are the two raptors that actually work
+ * this escarpment, and they work it the same way: circle up a thermal off the
+ * hot limestone, glide across, circle up again.  So the flocks here are pinned
+ * to the things that make thermals - the pyramid faces, the quarry, the
+ * harbour - rather than to a point out over the river, which is where they
+ * used to be and where nobody standing on the plateau could ever see them.
+ *
+ * Each bird flies its own slowly-drifting spiral, and the whole flock is
+ * skipped when the camera is far from its centre.
+ */
+
+/** Thermal sources: birds circle over these. Radius is the spiral's size. */
+const THERMALS = [
+  { x: 0, z: -60, y: 210, radius: 130, weight: 3 },      // over Khufu
+  { x: -252, z: 418, y: 205, radius: 120, weight: 2 },   // over Khafre
+  { x: -594, z: 862, y: 150, radius: 95, weight: 1 },    // over Menkaure
+  { x: 268, z: 366, y: 95, radius: 150, weight: 2 },     // the quarry
+  { x: 336, z: 522, y: 78, radius: 110, weight: 2 },     // the Sphinx enclosure
+  { x: 300, z: 1010, y: 88, radius: 160, weight: 1 },    // the workers' town
+];
+
 export class BirdFlock {
   constructor(scene, { count = 60, seed = 4242 } = {}) {
     const rng = makeRng(seed);
-    // Body + two swept wings, drawn double-sided so the underside reads from
-    // below.  Only the tip vertex carries a wing id, so the beat pivots about
-    // the shoulder instead of translating the whole panel.
-    const positions = new Float32Array([
-      // body: a dart along -Z, which is the direction of travel
-      0, 0, -0.90, -0.13, 0, 0.42, 0.13, 0, 0.42,
-      // left wing: root leading edge, tip, root trailing edge
-      -0.10, 0, -0.30, -1.05, 0, 0.18, -0.10, 0, 0.36,
-      // right wing
-      0.10, 0, -0.30, 1.05, 0, 0.18, 0.10, 0, 0.36,
-    ]);
-    const wings = new Float32Array([0, 0, 0, 0, -1, 0, 0, 1, 0]);
+    // Body, two cranked wings and a fanned tail.  Each wing is two panels so
+    // it can bend along its span instead of hinging as one rigid plate.
+    const P = [];
+    const wing = [];
+    const span = [];
+    const push = (verts, w, spans) => {
+      for (let i = 0; i < 3; i++) {
+        P.push(verts[i * 3], verts[i * 3 + 1], verts[i * 3 + 2]);
+        wing.push(w);
+        span.push(spans[i]);
+      }
+    };
+    // Body: a dart along -Z, which is the direction of travel.
+    push([0, 0, -1.05, -0.14, 0, 0.46, 0.14, 0, 0.46], 0, [0, 0, 0]);
+    // Tail: a fan behind the body.
+    push([-0.14, 0, 0.46, 0, 0, 0.95, 0.14, 0, 0.46], 0, [0, 0, 0]);
+    for (const side of [-1, 1]) {
+      const s = side;
+      // Inner panel, shoulder to the crank.
+      push([s * 0.10, 0, -0.34, s * 0.62, 0, -0.22, s * 0.10, 0, 0.38], s, [0, 0.5, 0]);
+      push([s * 0.62, 0, -0.22, s * 0.58, 0, 0.30, s * 0.10, 0, 0.38], s, [0.5, 0.5, 0]);
+      // Outer panel, crank to the tip: swept back, as a soaring wing is.
+      push([s * 0.62, 0, -0.22, s * 1.28, 0, 0.16, s * 0.58, 0, 0.30], s, [0.5, 1, 0.5]);
+    }
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute('aWing', new THREE.BufferAttribute(wings, 1));
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3));
+    geo.setAttribute('aWing', new THREE.BufferAttribute(new Float32Array(wing), 1));
+    geo.setAttribute('aSpan', new THREE.BufferAttribute(new Float32Array(span), 1));
     this.geometry = geo;
     this.material = new THREE.ShaderMaterial({
       vertexShader: BIRD_VERT,
       fragmentShader: BIRD_FRAG,
       uniforms: {
         uTime: { value: 0 },
-        uColor: { value: new THREE.Color(0x554b3e) },
+        uColor: { value: new THREE.Color(0x4a4034) },
         uOpacity: { value: 1 },
       },
       transparent: true,
@@ -838,29 +893,35 @@ export class BirdFlock {
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     scene.add(this.mesh);
 
-    const flap = new Float32Array(count * 2);
+    // Hand the birds out among the thermals in proportion to their weight.
+    const pool = [];
+    for (const t of THERMALS) for (let i = 0; i < t.weight; i++) pool.push(t);
+
+    const flap = new Float32Array(count * 3);
     this.birds = [];
     for (let i = 0; i < count; i++) {
-      // Flocks orbit a few loose centres along the river margin.
-      const flock = Math.floor(rng() * 4);
-      const cx = NILE.x - 260 - flock * 120 + (rng() - 0.5) * 90;
-      const cz = HARBOUR.z - 420 + flock * 340 + (rng() - 0.5) * 120;
+      const t = pool[i % pool.length];
+      const soars = rng() < 0.72;
       const bird = {
-        cx,
-        cz,
-        radius: 55 + rng() * 130,
+        thermal: t,
+        radius: t.radius * (0.32 + rng() * 0.68),
         angle: rng() * Math.PI * 2,
-        speed: (0.055 + rng() * 0.05) * (rng() < 0.5 ? -1 : 1),
-        y: NILE.waterY + 34 + rng() * 66,
-        bobAmp: 1.4 + rng() * 3.2,
-        bobRate: 0.4 + rng() * 0.5,
-        scale: 1.9 + rng() * 1.5,
+        // Everything in one thermal turns the same way, as real birds do.
+        speed: (0.06 + rng() * 0.07) * (t.x + t.z > 0 ? 1 : -1),
+        // Spread through the column: some low over the stone, some specks.
+        height: t.y * (0.28 + rng() * 0.85),
+        climb: 0.5 + rng() * 1.6,
+        climbRate: 0.05 + rng() * 0.06,
+        bobAmp: 0.8 + rng() * 2.4,
+        bobRate: 0.3 + rng() * 0.5,
+        scale: soars ? 3.4 + rng() * 2.2 : 2.2 + rng() * 1.4,
       };
       this.birds.push(bird);
-      flap[i * 2] = 5.5 + rng() * 3.5;
-      flap[i * 2 + 1] = rng() * Math.PI * 2;
+      flap[i * 3] = soars ? 3.2 + rng() * 1.8 : 5.5 + rng() * 3.0;
+      flap[i * 3 + 1] = rng() * Math.PI * 2;
+      flap[i * 3 + 2] = soars ? 1 : 0;
     }
-    this.flap = new THREE.InstancedBufferAttribute(flap, 2);
+    this.flap = new THREE.InstancedBufferAttribute(flap, 3);
     geo.setAttribute('aFlap', this.flap);
 
     this.time = 0;
@@ -874,27 +935,28 @@ export class BirdFlock {
   update(dt, cameraPosition, light = 1) {
     this.time += dt;
     this.material.uniforms.uTime.value = this.time;
-    // Birds read as silhouettes by day and all but vanish at night.
-    this.material.uniforms.uOpacity.value = 0.25 + light * 0.75;
-    // The flock is only ever seen from the plateau looking east; skip the
-    // matrix work entirely when the camera is nowhere near.
-    if (cameraPosition && cameraPosition.distanceTo(this._pos.set(NILE.x - 320, 0, HARBOUR.z)) > 3200) {
-      this.mesh.visible = false;
-      return;
-    }
+    // Dark against a bright sky, and all but gone once the sun is down.
+    this.material.uniforms.uOpacity.value = 0.3 + light * 0.7;
     this.mesh.visible = true;
     for (let i = 0; i < this.birds.length; i++) {
       const b = this.birds[i];
+      const t = b.thermal;
       b.angle += b.speed * dt;
-      const x = b.cx + Math.cos(b.angle) * b.radius;
-      const z = b.cz + Math.sin(b.angle) * b.radius;
-      const y = b.y + Math.sin(this.time * b.bobRate + b.angle) * b.bobAmp;
+      // The spiral breathes: the bird works up the column and slides back
+      // down it, so the flock never looks like beads on a wire.
+      const climb = Math.sin(this.time * b.climbRate + b.angle * 0.3) * b.climb;
+      const r = b.radius * (0.88 + 0.12 * Math.sin(this.time * 0.07 + b.angle));
+      const x = t.x + Math.cos(b.angle) * r;
+      const z = t.z + Math.sin(b.angle) * r;
+      const y = b.height + climb * 12 + Math.sin(this.time * b.bobRate + b.angle) * b.bobAmp;
       // Heading is the tangent to the circle; the dart points down -Z, so the
-      // yaw that maps -Z onto the velocity is atan2(-vx, -vz).  Bank into the turn.
+      // yaw that maps -Z onto the velocity is atan2(-vx, -vz). Bank into the turn.
       const vx = -Math.sin(b.angle) * b.speed;
       const vz = Math.cos(b.angle) * b.speed;
       const heading = Math.atan2(-vx, -vz);
-      this._euler.set(0, heading, b.speed > 0 ? -0.24 : 0.24, 'YXZ');
+      // Pitch a little nose-up while climbing, nose-down while sinking.
+      const pitch = THREE.MathUtils.clamp(-climb * 0.06, -0.16, 0.16);
+      this._euler.set(pitch, heading, b.speed > 0 ? -0.30 : 0.30, 'YXZ');
       this._quat.setFromEuler(this._euler);
       this._pos.set(x, y, z);
       this._scale.setScalar(b.scale);

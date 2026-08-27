@@ -237,10 +237,35 @@ The construction ramp is a solid rubble embankment on the south face for the low
 wrapping spiral band hugging the four faces, rebuilt whenever the built height moves by more than
 two metres. Timber lifting frames and platform decking are generated at the current working course.
 
-### 4.6 The interior
+### 4.6 The interiors
 
-The pyramid's interior is a **separate scene** with its own collision world, fog, torch budget and
-colour grade. Only one scene is ever rendered, which keeps both draw-call counts low.
+All three pyramids are hollow, and all three interiors live in **one scene**, separate from the
+plateau, with its own collision world, fog, torch budget and colour grade. Only one of the two
+scenes is ever rendered, which keeps both draw-call counts low. The tombs are hundreds of metres
+apart, so the fog closes long before one could be seen from another, and sharing a scene means one
+collision world, one torch budget, and four merged meshes carrying the whole of Giza's
+underground.
+
+Khufu is built in world coordinates because it stands at the origin. Khafre and Menkaure are built
+by `tombs.js` through a `TombBuilder` bound to each pyramid's own frame — X east of its axis, Y
+above its base course, Z north-negative — which keeps those builders reading as a description of
+the monument rather than as coordinate arithmetic. They push into the same material buckets, so
+the extra two tombs cost no extra draw calls.
+
+Chambers, passages and grave goods are decorated by a shared **relic kit** (`relics.js`): carved
+glyph registers, cartouches, star ceilings, palace-façade panelling, false doors, and the grave
+goods themselves — sarcophagi, canopic chests, offering tables, ka-statues, model boats, tool
+caches. Everything is built from primitives in a local frame and accumulated into one bucket per
+material, so a whole pyramid's worth of furnishing costs about a dozen draw calls. Anything worth
+walking over to look at also registers a *relic record* in the same shape as a point of interest,
+so the discovery and codex machinery picks it up with no extra wiring.
+
+Where the hieroglyphs go is a point of accuracy rather than decoration. Khufu's chambers carry
+none: the only inscriptions in the Great Pyramid are the red-ochre gang marks daubed on the blocks
+of the relieving chambers before they were sealed, which nobody was meant to see, and those are
+here in the one place they belong. Menkaure gets the palace-façade panelling of the panelled
+chamber — the only architectural decoration in any Giza pyramid — and the temples get painted
+registers, which they really had.
 
 Everything lies in a single vertical plane 7.29 m east of the pyramid's north–south axis — the same
 plane as the original entrance, exactly as Petrie found it. Passage sections are 1.05 × 1.20 m and
@@ -253,7 +278,36 @@ twenty-seven blocks so the famous twenty-six slots between them are real gaps ra
 decoration. Five relieving chambers of granite beams sit above the King's Chamber, reachable by the
 crawl from the top of the gallery, as they were in 1765.
 
-### 4.7 The workforce
+### 4.7 Getting inside
+
+Every pyramid entrance is a hole part-way up a 52-degree face. Without an approach the player can
+walk the whole plateau and never get within twenty metres of a doorway, which is exactly what
+happened: the trigger sat at the doorway with a 16 m radius, and a player standing on the ground
+was always just outside it.
+
+`entrances.js` builds the approach: a landing at the threshold, a flight of steps down to the
+ground, the doorway recess, and the relieving chevrons over it. Three details make it work rather
+than merely look right.
+
+**Each step is its own collider**, 0.42 m high — well inside the 0.72 m the collision world will
+step a player up — so the flight is walked, not climbed.
+
+**The landing is placed by measurement, not by arithmetic.** The pyramid's own collision is a stack
+of coarse stepped bands that bulges out past the dressed face, so a landing computed from the face
+ends up inside solid pyramid; on Khafre it did. The builder instead walks north from the face
+probing `isSolid` at head height and puts the landing's inner edge at the first point with
+standing room. The slab still runs back to the face so it reads as one platform; only the part
+with room over it carries collision.
+
+**The flight is laid one step at a time** and stops when the tread meets the ground. Taking a
+single terrain sample and dividing leaves the stair hanging in the air, or buried, everywhere the
+ground is not at that height — which on this terrain is most places.
+
+The same module registers the entrances themselves, so the interaction key has something to find,
+and each records where the player comes back out: enter by Khafre's lower passage and you leave
+by it, not by the upper one.
+
+### 4.8 The workforce
 
 Every figure is one instance of a single 130-triangle mesh. The limbs are animated **entirely in
 the vertex shader** from a per-instance `aGait` attribute (stride rate, amplitude, phase, lean), so
@@ -273,7 +327,7 @@ buffer is rewritten each frame — for ten gangs that is 240 floats — and each
 quadratic that grows with its span. The runners grinding through the sand throw a dust puff every
 couple of metres.
 
-### 4.8 Dust, birds and standards
+### 4.9 Dust, birds and standards
 
 Three small systems give the plateau its sense of life, and none of them costs the CPU anything per
 frame:
@@ -282,17 +336,22 @@ frame:
   of a per-instance spawn time evaluated in the vertex shader, so emitting a puff is four attribute
   writes and retiring one is nothing at all. Footfalls, sprints and sledge runners all feed the same
   pool; the pyramid's interior has its own, dimmer one.
-- **Birds.** Ibis and egret flocks work the Nile margin on slow circuits at different radii and
-  heights. Each bird is a three-triangle glider; only the wingtip vertex carries a wing id, so the
-  beat pivots about the shoulder instead of translating the panel. They are drawn as near-black
-  silhouettes whose opacity follows the sky's day factor, because a white bird against a bright sky
-  is an invisible bird.
+- **Birds.** Egyptian vultures and black kites are the two raptors that actually work this
+  escarpment, and they work it the same way: circle up a thermal off the hot limestone, glide
+  across, circle up again. So the flocks are pinned to the things that make thermals — the pyramid
+  faces, the quarry, the Sphinx enclosure, the workers' town — and not to a point out over the
+  river, which is where they used to be and where nobody standing on the plateau could ever see
+  them. Each bird is a seven-triangle glider: a body, a fanned tail, and two wings cranked at the
+  carpal joint. A per-vertex span coordinate makes the wing *bend* along its length rather than
+  hinge as one rigid plate, and a slow envelope gates the beat, so a soaring bird holds a flat
+  profile for most of a circuit and beats in bursts. They are near-black silhouettes whose opacity
+  follows the sky's day factor, because a white bird against a bright sky is an invisible bird.
 - **Temple standards.** Old Kingdom temple gates carried cedar masts with coloured linen streamers —
   the hieroglyph for *nṯr*, "god", is one of them. Each streamer is a strip of quads displaced by a
   travelling wave whose amplitude grows with distance from the mast, with a slow gust cycle on top.
   Every standard on the plateau is one draw call.
 
-### 4.9 Walking on sand
+### 4.10 Walking on sand
 
 The walker's speed is scaled by the ground gradient in its direction of travel, sampled from the
 collision world's own ground function two lookups at a time. Climbing costs `1 / (1 + 3.2·g²)` —
@@ -361,9 +420,15 @@ per frame, comfortably inside a 60 fps budget.
 
 1. loads the built single file from `file://`, proving the offline path works;
 2. waits for a ready signal and prints the boot report;
-3. exercises seven visual scenarios across all four modes, all four times of day, and the interior,
-   sampling frame rate and draw calls at each;
+3. exercises fourteen visual scenarios across all four modes, all four times of day, both entrance
+   approaches and six chambers spanning all three pyramids, sampling frame rate and draw calls at
+   each;
 4. opens **every** dashboard panel;
+4a. walks the ground profile of all five entrance approaches and asserts the worst single riser is
+   inside the collision world's step height — a doorway nobody can reach throws no error, so it has
+   to be measured;
+4b. steps through every entrance and asserts the player lands on a floor and can get back out;
+4c. walks the gate axis of all six temples at head height and asserts the way in is clear;
 5. drops the walker at eight points across the site and asserts it settles on the ground, then
    walks it up the Grand Gallery;
 6. runs the **entire twenty-year project** headlessly and reports SPI, SPI(t), CPI, EAC, VAC,

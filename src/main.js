@@ -6,7 +6,7 @@ import { FirstPersonController, OrbitController, DroneController, CinematicPlaye
 import { TextureLibrary } from './engine/textures.js';
 import { World } from './world/world.js';
 import { terrainHeight } from './world/terrain.js';
-import { POINTS_OF_INTEREST } from './world/layout.js';
+import { TEMPLES } from './world/layout.js';
 import { Project } from './pm/project.js';
 import { Advisor } from './pm/advisor.js';
 import { runMonteCarlo } from './pm/montecarlo.js';
@@ -279,34 +279,47 @@ class Simulator {
     this.world.applyProjectState(state);
   }
 
-  toggleInterior(silent = false) {
-    const target = this.world.inInterior ? this.world.exitInterior() : this.world.enterInterior();
-    this.walker.teleport(target.x, target.y + 1.72, target.z, this.world.inInterior ? Math.PI : 0);
+  /**
+   * Step through an entrance.  `entranceId` picks which one; leaving always
+   * comes back out of whichever one was used to get in.
+   */
+  toggleInterior(silent = false, entranceId = 'khufu') {
+    const target = this.world.inInterior
+      ? this.world.exitInterior()
+      : this.world.enterInterior(entranceId);
+    const p = target.position;
+    this.walker.teleport(p.x, p.y + 1.72, p.z, target.yaw);
     this.engine.postfx.applyLook(PostFX.LOOKS[this.world.inInterior ? 'interior' : 'exterior']);
+    this._poiPromptSite = this.world.interiorSite;
     if (!silent) {
-      this.hud.toast(this.world.inInterior ? 'Entering the Great Pyramid' : 'Back on the plateau');
+      this.hud.toast(this.world.inInterior ? `Entering ${target.name}` : 'Back on the plateau');
       if (this.mode !== 'archaeologist') this.setMode('archaeologist');
     }
   }
 
   interact() {
+    // A relic underfoot beats a doorway a few metres off: the player is
+    // looking at the thing they walked over to look at.
     if (this.nearbyPoi) {
       this.hud.showCodex(this.nearbyPoi);
       if (!this.visitedPoi.has(this.nearbyPoi.id)) {
         this.visitedPoi.add(this.nearbyPoi.id);
-        this.hud.toast(`Discovered: ${this.nearbyPoi.name} (${this.visitedPoi.size}/${POINTS_OF_INTEREST.length})`, 'good');
+        const total = this.world.pointsOfInterest.length;
+        this.hud.toast(`Discovered: ${this.nearbyPoi.name} (${this.visitedPoi.size}/${total})`, 'good');
       }
       return;
     }
-    if (this.world.distanceToEntrance(this.engine.camera.position) < 16) this.toggleInterior();
+    const entrance = this.world.entranceAt(this.engine.camera.position);
+    if (entrance) this.toggleInterior(false, entrance.id);
   }
 
   _updateProximity() {
     const camera = this.engine.camera.position;
+    const site = this.world.interiorSite;
     let best = null;
-    let bestDist = 34;
-    for (const poi of POINTS_OF_INTEREST) {
-      if (!!poi.interior !== this.world.inInterior) continue;
+    let bestDist = 26;
+    for (const poi of this.world.pointsOfInterest) {
+      if (World.poiSite(poi) !== site) continue;
       const p = this.world.poiWorldPosition(poi);
       const d = p.distanceTo(camera);
       if (d < bestDist) {
@@ -315,10 +328,12 @@ class Simulator {
       }
     }
     this.nearbyPoi = best;
-    if (best) this.hud.setPrompt(best.name);
-    else if (this.world.distanceToEntrance(camera) < 16) {
-      this.hud.setPrompt(this.world.inInterior ? 'Leave the pyramid' : 'Enter the Great Pyramid');
-    } else this.hud.setPrompt(null);
+    if (best) {
+      this.hud.setPrompt(best.name);
+      return;
+    }
+    const entrance = this.world.entranceAt(camera);
+    this.hud.setPrompt(entrance ? entrance.prompt : null);
   }
 
   /* ------------------------------------------------------------------ loop */
@@ -411,9 +426,117 @@ window.__giza = {
   sampleStats() {
     return sim.engine.stats;
   },
+
+  /**
+   * Walk the ground profile of each entrance approach.
+   *
+   * The question this answers is the one that matters: can a player on foot
+   * actually get to the doorway?  Sampling the collision world's ground height
+   * every 30 cm along the approach and taking the largest single rise tells us
+   * whether the flight is climbable, without having to simulate input.  Any
+   * rise above the collision world's step height is a wall, not a stair.
+   */
+  entranceReport() {
+    const out = [];
+    for (const e of sim.world.entrances.entrances) {
+      const ceiling = e.outside.y + 1.5;
+      let previous = null;
+      let worstRise = 0;
+      let reached = -Infinity;
+      for (let d = 34; d >= 0; d -= 0.3) {
+        const z = e.outside.z - d;
+        const h = sim.world.collision.groundAt(e.outside.x, z, ceiling);
+        if (previous !== null) worstRise = Math.max(worstRise, h - previous);
+        previous = h;
+        reached = Math.max(reached, h);
+      }
+      out.push({
+        id: e.id,
+        site: e.site,
+        landingY: Number(e.outside.y.toFixed(2)),
+        reachedY: Number(reached.toFixed(2)),
+        worstRise: Number(worstRise.toFixed(2)),
+        stepHeight: sim.world.collision.stepHeight,
+        walkable: worstRise <= sim.world.collision.stepHeight + 1e-6 && reached >= e.outside.y - 0.35,
+      });
+    }
+    return out;
+  },
+
+  /** Enter through a named entrance and report where the player ended up. */
+  probeEntrance(id) {
+    if (sim.world.inInterior) sim.toggleInterior(true);
+    sim.toggleInterior(true, id);
+    // The walker's own position, not the camera's: the camera only catches up
+    // on the next rendered frame, and a stale reading here would be measured
+    // against the exterior scene.
+    const p = sim.walker.position;
+    const feet = p.y - 1.72;
+    const floor = sim.world.interiorCollision.groundAt(p.x, p.z, p.y);
+    return {
+      id,
+      site: sim.world.interiorSite,
+      inInterior: sim.world.inInterior,
+      // A standing player should be within a few centimetres of the floor,
+      // not embedded in it and not hovering above it.
+      floorGap: Number((feet - floor).toFixed(2)),
+      canLeave: !!sim.world.entranceAt(p),
+    };
+  },
+
+  /**
+   * Walk in through each temple gate and check the way is clear.
+   *
+   * Every temple is modelled hollow, but a single whole-mesh collider - or an
+   * odd number of colonnade pillars, which puts one squarely in the doorway -
+   * seals it shut without anything visibly changing.  This walks the gate axis
+   * at head height and reports anything standing in it.
+   */
+  templeReport() {
+    const out = [];
+    for (const [id, mesh] of Object.entries(sim.world.monuments.temples)) {
+      const spec = TEMPLES[id];
+      if (!spec || !mesh) continue;
+      const collision = sim.world.collision;
+      const solid = (d) => collision.isSolid(spec.x + d, spec.y + 1.7, spec.z);
+      // The gateway proper: from just outside the wall to just inside the
+      // court. This is the question "can I get in", and it is separate from
+      // whether something else is standing in the court once you are.
+      let gateBlocked = false;
+      for (let d = spec.w / 2 + 1; d >= spec.w / 2 - 7; d -= 0.4) {
+        if (solid(d)) { gateBlocked = true; break; }
+      }
+      // Anything solid further in is reported but is not a way-in failure.
+      let obstruction = null;
+      for (let d = spec.w / 2 - 7; d >= 0; d -= 0.4) {
+        if (solid(d)) { obstruction = Number(d.toFixed(1)); break; }
+      }
+      out.push({
+        id,
+        courtFloor: Number(collision.groundAt(spec.x, spec.z, spec.y + 3).toFixed(2)),
+        gateBlocked,
+        obstruction,
+      });
+    }
+    return out;
+  },
+
+  /** Relics registered by the interiors, grouped by tomb. */
+  relicReport() {
+    const bySite = {};
+    const all = [...sim.world.monuments.relicPoints, ...sim.world.interior.relicPoints];
+    for (const r of all) bySite[r.site || 'plateau'] = (bySite[r.site || 'plateau'] || 0) + 1;
+    return { total: all.length, bySite };
+  },
   testScenario(cfg) {
     const wantInterior = !!cfg.interior;
-    if (wantInterior !== sim.world.inInterior) sim.toggleInterior(true);
+    // Viewpoint keys are site-qualified ('khafre.burialChamber'); Khufu's are
+    // bare for historical reasons and resolve to that site.
+    const wantSite = wantInterior
+      ? (cfg.site || (cfg.interior.includes('.') ? cfg.interior.split('.')[0] : 'khufu'))
+      : null;
+    if (sim.world.inInterior && sim.world.interiorSite !== wantSite) sim.toggleInterior(true);
+    if (wantInterior && !sim.world.inInterior) sim.toggleInterior(true, wantSite);
     if (wantInterior) {
       const vp = sim.world.interior.viewpoints[cfg.interior];
       const node = vp ? vp.position : sim.world.interior.nodes[cfg.interior];

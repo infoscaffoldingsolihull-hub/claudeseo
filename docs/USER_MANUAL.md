@@ -106,13 +106,39 @@ laptop.
 
 ### 1 · Archaeologist
 
-First-person exploration. Walk the plateau, climb the construction ramp, enter the Great Pyramid
-through the original entrance on the north face, and follow the Descending Passage to the
-Subterranean Chamber or the Ascending Passage to the Grand Gallery and the King's Chamber.
+First-person exploration. Walk the plateau, climb the construction ramp, and go inside.
 
-Twelve **points of interest** are scattered across the site and inside the pyramid. Walk within
-thirty metres of one and a prompt appears; press `E` to open the codex entry, which gives both the
-archaeology and the project-management reading of what you are looking at.
+**Getting in.** Every pyramid entrance sits part-way up a 52-degree face, so each one has a stone
+approach: a flight of steps from the ground to a landing at the threshold, marked by the relieving
+chevrons over the doorway and a torch either side. Walk up it — the steps are ordinary steps, you
+do not need to jump — and press `E` when the prompt appears. Press `E` again inside to come back
+out, at whichever entrance you used.
+
+There are five ways in:
+
+| Entrance | Where |
+| --- | --- |
+| Great Pyramid — Original Entrance | north face, 16.9 m up, 7.3 m east of the axis |
+| Great Pyramid — al-Ma'mun's Forced Entry | north face, 7 m up, the ragged hole |
+| Pyramid of Khafre — Upper Entrance | north face, 11.5 m up |
+| Pyramid of Khafre — Lower Entrance | in the pavement, 30 m north of the face |
+| Pyramid of Menkaure | north face, 4 m up |
+
+**Inside.** Passages are 1.05 m wide and 1.20 m high; you crouch automatically and stand up again
+when the ceiling allows. The Great Pyramid gives you the Descending Passage to the Subterranean
+Chamber, the Ascending Passage to the Grand Gallery, the King's and Queen's Chambers and the
+relieving chambers above. Khafre gives you the long horizontal run to Belzoni's burial chamber,
+with its gabled roof and the sarcophagus sunk into the floor. Menkaure gives you the panelled
+chamber, the main chamber, the six niches and the granite burial chamber under its barrel vault.
+
+**The temples are open as well** — walk in through the gate, across the court and round the
+colonnade. Khafre's valley temple has the granite hall with the emplacements of the twenty-three
+seated statues.
+
+**Finding things.** Forty-one **points of interest and relics** are scattered across the site,
+inside the tombs and inside the temples. Walk within about twenty-five metres and a prompt
+appears; press `E` to open the codex entry, which gives both the archaeology and the
+project-management reading of what you are looking at.
 
 Footprints follow you across the sand.
 
