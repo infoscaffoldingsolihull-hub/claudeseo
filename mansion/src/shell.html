@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<meta name="description" content="Bagh-e-Shahi Manor — an interactive 3D digital twin of a royal mansion in Lahore, wrapped around a complete construction project simulation.">
+<title>Bagh-e-Shahi Manor — Royal Mansion Digital Twin</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%8F%9B%3C/text%3E%3C/svg%3E">
+<!--STYLES-->
+</head>
+<body>
+
+<canvas id="stage" aria-label="Three-dimensional view of the mansion"></canvas>
+
+<!-- ------------------------------------------------------------- loading -->
+<div id="boot" class="boot">
+  <div class="boot-inner">
+    <div class="boot-crest" aria-hidden="true">
+      <svg viewBox="0 0 120 120" width="86" height="86">
+        <path d="M60 8 L104 34 L104 44 L96 44 L96 102 L24 102 L24 44 L16 44 L16 34 Z" fill="none" stroke="currentColor" stroke-width="2.5"/>
+        <path d="M36 102 L36 62 L52 62 L52 102 M68 102 L68 62 L84 62 L84 102" fill="none" stroke="currentColor" stroke-width="2"/>
+        <circle cx="60" cy="52" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M60 26 L60 16 M52 20 L68 20" stroke="currentColor" stroke-width="2"/>
+      </svg>
+    </div>
+    <h1 class="boot-title">Bagh-e-Shahi Manor</h1>
+    <p class="boot-sub">A royal mansion on a two-kanal plot &middot; DHA Phase VI, Lahore</p>
+    <div class="boot-bar"><div class="boot-fill" id="bootFill"></div></div>
+    <p class="boot-step" id="bootStep">Preparing&hellip;</p>
+    <p class="boot-note" id="bootNote"></p>
+  </div>
+</div>
+
+<!-- ----------------------------------------------------------------- HUD -->
+<div id="hud" class="hud" hidden>
+
+  <div class="crosshair" id="crosshair" aria-hidden="true"><span></span></div>
+
+  <header class="topbar" id="topbar">
+    <div class="topbar-left">
+      <button class="brand" id="btnHelp" type="button" title="Controls and help  (?)">
+        <span class="brand-mark" aria-hidden="true">&#9670;</span>
+        <span class="brand-text">Bagh-e-Shahi Manor</span>
+      </button>
+    </div>
+    <div class="topbar-mid" id="topbarStats"></div>
+    <div class="topbar-right">
+      <button class="chip" id="btnDash" type="button" title="Project dashboard  (Tab)">Dashboard</button>
+      <button class="chip" id="btnXray" type="button" title="WBS X-ray  (X)">X-Ray</button>
+      <button class="chip" id="btnSettings" type="button" title="Settings  (O)">Settings</button>
+    </div>
+  </header>
+
+  <div class="prompt" id="prompt" hidden></div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <aside class="sidepanel" id="modePanel">
+    <div class="modes" id="modes"></div>
+    <div class="timegroup" id="timePresets"></div>
+  </aside>
+
+  <div class="jumpbar" id="jumpbar" hidden></div>
+
+  <!-- construction timeline -------------------------------------------- -->
+  <section class="timeline" id="timeline">
+    <div class="timeline-head">
+      <div class="timeline-day">
+        <span class="timeline-label">Day</span>
+        <span class="timeline-value" id="tlDay">0</span>
+        <span class="timeline-of" id="tlOf">of 516</span>
+      </div>
+      <div class="timeline-meta">
+        <span class="timeline-date" id="tlDate"></span>
+        <span class="timeline-phase" id="tlPhase"></span>
+      </div>
+      <div class="timeline-controls">
+        <button class="tbtn" id="tlStart" type="button" title="Day 0  (Home)">&#9198;</button>
+        <button class="tbtn" id="tlBack" type="button" title="Back one day  (,)">&#9204;</button>
+        <button class="tbtn tbtn-play" id="tlPlay" type="button" title="Play / pause  (Space)">&#9654;</button>
+        <button class="tbtn" id="tlFwd" type="button" title="Forward one day  (.)">&#9205;</button>
+        <button class="tbtn" id="tlEnd" type="button" title="Handover  (End)">&#9197;</button>
+        <select class="tspeed" id="tlSpeed" title="Playback speed">
+          <option value="1">1&times;</option>
+          <option value="4" selected>4&times;</option>
+          <option value="12">12&times;</option>
+          <option value="40">40&times;</option>
+        </select>
+      </div>
+    </div>
+    <div class="timeline-track" id="tlTrack">
+      <div class="timeline-phases" id="tlPhases"></div>
+      <input class="timeline-range" id="tlRange" type="range" min="0" max="516" step="1" value="0"
+             aria-label="Construction day">
+      <div class="timeline-marks" id="tlMarks"></div>
+    </div>
+    <div class="timeline-active" id="tlActive"></div>
+  </section>
+
+  <!-- inspect card ------------------------------------------------------ -->
+  <div class="inspect" id="inspect" hidden>
+    <button class="inspect-close" id="inspectClose" type="button" aria-label="Close">&times;</button>
+    <div class="inspect-body" id="inspectBody"></div>
+  </div>
+
+  <!-- tour captions ----------------------------------------------------- -->
+  <div class="tour" id="tour" hidden>
+    <div class="tour-caption" id="tourCaption"></div>
+    <div class="tour-bar"><div class="tour-fill" id="tourFill"></div></div>
+    <div class="tour-controls">
+      <button class="tbtn" id="tourPrev" type="button" title="Previous beat">&#9204;</button>
+      <button class="tbtn tbtn-play" id="tourPlay" type="button" title="Play / pause">&#10073;&#10073;</button>
+      <button class="tbtn" id="tourNext" type="button" title="Next beat">&#9205;</button>
+      <button class="tbtn tbtn-wide" id="tourExit" type="button">Leave tour</button>
+    </div>
+  </div>
+
+  <!-- touch controls ---------------------------------------------------- -->
+  <div class="touchlayer" id="touchlayer" hidden>
+    <div class="stick" id="stickL"><div class="stick-knob" id="stickLKnob"></div></div>
+    <div class="touchbtns">
+      <button class="tbig" id="tbInteract" type="button">E</button>
+      <button class="tbig" id="tbUp" type="button">&#9650;</button>
+    </div>
+  </div>
+</div>
+
+<!-- ----------------------------------------------------------- dashboard -->
+<div class="overlay" id="dashboard" hidden>
+  <div class="overlay-shell">
+    <header class="overlay-head">
+      <h2 id="dashTitle">Project dashboard</h2>
+      <nav class="tabs" id="dashTabs"></nav>
+      <button class="overlay-close" id="dashClose" type="button" aria-label="Close dashboard">&times;</button>
+    </header>
+    <div class="overlay-body" id="dashBody"></div>
+  </div>
+</div>
+
+<!-- ---------------------------------------------------------------- help -->
+<div class="overlay" id="help" hidden>
+  <div class="overlay-shell overlay-narrow">
+    <header class="overlay-head">
+      <h2>Controls</h2>
+      <button class="overlay-close" id="helpClose" type="button" aria-label="Close">&times;</button>
+    </header>
+    <div class="overlay-body" id="helpBody"></div>
+  </div>
+</div>
+
+<!-- ------------------------------------------------------------ settings -->
+<div class="overlay" id="settings" hidden>
+  <div class="overlay-shell overlay-narrow">
+    <header class="overlay-head">
+      <h2>Settings &amp; session</h2>
+      <button class="overlay-close" id="settingsClose" type="button" aria-label="Close">&times;</button>
+    </header>
+    <div class="overlay-body" id="settingsBody"></div>
+  </div>
+</div>
+
+<noscript>
+  <div class="noscript">This digital twin needs JavaScript and WebGL. Please enable JavaScript and open it in a current version of Chrome, Edge, Firefox or Safari.</div>
+</noscript>
+
+<!--SCRIPT-->
+</body>
+</html>

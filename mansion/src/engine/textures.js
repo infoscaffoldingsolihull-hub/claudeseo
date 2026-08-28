@@ -161,12 +161,13 @@ const RECIPES = {
       albedo: paint(size, (u, v, out) => {
         const cloud = pfbm(u, v, 3, 4);
         const vn = vein(u, v);
-        const sharp = Math.pow(clamp(vn, 0, 1), 3.1);
+        const sharp = Math.pow(clamp(vn, 0, 1), 2.5);
+        const hairline = Math.pow(clamp(pridged(u * 2.4 + cloud, v * 1.1, 7, 3), 0, 1), 6) * 0.55;
         const grain = pvalue(u, v, size / 3) * 0.04;
-        const base = 232 + cloud * 12 - grain * 60;
-        out[0] = base - sharp * 74 + cloud * 4;
-        out[1] = base - sharp * 66 - 3 + cloud * 2;
-        out[2] = base - sharp * 78 - 12;
+        const base = 237 + cloud * 14 - grain * 55;
+        out[0] = base - sharp * 96 - hairline * 70 + cloud * 5;
+        out[1] = base - sharp * 88 - hairline * 66 - 3 + cloud * 3;
+        out[2] = base - sharp * 99 - hairline * 60 - 13;
       }),
       normal: paintNormal(size, (u, v) => Math.pow(clamp(vein(u, v), 0, 1), 3) * 0.35 + pfbm(u, v, 24, 2) * 0.06, 0.9),
       rough: paintGrey(size, (u, v) => 0.10 + Math.pow(clamp(vein(u, v), 0, 1), 3) * 0.22 + pfbm(u, v, 8, 3) * 0.06),
@@ -189,22 +190,51 @@ const RECIPES = {
     };
   },
 
-  /* Sandstone façade cladding: horizontal bedding and a fine open grain. */
+  /* Sandstone façade cladding: coursed ashlar with bedding and an open grain.
+     The block joints matter more than the grain — without them a stone façade
+     reads as brown noise at any distance beyond a few metres. */
   sandstone: (size) => {
+    const COURSES = 3;
+    const PER_COURSE = 2;
+    const cell = (u, v) => {
+      const row = Math.floor(v * COURSES);
+      const offset = (row % 2) * 0.5;
+      const raw = u * PER_COURSE + offset;
+      return {
+        row,
+        col: Math.floor(((raw % PER_COURSE) + PER_COURSE) % PER_COURSE),
+        cu: raw - Math.floor(raw),
+        cv: v * COURSES - row,
+      };
+    };
+    const joint = (u, v) => {
+      const { cu, cv } = cell(u, v);
+      const e = Math.min(Math.min(cu, 1 - cu) * PER_COURSE, Math.min(cv, 1 - cv) * COURSES);
+      return clamp(1 - e / 0.055, 0, 1);
+    };
     const bed = (u, v) => {
-      const layer = Math.sin(v * Math.PI * 12 + pfbm(u, v, 5, 3) * 4.5) * 0.5 + 0.5;
-      return layer * 0.4 + pfbm(u * 2, v * 6, 6, 4) * 0.6;
+      const layer = Math.sin(v * Math.PI * 18 + pfbm(u, v, 5, 3) * 4.2) * 0.5 + 0.5;
+      return layer * 0.32 + pfbm(u * 2, v * 6, 6, 4) * 0.68;
     };
     return {
       albedo: paint(size, (u, v, out) => {
+        const { row, col } = cell(u, v);
+        // Each block is cut from its own bed, so no two are quite the same.
+        const stone = hash2(row * 17 + 3, col * 29 + 7);
         const b = bed(u, v);
-        const speck = pvalue(u, v, size / 2) * 0.16;
-        out[0] = 206 - b * 40 - speck * 60;
-        out[1] = 182 - b * 42 - speck * 58;
-        out[2] = 148 - b * 40 - speck * 50;
+        const speck = pvalue(u, v, size / 2) * 0.14;
+        const j = joint(u, v);
+        const r = 212 - b * 34 - speck * 52 + stone * 16;
+        const g = 190 - b * 36 - speck * 50 + stone * 13;
+        const bl = 156 - b * 34 - speck * 44 + stone * 10;
+        // The joint is lime mortar: paler and flatter than the stone.
+        out[0] = mix(r, 178, j);
+        out[1] = mix(g, 168, j);
+        out[2] = mix(bl, 148, j);
       }),
-      normal: paintNormal(size, (u, v) => bed(u, v) * 0.5 + pvalue(u, v, size / 4) * 0.12, 1.5),
-      rough: paintGrey(size, (u, v) => 0.62 + bed(u, v) * 0.2),
+      normal: paintNormal(size, (u, v) =>
+        bed(u, v) * 0.22 + pvalue(u, v, size / 4) * 0.10 - joint(u, v) * 0.7, 1.5),
+      rough: paintGrey(size, (u, v) => 0.60 + bed(u, v) * 0.18 + joint(u, v) * 0.14),
     };
   },
 

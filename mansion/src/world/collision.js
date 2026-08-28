@@ -98,27 +98,31 @@ export function createCollisionWorld(cellSize = 4) {
     dirty = false;
   }
 
-  const scratch = [];
+  // Each query owns its own buffer: `candidates` is re-entered while a caller
+  // is still iterating a previous result, and a single shared scratch array
+  // would have one call quietly refill the other's list underneath it.
+  const bufA = [];
+  const bufB = [];
+  const bufC = [];
 
-  /** Candidate box indices overlapping an XZ rectangle. */
-  function candidates(minX, minZ, maxX, maxZ) {
+  /** Candidate box indices overlapping an XZ rectangle, into `out`. */
+  function candidates(minX, minZ, maxX, maxZ, out) {
     if (dirty) build();
-    scratch.length = 0;
-    if (!grid) return scratch;
+    out.length = 0;
+    if (!grid) return out;
     const c0 = Math.max(0, Math.floor((minX - originX) / cellSize));
     const c1 = Math.min(cols - 1, Math.floor((maxX - originX) / cellSize));
     const r0 = Math.max(0, Math.floor((minZ - originZ) / cellSize));
     const r1 = Math.min(rows - 1, Math.floor((maxZ - originZ) / cellSize));
-    if (c1 < c0 || r1 < r0) return scratch;
-    // A small set is faster to de-duplicate with a marker array than a Set.
+    if (c1 < c0 || r1 < r0) return out;
     for (let r = r0; r <= r1; r += 1) {
       for (let c = c0; c <= c1; c += 1) {
         const list = grid[r * cols + c];
         if (!list) continue;
-        for (const i of list) if (!scratch.includes(i)) scratch.push(i);
+        for (const i of list) if (out.indexOf(i) === -1) out.push(i);
       }
     }
-    return scratch;
+    return out;
   }
 
   function overlaps(box, minX, minY, minZ, maxX, maxY, maxZ) {
@@ -128,76 +132,67 @@ export function createCollisionWorld(cellSize = 4) {
       box.maxZ > minZ && box.minZ < maxZ;
   }
 
-  /** Resolve one horizontal axis of motion. Returns true if it hit something. */
-  function resolveHorizontal(pos, axis, radius, height, moved) {
+  /** Box indices the walker's body currently intersects, into `out`. */
+  function bodyOverlaps(pos, radius, height, out, footClearance = 0.02) {
     const minX = pos.x - radius;
     const maxX = pos.x + radius;
     const minZ = pos.z - radius;
     const maxZ = pos.z + radius;
-    const minY = pos.y + 0.02; // ignore the floor we are standing on
+    const minY = pos.y + footClearance;
     const maxY = pos.y + height;
-    const list = candidates(minX, minZ, maxX, maxZ);
+    const list = candidates(minX, minZ, maxX, maxZ, out);
+    let write = 0;
+    for (let read = 0; read < list.length; read += 1) {
+      const i = list[read];
+      if (overlaps(boxes[i], minX, minY, minZ, maxX, maxY, maxZ)) {
+        list[write] = i;
+        write += 1;
+      }
+    }
+    list.length = write;
+    return list;
+  }
+
+  /**
+   * Push the walker out along one horizontal axis until it is clear.
+   *
+   * Each pass takes the *most restrictive* of every box it is inside, rather
+   * than resolving against them one at a time: resolving one at a time
+   * mutates the position mid-loop, which makes the boxes tested afterwards
+   * overlap when they should not.
+   */
+  function resolveAxis(pos, axis, radius, height, moved) {
     let hit = false;
-    for (const i of list) {
-      const b = boxes[i];
-      if (!overlaps(b, minX, minY, minZ, maxX, maxY, maxZ)) continue;
+    for (let pass = 0; pass < 4; pass += 1) {
+      const list = bodyOverlaps(pos, radius, height, bufA);
+      if (!list.length) break;
       hit = true;
-      if (axis === 'x') {
-        if (moved > 0) pos.x = b.minX - radius - 1e-4;
-        else if (moved < 0) pos.x = b.maxX + radius + 1e-4;
-      } else if (moved > 0) pos.z = b.minZ - radius - 1e-4;
-      else if (moved < 0) pos.z = b.maxZ + radius + 1e-4;
-      // Re-measure after the push so a second box in the same frame is
-      // resolved against the corrected position, not the original one.
-      return hit ? resolveHorizontalAgain(pos, axis, radius, height, moved, i) : hit;
+      let target = null;
+      for (const i of list) {
+        const b = boxes[i];
+        const edge = moved > 0
+          ? (axis === 'x' ? b.minX - radius : b.minZ - radius) - 1e-4
+          : (axis === 'x' ? b.maxX + radius : b.maxZ + radius) + 1e-4;
+        if (target === null) target = edge;
+        else target = moved > 0 ? Math.min(target, edge) : Math.max(target, edge);
+      }
+      pos[axis] = target;
     }
     return hit;
   }
 
-  /** One extra settle pass, skipping the box we just resolved against. */
-  function resolveHorizontalAgain(pos, axis, radius, height, moved, skip) {
-    const minX = pos.x - radius;
-    const maxX = pos.x + radius;
-    const minZ = pos.z - radius;
-    const maxZ = pos.z + radius;
-    const minY = pos.y + 0.02;
-    const maxY = pos.y + height;
-    const list = candidates(minX, minZ, maxX, maxZ);
-    for (const i of list) {
-      if (i === skip) continue;
-      const b = boxes[i];
-      if (!overlaps(b, minX, minY, minZ, maxX, maxY, maxZ)) continue;
-      if (axis === 'x') {
-        if (moved > 0) pos.x = b.minX - radius - 1e-4;
-        else if (moved < 0) pos.x = b.maxX + radius + 1e-4;
-      } else if (moved > 0) pos.z = b.minZ - radius - 1e-4;
-      else if (moved < 0) pos.z = b.maxZ + radius + 1e-4;
-    }
-    return true;
-  }
-
-  /** Is the walker's box clear at this position? */
+  /** Is the walker's body clear at this position? */
   function isClear(pos, radius, height) {
-    const minX = pos.x - radius;
-    const maxX = pos.x + radius;
-    const minZ = pos.z - radius;
-    const maxZ = pos.z + radius;
-    const minY = pos.y + 0.02;
-    const maxY = pos.y + height;
-    const list = candidates(minX, minZ, maxX, maxZ);
-    for (const i of list) {
-      if (overlaps(boxes[i], minX, minY, minZ, maxX, maxY, maxZ)) return false;
-    }
-    return true;
+    return bodyOverlaps(pos, radius, height, bufB).length === 0;
   }
 
   /**
    * The highest surface under a point that the walker could stand on.
-   * `ceiling` bounds the search so a first-floor slab does not capture a
+   * `ceiling` bounds the search, so a first-floor slab does not capture a
    * player standing on the ground floor.
    */
   function groundAt(x, z, ceiling, radius = 0.28) {
-    const list = candidates(x - radius, z - radius, x + radius, z + radius);
+    const list = candidates(x - radius, z - radius, x + radius, z + radius, bufC);
     let best = -Infinity;
     for (const i of list) {
       const b = boxes[i];
@@ -213,6 +208,13 @@ export function createCollisionWorld(cellSize = 4) {
   /**
    * Move a walker by `delta`, resolving against the world.
    *
+   * Horizontal motion is resolved one axis at a time, which is what lets a
+   * player slide along a wall instead of sticking to it. Vertical motion
+   * lands on the highest surface that was *at or below the feet before the
+   * move* — the qualification matters: without it, landing on a floor makes
+   * the next box in the list overlap, and the walker climbs a storey per
+   * frame.
+   *
    * @returns { grounded, hitWall, steppedUp }
    */
   function moveWalker(pos, delta, radius, height, stepHeight = 0.42) {
@@ -225,11 +227,12 @@ export function createCollisionWorld(cellSize = 4) {
       const amount = delta[axis];
       if (!amount) continue;
       const before = pos[axis];
-      pos[axis] += amount;
-      if (resolveHorizontal(pos, axis, radius, height, amount)) {
-        // Blocked. Try again from a stepped-up position: this is what makes
-        // stair treads, kerbs and thresholds walkable instead of walls.
-        const stepped = { x: pos.x, y: pos.y + stepHeight, z: pos.z };
+      const beforeY = pos.y;
+      pos[axis] = before + amount;
+      if (resolveAxis(pos, axis, radius, height, amount)) {
+        // Blocked. Try the same move from a stepped-up position: this is what
+        // makes stair treads, kerbs and thresholds walkable rather than walls.
+        const stepped = { x: pos.x, y: beforeY + stepHeight, z: pos.z };
         stepped[axis] = before + amount;
         if (isClear(stepped, radius, height)) {
           pos[axis] = stepped[axis];
@@ -243,34 +246,43 @@ export function createCollisionWorld(cellSize = 4) {
 
     /* --------------------------------------------------------- vertical -- */
     let grounded = false;
+    const oldY = pos.y;
     const dy = delta.y;
-    if (dy !== 0 || steppedUp) {
-      pos.y += dy;
-      const minX = pos.x - radius;
-      const maxX = pos.x + radius;
-      const minZ = pos.z - radius;
-      const maxZ = pos.z + radius;
-      const list = candidates(minX, minZ, maxX, maxZ);
-      for (const i of list) {
-        const b = boxes[i];
-        if (!overlaps(b, minX, pos.y, minZ, maxX, pos.y + height, maxZ)) continue;
-        if (dy <= 0) {
-          // Falling or settling: land on top of the box.
-          pos.y = b.maxY;
-          grounded = true;
+    if (dy !== 0) {
+      pos.y = oldY + dy;
+      const list = bodyOverlaps(pos, radius, height, bufA);
+      if (list.length) {
+        if (dy < 0) {
+          let landing = -Infinity;
+          for (const i of list) {
+            const top = boxes[i].maxY;
+            if (top <= oldY + 0.02 && top > landing) landing = top;
+          }
+          if (landing > -Infinity) {
+            pos.y = landing;
+            grounded = true;
+          } else {
+            // Already embedded in something: do not sink further into it.
+            pos.y = oldY;
+          }
         } else {
-          // Rising: bump the head on the underside.
-          pos.y = b.minY - height - 1e-4;
+          let ceiling = Infinity;
+          for (const i of list) {
+            const under = boxes[i].minY;
+            if (under >= oldY + height - 0.02 && under < ceiling) ceiling = under;
+          }
+          if (ceiling < Infinity) pos.y = ceiling - height - 1e-4;
+          else pos.y = oldY;
         }
       }
     }
 
-    // Settle: if we are within a hair of a surface, treat it as ground. This
-    // stops the tiny sub-millimetre bouncing that otherwise shows up as a
-    // jittering camera when standing still.
+    // Settle: within a hair of a surface, treat it as ground. Without this the
+    // walker bounces by fractions of a millimetre and the camera jitters while
+    // standing still. It only ever snaps *down*, never up.
     if (!grounded) {
-      const floor = groundAt(pos.x, pos.z, pos.y + 0.08, radius);
-      if (Number.isFinite(floor) && pos.y - floor < 0.06 && pos.y - floor > -0.06) {
+      const floor = groundAt(pos.x, pos.z, pos.y + 0.06, radius);
+      if (Number.isFinite(floor) && pos.y - floor >= -0.001 && pos.y - floor < 0.07) {
         pos.y = floor;
         grounded = true;
       }

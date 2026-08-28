@@ -139,16 +139,16 @@ void main() {
 /** Default grade; the sky module overrides these per time of day. */
 export const DEFAULT_GRADE = {
   exposure: 1.0,
-  bloom: 0.62,
-  vignette: 0.30,
-  grain: 0.022,
-  saturation: 1.06,
-  contrast: 1.045,
-  aberration: 0.0016,
+  bloom: 0.40,
+  vignette: 0.24,
+  grain: 0.010,
+  saturation: 1.05,
+  contrast: 1.035,
+  aberration: 0.0012,
   lift: [0.005, 0.006, 0.012],
   gain: [1.02, 1.005, 0.985],
-  threshold: 1.05,
-  knee: 0.55,
+  threshold: 1.15,
+  knee: 0.5,
 };
 
 export function createPostFX(view) {

@@ -24,7 +24,7 @@ export const PROJECT_META = {
   latitude: 31.4805,
   longitude: 74.3239,
   plotAreaM2: 1011,
-  coveredAreaM2: 1174,
+  coveredAreaM2: 894,
   client: 'The Shahnawaz family',
   currency: 'PKR',
   calendarNote: 'Six-day working week; the schedule is stated in working days.',
