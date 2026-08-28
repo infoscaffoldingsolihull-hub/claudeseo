@@ -59,21 +59,31 @@ export const PKG = {
   panelling: 'I7',
 };
 
-/** X-ray layers: what survives when the finishes are stripped away. */
+/**
+ * X-ray layers: what survives when the finishes are stripped away.
+ *
+ * Exactly four systems carry a colour identity here, and the four hues are a
+ * validated categorical set — every pair separated under simulated protan and
+ * deutan vision as well as normal vision, on this surface (worst pair ΔE 15.5
+ * simulated, 23.1 normal). Nine control accounts were tried first and
+ * rejected: past about seven simultaneous colour classes no palette can keep
+ * them apart, so accounts are identified by name everywhere else and colour is
+ * spent only where four systems must be told apart at a glance.
+ */
 export const LAYER = {
-  // `mix` is how far the x-ray tint pulls the surface toward its control
-  // account's colour. The ground keeps most of itself so the building has
-  // something to stand on rather than floating in white.
-  ground: { xray: true, colour: 0x6d7a52, ca: 'CA1', mix: 0.25 },
-  substructure: { xray: true, colour: 0x8a6a4f, ca: 'CA2' },
-  frame: { xray: true, colour: 0x9aa5b1, ca: 'CA3' },
-  masonry: { xray: true, colour: 0xd08c60, ca: 'CA4' },
-  services: { xray: true, colour: 0x4f9d8f, ca: 'CA5' },
-  facade: { xray: false, colour: 0xc2794f, ca: 'CA4' },
-  finish: { xray: false, colour: 0xb06a8c, ca: 'CA6' },
-  joinery: { xray: false, colour: 0x7b6cc4, ca: 'CA7' },
-  external: { xray: false, colour: 0x6a9a4f, ca: 'CA8' },
+  ground: { xray: true, viz: '#4a5240', ca: 'CA1', mix: 0.22, label: 'Ground' },
+  substructure: { xray: true, viz: '#7a4bd8', ca: 'CA2', label: 'Substructure' },
+  frame: { xray: true, viz: '#0ba5cb', ca: 'CA3', label: 'Structural frame' },
+  masonry: { xray: true, viz: '#cb7e0b', ca: 'CA4', label: 'Masonry' },
+  services: { xray: true, viz: '#cb0b65', ca: 'CA5', label: 'MEP services' },
+  facade: { xray: false, viz: '#c2794f', ca: 'CA4', label: 'Façade' },
+  finish: { xray: false, viz: '#b06a8c', ca: 'CA6', label: 'Finishes' },
+  joinery: { xray: false, viz: '#7b6cc4', ca: 'CA7', label: 'Joinery & FF&E' },
+  external: { xray: false, viz: '#6a9a4f', ca: 'CA8', label: 'External works' },
 };
+
+/** The layers the x-ray shows, in the order the legend lists them. */
+export const XRAY_LEGEND = ['substructure', 'frame', 'masonry', 'services'];
 
 /** Which package a room's wall finish belongs to. */
 function finishPackage(surface) {

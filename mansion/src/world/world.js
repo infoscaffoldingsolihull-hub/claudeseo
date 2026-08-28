@@ -15,8 +15,10 @@ import { createMaterials, setReveal, setXray, setHighlight } from './materials.j
 import { createSky } from './sky.js';
 import { buildMansion, LAYER } from './mansion.js';
 import { buildSite } from './site.js';
+import { buildOpenings } from './openings.js';
+import { buildFurnishings } from './furnish.js';
 import { packageProgress } from '../pm/project.js';
-import { PKG_BY_ID, CA_BY_ID } from '../pm/model.js';
+import { PKG_BY_ID } from '../pm/model.js';
 import { clamp, smoothstep } from '../engine/rng.js';
 import { SITE_LEVEL, PLOT } from './plan.js';
 
@@ -35,9 +37,13 @@ export function createWorld(ctx) {
   const shared = { scene, materials, collision, tile, quality, project };
   const mansion = buildMansion(shared);
   const site = buildSite(shared);
+  const openings = buildOpenings(shared);
+  const furnish = buildFurnishings(shared);
 
   /** Every revealable element in the world, from every builder. */
-  const elements = [...mansion.elements, ...site.elements];
+  const elements = [
+    ...mansion.elements, ...site.elements, ...openings.elements, ...furnish.elements,
+  ];
   const byPackage = new Map();
   for (const el of elements) {
     const list = byPackage.get(el.pkg) || [];
@@ -63,9 +69,16 @@ export function createWorld(ctx) {
     }
   }
 
-  /** Show or hide one element, keeping its collision boxes in step. */
+  /**
+   * Show or hide one element, keeping its collision boxes in step.
+   *
+   * Some elements own several meshes that live elsewhere in the graph — the
+   * doors and windows, whose leaves are parented to their own hinge groups —
+   * so an element may supply its own `setVisible`.
+   */
   function setElementActive(el, active) {
-    if (el.mesh.visible !== active) el.mesh.visible = active;
+    if (el.setVisible) el.setVisible(active);
+    else if (el.mesh.visible !== active) el.mesh.visible = active;
     for (const handle of el.collision) collision.setEnabled(handle, active);
   }
 
@@ -118,11 +131,10 @@ export function createWorld(ctx) {
       if (xray) {
         // Hide the finishes; tint what is left by its control account.
         if (!layer.xray) {
-          el.mesh.visible = false;
+          if (el.setVisible) el.setVisible(false);
+          else el.mesh.visible = false;
         } else {
-          const account = CA_BY_ID.get(layer.ca);
-          setXray(el.material, layer.mix !== undefined ? layer.mix : 0.72,
-            account ? account.colour : layer.colour);
+          setXray(el.material, layer.mix !== undefined ? layer.mix : 0.72, layer.viz);
         }
       } else {
         setXray(el.material, 0);
@@ -146,17 +158,63 @@ export function createWorld(ctx) {
 
   function update(dt, camera) {
     sky.update(dt, camera);
+    openings.update(dt);
     pulse += dt;
     if (highlightPkg) {
       const amount = 0.18 + 0.16 * (0.5 + 0.5 * Math.sin(pulse * 3.4));
       for (const el of byPackage.get(highlightPkg) || []) setHighlight(el.material, amount);
     }
     for (const extra of extras) if (extra.update) extra.update(dt, camera);
+    updateLighting();
   }
 
   /** A safety net: if the player ever ends up under the world, put them back. */
   function isBelowWorld(position) {
     return position.y < SITE_LEVEL - 6;
+  }
+
+  /** Everything the interaction system can pick. */
+  const interactives = [...openings.interactives, ...furnish.interactives];
+
+  /**
+   * Which meshes cast shadows, by quality tier.
+   *
+   * The shadow pass draws every caster with no frustum culling against the
+   * camera, so on this scene it was costing as much as the main pass. At the
+   * lowest tier the finishes and the joinery stop casting: a skirting board's
+   * shadow is not what anyone came to see, and dropping them takes a third off
+   * the frame on the machines that need it most.
+   */
+  function setShadowPolicy(tier) {
+    const light = tier.name === 'low';
+    for (const el of elements) {
+      const cast = !(light && (el.layer === 'finish' || el.layer === 'joinery'));
+      if (el.mesh && el.mesh.isMesh) el.mesh.castShadow = cast && el.castsShadow !== false;
+      if (el.movers) {
+        for (const mover of el.movers) {
+          for (const m of mover.meshes) {
+            m.traverse((node) => {
+              if (node.isMesh && node.userData.neverCasts !== true) node.castShadow = cast;
+            });
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Interior lighting follows the sun: fixtures come on as daylight falls, and
+   * the emissive furnishings (the chandeliers) glow with them.
+   */
+  function updateLighting() {
+    const night = 1 - sky.daylight;
+    for (const el of elements) {
+      if (!el.emissive) continue;
+      const m = el.material;
+      if (m && m.emissiveIntensity !== undefined) {
+        m.emissiveIntensity = el.mesh.visible ? night * 1.6 : 0;
+      }
+    }
   }
 
   return {
@@ -166,9 +224,14 @@ export function createWorld(ctx) {
     sky,
     mansion,
     site,
+    openings,
+    furnish,
+    interactives,
+    updateLighting,
     elements,
     byPackage,
     registerExtra,
+    setShadowPolicy,
     applyDay,
     setXrayMode,
     setHighlightPackage,

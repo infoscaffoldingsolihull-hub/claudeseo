@@ -291,9 +291,52 @@ export function createCollisionWorld(cellSize = 4) {
     return { grounded, hitWall, steppedUp };
   }
 
+  /**
+   * Nearest solid along a ray, ignoring boxes whose tag matches `exclude`.
+   *
+   * Used by the interaction system to decide whether the thing you are aiming
+   * at is actually in view or on the far side of a wall. Slab method; a zero
+   * direction component resolves through the infinities correctly because a
+   * ray parallel to a slab either misses it entirely or is inside it.
+   */
+  function raycastDistance(origin, dir, maxDist, exclude) {
+    if (dirty) build();
+    // Broad phase over the ray's XZ bounding rectangle.
+    const ex = origin.x + dir.x * maxDist;
+    const ez = origin.z + dir.z * maxDist;
+    const list = candidates(
+      Math.min(origin.x, ex) - 0.5, Math.min(origin.z, ez) - 0.5,
+      Math.max(origin.x, ex) + 0.5, Math.max(origin.z, ez) + 0.5,
+      bufC,
+    );
+    let nearest = maxDist;
+    for (const i of list) {
+      const b = boxes[i];
+      if (!b.enabled) continue;
+      if (exclude && b.tag === exclude) continue;
+      let tmin = 0;
+      let tmax = nearest;
+      let miss = false;
+      for (const axis of ['x', 'y', 'z']) {
+        const lo = axis === 'x' ? b.minX : axis === 'y' ? b.minY : b.minZ;
+        const hi = axis === 'x' ? b.maxX : axis === 'y' ? b.maxY : b.maxZ;
+        const inv = 1 / dir[axis];
+        let t1 = (lo - origin[axis]) * inv;
+        let t2 = (hi - origin[axis]) * inv;
+        if (t1 > t2) { const swap = t1; t1 = t2; t2 = swap; }
+        if (t1 > tmin) tmin = t1;
+        if (t2 < tmax) tmax = t2;
+        if (tmax < tmin) { miss = true; break; }
+      }
+      if (!miss && tmin < nearest) nearest = tmin;
+    }
+    return nearest;
+  }
+
   return {
     add,
     addBox,
+    raycastDistance,
     setEnabled,
     isEnabled,
     build,
