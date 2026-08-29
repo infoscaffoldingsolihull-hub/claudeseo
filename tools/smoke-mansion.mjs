@@ -440,6 +440,76 @@ async function run() {
     Math.abs(session.after.hour - 22.4) < 0.2 && session.after.doorOpen === true,
     JSON.stringify(session.after));
 
+  /* -------------------------------------------------- the live site */
+  group('Construction plant');
+  {
+    const plant = await api(async () => {
+      const m = window.__mansion;
+      const horizon = m.project.horizon;
+      const seen = { crane: 0, scaffold: 0, dig: 0, workers: 0, maxWorkers: 0 };
+      const samples = [];
+      for (let i = 0; i <= 40; i += 1) {
+        const day = Math.round((horizon * i) / 40);
+        m.setDay(day);
+        const r = m.world.construction.report();
+        if (r.crane) seen.crane += 1;
+        if (r.scaffold) seen.scaffold += 1;
+        if (r.excavating) seen.dig += 1;
+        if (r.onScreen > 0) seen.workers += 1;
+        seen.maxWorkers = Math.max(seen.maxWorkers, r.onScreen);
+        samples.push({ day, ...r });
+      }
+      // Nothing on site once the house is handed over.
+      m.setDay(horizon);
+      const handover = m.world.construction.report();
+      // Every plant object must be gone too, not merely reported gone.
+      const named = ['crane:mast', 'crane:jib', 'scaffold:tubes', 'site:workingGround',
+        'site:cabins', 'site:excavation', 'site:workforce'];
+      const visibleAtHandover = named.filter((n) => {
+        const o = m.world.scene.getObjectByName(n);
+        if (!o) return false;
+        let node = o;
+        while (node) { if (!node.visible) return false; node = node.parent; }
+        return true;
+      });
+      // And the crane must actually work: the hook has to move.
+      m.setDay(Math.round(horizon * 0.6));
+      // crane:hook → hookGroup → trolley → turret
+      const hook = m.world.scene.getObjectByName('crane:hook');
+      const trolley = hook ? hook.parent.parent : null;
+      const turret = trolley ? trolley.parent : null;
+      const hookGroup = hook ? hook.parent : null;
+      const before = trolley ? [trolley.position.x, hookGroup.position.y] : null;
+      const turretBefore = turret ? turret.rotation.y : null;
+      for (let i = 0; i < 90; i += 1) m.world.construction.update(0.1);
+      const after = trolley ? [trolley.position.x, hookGroup.position.y] : null;
+      const turretAfter = turret ? turret.rotation.y : null;
+      return { seen, handover, visibleAtHandover, before, after, turretBefore, turretAfter, samples };
+    });
+
+    check('the tower crane is erected and struck with the programme',
+      plant.seen.crane > 4 && plant.seen.crane < 38,
+      `up on ${plant.seen.crane} of 41 sampled days`);
+    check('the scaffold goes up and comes down',
+      plant.seen.scaffold > 2 && plant.seen.scaffold < 30,
+      `up on ${plant.seen.scaffold} of 41 sampled days`);
+    check('the excavation runs and ends', plant.seen.dig > 0 && plant.seen.dig < 12,
+      `digging on ${plant.seen.dig} of 41 sampled days`);
+    check('gangs are posted across the programme',
+      plant.seen.workers > 15 && plant.seen.maxWorkers > 5,
+      `workers on ${plant.seen.workers} of 41 days, peak ${plant.seen.maxWorkers}`);
+    check('the site is clear at handover',
+      plant.handover.onScreen === 0 && !plant.handover.crane && !plant.handover.scaffold
+      && !plant.handover.compound && plant.visibleAtHandover.length === 0,
+      plant.visibleAtHandover.length ? `still visible: ${plant.visibleAtHandover.join(', ')}` : 'nothing left on site');
+    check('the crane runs its duty cycle — it slews, trolleys and hoists',
+      plant.before && plant.after
+      && Math.abs(plant.after[0] - plant.before[0]) > 0.4
+      && Math.abs(plant.after[1] - plant.before[1]) > 0.4
+      && Math.abs(plant.turretAfter - plant.turretBefore) > 0.05,
+      `trolley ${plant.before ? plant.before[0].toFixed(1) : '?'} → ${plant.after ? plant.after[0].toFixed(1) : '?'} m, hook ${plant.before ? plant.before[1].toFixed(1) : '?'} → ${plant.after ? plant.after[1].toFixed(1) : '?'} m, slew ${plant.turretBefore !== null ? plant.turretBefore.toFixed(2) : '?'} → ${plant.turretAfter !== null ? plant.turretAfter.toFixed(2) : '?'} rad`);
+  }
+
   /* --------------------------------------------------------------- x-ray */
   group('WBS X-ray');
   await api(() => window.__mansion.setDay(window.__mansion.project.horizon));
@@ -600,20 +670,32 @@ async function run() {
   if (wantShots) {
     mkdirSync(SHOT_DIR, { recursive: true });
     const shots = [
-      ['overview', async () => { await api(() => { const m = window.__mansion; m.setMode('orbit'); m.setTimePreset('golden'); m.setDay(m.project.horizon); }); }],
-      ['forecourt', async () => { await api(() => { const m = window.__mansion; m.setMode('walk'); m.spawnAt('forecourt'); m.setTimePreset('day'); }); }],
+      ['overview', async () => { await api(() => { const m = window.__mansion; m.setMode('orbit'); m.controls.state.orbitAzimuth = 0.35; m.controls.state.orbitElevation = 0.30; m.controls.state.orbitDistance = 44; m.controls.state.orbitTarget.set(0, 4, -2); m.setTimePreset('golden'); m.setDay(m.project.horizon); }); }],
+      ['approach', async () => { await api(() => { const m = window.__mansion; m.setMode('walk'); m.spawnAt('forecourt'); m.setTimePreset('day'); }); }],
+      ['portico', async () => { await api(() => { const m = window.__mansion; m.spawnAt('portico'); }); }],
       ['foyer', async () => { await api(() => { const m = window.__mansion; m.spawnAt('foyer'); }); }],
-      ['night', async () => { await api(() => { const m = window.__mansion; m.setMode('orbit'); m.setTimePreset('night'); }); }],
-      ['construction', async () => { await api(() => { const m = window.__mansion; m.setMode('orbit'); m.setTimePreset('day'); m.setDay(Math.round(m.project.horizon * 0.42)); }); }],
+      ['majlis', async () => { await api(() => { const m = window.__mansion; m.spawnAt('majlis'); }); }],
+      ['dining', async () => { await api(() => { const m = window.__mansion; m.spawnAt('dining'); }); }],
+      ['master', async () => { await api(() => { const m = window.__mansion; m.spawnAt('master'); }); }],
+      ['kitchen', async () => { await api(() => { const m = window.__mansion; m.spawnAt('kitchen'); }); }],
+      ['theatre', async () => { await api(() => { const m = window.__mansion; m.spawnAt('theatre'); }); }],
+      ['garage-open', async () => { await api(() => { const m = window.__mansion; m.spawnAt('garage'); for (const id of ['garageL', 'garageR']) { const g = m.world.openings.byId.get(id); if (g) { g.setOpen(1); for (let i = 0; i < 200; i += 1) m.world.openings.update(0.05); } } }); }],
+      ['pool-night', async () => { await api(() => { const m = window.__mansion; m.setMode('orbit'); m.controls.state.orbitAzimuth = -0.9; m.controls.state.orbitElevation = 0.25; m.controls.state.orbitDistance = 34; m.controls.state.orbitTarget.set(9, 2, -2); m.setTimePreset('night'); }); }],
+      ['construction-frame', async () => { await api(() => { const m = window.__mansion; m.setMode('orbit'); m.controls.state.orbitAzimuth = 0.5; m.controls.state.orbitElevation = 0.32; m.controls.state.orbitDistance = 46; m.controls.state.orbitTarget.set(0, 3, -2); m.setTimePreset('day'); m.setDay(Math.round(m.project.horizon * 0.50)); }); }],
+      ['construction-masonry', async () => { await api(() => { const m = window.__mansion; m.setDay(Math.round(m.project.horizon * 0.64)); }); }],
       ['xray', async () => { await api(() => { const m = window.__mansion; m.setDay(m.project.horizon); m.setXray(true); }); }],
+      ['dashboard-cost', async () => { await api(() => { const m = window.__mansion; m.setXray(false); m.openOverlay('dashboard'); m.panels.show('cost'); }); }],
+      ['dashboard-schedule', async () => { await api(() => { window.__mansion.panels.show('schedule'); }); }],
+      ['dashboard-boq', async () => { await api(() => { window.__mansion.panels.show('boq'); }); }],
+      ['dashboard-montecarlo', async () => { await api(() => { const m = window.__mansion; m.panels.show('montecarlo'); const b = [...document.querySelectorAll('#dashBody button')].find((x) => x.textContent.includes('Run the analysis')); if (b) b.click(); }); }],
     ];
     for (const [name, prep] of shots) {
       await prep();
       await page.waitForTimeout(900);
       await page.screenshot({ path: join(SHOT_DIR, `${name}.jpg`), quality: 84, type: 'jpeg' });
     }
-    await api(() => window.__mansion.setXray(false));
-    process.stderr.write(`\n  screenshots written to docs/mansion/screenshots\n`);
+    await api(() => { window.__mansion.setXray(false); window.__mansion.openOverlay(null); });
+    process.stderr.write(`\n  ${shots.length} screenshots written to docs/mansion/screenshots\n`);
   }
 
   await browser.close();

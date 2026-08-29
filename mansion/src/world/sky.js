@@ -274,9 +274,9 @@ export function solarVector(altitude, azimuth) {
 
 /** The named times of day, as decimal hours of local solar time. */
 export const TIME_PRESETS = [
-  { id: 'dawn', label: 'Dawn', hour: 6.05, key: 'Digit5' },
+  { id: 'dawn', label: 'Dawn', hour: 6.7, key: 'Digit5' },
   { id: 'day', label: 'Day', hour: 13.0, key: 'Digit6' },
-  { id: 'golden', label: 'Golden hour', hour: 17.95, key: 'Digit7' },
+  { id: 'golden', label: 'Golden hour', hour: 17.35, key: 'Digit7' },
   { id: 'dusk', label: 'Dusk', hour: 19.05, key: 'Digit8' },
   { id: 'night', label: 'Night', hour: 22.4, key: 'Digit9' },
 ];
@@ -369,6 +369,28 @@ export function createSky(scene, options = {}) {
   scene.fog = new THREE.FogExp2(0xc9d4e0, 0.0026);
 
   const grade = Object.assign({}, DEFAULT_GRADE, { lift: [...DEFAULT_GRADE.lift], gain: [...DEFAULT_GRADE.gain] });
+
+  /**
+   * The bounced light inside the building — see materials.js, behaviour 4.
+   *
+   * Two sources, summed:
+   *
+   *   *Daylight.*  Sunlight and skylight admitted through the openings and
+   *   bounced off the floor and the walls.  It follows the sun's elevation but
+   *   with a much shallower curve than the sun itself, because a room's
+   *   illuminance is dominated by the diffuse sky component, which survives
+   *   long after the sun has stopped striking the windows directly.  It also
+   *   never quite reaches zero: at the sun's own colour temperature, a room
+   *   with the lights off at dusk is dim, not black.
+   *
+   *   *The electric installation.*  Warm, and switched by exactly the same
+   *   term that turns the light fittings' emissive on, so the fill and the
+   *   fittings can never disagree about whether the lights are on.
+   */
+  const interiorFill = new THREE.Color(0, 0, 0);
+  const fillDaylight = new THREE.Color();
+  const fillLamps = new THREE.Color();
+  let fillScale = 1;
   const sunDir = new THREE.Vector3(0, 1, 0);
   const moonDir = new THREE.Vector3(0, 1, 0);
   let altitude = 1;
@@ -393,6 +415,12 @@ export function createSky(scene, options = {}) {
     const above = Math.max(0, Math.sin(alt));
     const nightFactor = clamp(smoothstep(0.06, -0.16, Math.sin(alt)), 0, 1);
     const twilight = clamp(smoothstep(-0.26, 0.14, Math.sin(alt)) * (1 - above * 0.65), 0, 1);
+    // Irradiance does not fall off linearly with the sine of the altitude as
+    // far as the eye is concerned: at ten degrees the sun is still perfectly
+    // capable of lighting a façade, and the eye adapts besides. A gamma on the
+    // elevation is what keeps golden hour golden instead of merely dark.
+    const lit = Math.pow(above, 0.42);
+    const soft = Math.pow(above, 0.5);
 
     // Atmosphere: thicker and mie-heavier when the sun is low.
     const u = skyMaterial.uniforms;
@@ -401,30 +429,30 @@ export function createSky(scene, options = {}) {
     u.uRayleigh.value = mix(3.3, 1.35, above);
     u.uMieCoefficient.value = mix(0.021, 0.0042, above);
     u.uMieDirectionalG.value = mix(0.86, 0.78, above);
-    u.uIntensity.value = mix(1.35, 0.92, above);
+    u.uIntensity.value = mix(1.25, 0.92, soft);
     u.uNight.value = nightFactor;
     u.uMoonDirection.value.copy(moonDir);
     u.uMoonBrightness.value = clamp(Math.max(0, moonDir.y) * 1.4 + 0.15, 0, 1.4);
 
     // Sun colour: white at noon, deep amber at the horizon.
-    const warmth = clamp(1 - above * 1.6, 0, 1);
+    const warmth = clamp(1 - lit * 1.25, 0, 1);
     sunLight.color.setRGB(
       mix(1.0, 1.0, warmth),
       mix(0.95, 0.62, warmth),
       mix(0.86, 0.34, warmth),
     );
-    sunLight.intensity = mix(0.0, 2.55, clamp(above * 1.5, 0, 1));
+    sunLight.intensity = 2.7 * lit;
     sunLight.visible = sunLight.intensity > 0.005;
 
     moonLight.position.copy(moonDir).multiplyScalar(120);
     moonLight.target.position.set(0, 0, 0);
     moonLight.target.updateMatrixWorld();
-    moonLight.intensity = nightFactor * clamp(Math.max(0, moonDir.y), 0, 1) * 0.55;
+    moonLight.intensity = nightFactor * clamp(Math.max(0, moonDir.y), 0, 1) * 0.8;
     moonLight.visible = moonLight.intensity > 0.005;
     moonLight.castShadow = false;
 
     // Sky bounce: blue by day, cold and dim at night.
-    hemi.intensity = mix(0.09, 0.62, clamp(above * 1.4, 0, 1)) + twilight * 0.10;
+    hemi.intensity = mix(0.14, 0.78, soft) + twilight * 0.12;
     hemi.color.setRGB(
       mix(0.16, 0.74, above),
       mix(0.22, 0.83, above),
@@ -435,7 +463,20 @@ export function createSky(scene, options = {}) {
       mix(0.05, 0.36, above),
       mix(0.07, 0.28, above),
     );
-    ambient.intensity = mix(0.045, 0.11, above) + nightFactor * 0.028;
+    ambient.intensity = mix(0.075, 0.14, soft) + nightFactor * 0.03;
+
+    // Interior bounce. `lit` is already the perceptual curve on the sun's
+    // elevation; the interior rides an even shallower one, and carries a
+    // floor so that a windowless basement is never pitch dark.
+    const admitted = 0.14 + 0.46 * Math.pow(above, 0.30);
+    fillDaylight.setRGB(
+      mix(1.0, 0.82, above),
+      mix(0.90, 0.86, above),
+      mix(0.74, 0.96, above),
+    ).multiplyScalar(admitted);
+    const lampsOn = 1 - clamp(smoothstep(-0.14, 0.10, Math.sin(alt)), 0, 1);
+    fillLamps.setRGB(1.0, 0.82, 0.58).multiplyScalar(0.50 * lampsOn);
+    interiorFill.copy(fillDaylight).add(fillLamps).multiplyScalar(fillScale);
 
     // Fog picks up the horizon colour so distance reads correctly at any hour.
     const fogNight = new THREE.Color(0x0d1626);
@@ -461,14 +502,14 @@ export function createSky(scene, options = {}) {
     cloudMaterial.uniforms.uOpacity.value = mix(0.55, 0.88, above) * (1 - nightFactor * 0.45);
 
     // Colour grade for the post chain.
-    grade.exposure = mix(1.18, 0.98, clamp(above * 1.35, 0, 1));
-    grade.bloom = mix(0.62, 0.34, clamp(above * 1.5, 0, 1)) + twilight * 0.16;
-    grade.threshold = mix(0.88, 1.28, clamp(above * 1.4, 0, 1));
-    grade.saturation = mix(1.11, 1.03, clamp(above * 1.4, 0, 1));
-    grade.contrast = mix(1.07, 1.03, clamp(above * 1.5, 0, 1));
-    grade.vignette = mix(0.32, 0.22, clamp(above * 1.4, 0, 1));
-    grade.grain = mix(0.016, 0.007, clamp(above * 1.6, 0, 1));
-    grade.aberration = mix(0.0019, 0.0010, clamp(above * 1.5, 0, 1));
+    grade.exposure = mix(1.42, 0.98, clamp(lit * 1.15, 0, 1));
+    grade.bloom = mix(0.58, 0.32, clamp(lit * 1.3, 0, 1)) + twilight * 0.14;
+    grade.threshold = mix(0.95, 1.28, clamp(lit * 1.3, 0, 1));
+    grade.saturation = mix(1.10, 1.03, clamp(lit * 1.3, 0, 1));
+    grade.contrast = mix(1.05, 1.03, clamp(lit * 1.3, 0, 1));
+    grade.vignette = mix(0.28, 0.20, clamp(lit * 1.3, 0, 1));
+    grade.grain = mix(0.011, 0.006, clamp(lit * 1.4, 0, 1));
+    grade.aberration = mix(0.0015, 0.0009, clamp(lit * 1.4, 0, 1));
     grade.lift = [
       0.003 + nightFactor * 0.010,
       0.004 + nightFactor * 0.013,
@@ -489,6 +530,8 @@ export function createSky(scene, options = {}) {
     hemi,
     ambient,
     grade,
+    /** Bounced interior light, for the fill uniform. Read every frame. */
+    interiorFill,
     skyMesh,
     cloudMesh,
 
@@ -501,6 +544,12 @@ export function createSky(scene, options = {}) {
     /** 0 at full night, 1 at full day — used to switch interior lights on. */
     get daylight() { return clamp(smoothstep(-0.14, 0.10, Math.sin(altitude)), 0, 1); },
     get cloudCover() { return cloudCover; },
+    /** Interior-fill trim, exposed so the QA harness can sweep it. */
+    get fillScale() { return fillScale; },
+    setFillScale(value) {
+      fillScale = clamp(value, 0, 6);
+      refresh();
+    },
 
     setHour(value) {
       hour = ((value % 24) + 24) % 24;

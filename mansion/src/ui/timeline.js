@@ -31,7 +31,11 @@ export function createTimeline(ctx) {
 
   /* --------------------------------------------------------- phase strip */
   {
-    // Walk the horizon once and record where the dominant phase changes.
+    // Twelve phases, so no colour identity: past about seven simultaneous
+    // classes a palette cannot keep them apart, and the phases are ordered
+    // anyway. Alternating tonal bands show you where one phase ends and the
+    // next begins; the phase you are on is named in the header above, and
+    // every band names itself on hover.
     const bands = [];
     let currentId = null;
     let start = 0;
@@ -44,13 +48,13 @@ export function createTimeline(ctx) {
       }
     }
     bands.push({ id: currentId, from: start, to: horizon });
-    fill(byId('tlPhases'), bands.map((band) => {
+    fill(byId('tlPhases'), bands.map((band, i) => {
       const phase = PHASE_BY_ID.get(band.id) || PHASES[0];
       return el('i', {
         title: `${phase.name} — days ${band.from} to ${band.to}`,
         style: {
           width: `${((band.to - band.from) / horizon) * 100}%`,
-          background: phase.colour,
+          background: i % 2 ? 'rgba(216, 182, 120, 0.62)' : 'rgba(216, 182, 120, 0.30)',
         },
       });
     }));
@@ -58,18 +62,26 @@ export function createTimeline(ctx) {
 
   /* ---------------------------------------------------------- milestones */
   {
+    // Four labels on two rows, so a long milestone name cannot land on top of
+    // its neighbour.
     const marks = [];
+    const labelled = new Set(['MS1', 'MS3', 'MS5', 'MS7']);
+    let rowIndex = 0;
     for (const ms of milestoneTable(project)) {
       const left = (ms.forecastDay / horizon) * 100;
-      marks.push(el('i', { style: { left: `${left}%` }, title: ms.name }));
-      // Only label the milestones that will not collide with each other.
-      if (['MS1', 'MS3', 'MS5', 'MS7'].includes(ms.id)) {
-        marks.push(el('b', {
-          style: { left: `${Math.min(96, Math.max(4, left))}%` },
-          text: ms.name.length > 22 ? `${ms.name.slice(0, 20)}…` : ms.name,
-          title: `${ms.name} — ${formatDay(ms.forecastDay)}`,
-        }));
-      }
+      marks.push(el('i', { style: { left: `${left}%` }, title: `${ms.name} — ${formatDay(ms.forecastDay)}` }));
+      if (!labelled.has(ms.id)) continue;
+      const row = rowIndex % 2;
+      rowIndex += 1;
+      marks.push(el('b', {
+        style: {
+          left: `${Math.min(97, Math.max(3, left))}%`,
+          top: `${6 + row * 11}px`,
+          transform: left > 80 ? 'translateX(-100%)' : (left < 8 ? 'none' : 'translateX(-50%)'),
+        },
+        text: ms.name,
+        title: `${ms.name} — ${formatDay(ms.forecastDay)}`,
+      }));
     }
     fill(byId('tlMarks'), marks);
   }
@@ -123,7 +135,7 @@ export function createTimeline(ctx) {
         .map((entry) => el('span', {
           class: 'pkgchip',
           title: `${entry.pkg.code} ${entry.pkg.name}`,
-          style: { 'border-left': `3px solid ${phaseColour(entry.pkg.phase)}` },
+          style: { 'border-left': '3px solid var(--gold)' },
         }, [
           entry.pkg.name.length > 34 ? `${entry.pkg.name.slice(0, 32)}…` : entry.pkg.name,
           el('i', { text: `${Math.round(entry.progress * 100)}%` }),
@@ -145,3 +157,4 @@ function phaseColour(id) {
   const phase = PHASE_BY_ID.get(id);
   return phase ? phase.colour : '#d8b678';
 }
+

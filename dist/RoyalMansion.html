@@ -417,7 +417,7 @@ button { cursor: pointer; }
 .timeline-track { position: relative; padding: 2px 0 0; }
 .timeline-phases { position: absolute; left: 0; right: 0; top: 4px; height: 6px; border-radius: 3px; overflow: hidden; display: flex; }
 .timeline-phases i { display: block; height: 100%; }
-.timeline-marks { position: relative; height: 15px; margin-top: 1px; }
+.timeline-marks { position: relative; height: 28px; margin-top: 1px; }
 .timeline-marks i {
   position: absolute;
   top: 0;
@@ -427,8 +427,6 @@ button { cursor: pointer; }
 }
 .timeline-marks b {
   position: absolute;
-  top: 6px;
-  transform: translateX(-50%);
   font-size: 9.5px;
   font-weight: 500;
   color: var(--text-3);
@@ -55010,6 +55008,25 @@ const RECIPES = {
     };
   },
 
+  /* Dressed limestone for carved work — columns, balusters, mouldings, the
+     dome. No coursing: a turned shaft is cut from one block, and putting
+     ashlar joints on it is the single fastest way to make stone look like
+     wallpaper. */
+  limestone: (size) => {
+    const grain = (u, v) => pfbm(u * 1.6, v * 1.6, 6, 5) * 0.7 + pvalue(u, v, size / 3) * 0.3;
+    return {
+      albedo: paint(size, (u, v, out) => {
+        const g = grain(u, v);
+        const shell = Math.pow(clamp(pridged(u * 1.1, v * 1.1, 4, 3), 0, 1), 5) * 0.35;
+        out[0] = 224 - g * 30 - shell * 26;
+        out[1] = 214 - g * 30 - shell * 24;
+        out[2] = 192 - g * 28 - shell * 20;
+      }),
+      normal: paintNormal(size, (u, v) => grain(u, v) * 0.16, 0.7),
+      rough: paintGrey(size, (u, v) => 0.58 + grain(u, v) * 0.16),
+    };
+  },
+
   /* Interior plaster: almost flat, with the faintest trowel modulation. */
   plaster: (size) => ({
     albedo: paint(size, (u, v, out) => {
@@ -55131,12 +55148,94 @@ const RECIPES = {
       albedo: paint(size, (u, v, out) => {
         const g = grain(u, v);
         const fig = pfbm(u * 2, v * 2, 5, 3);
-        out[0] = 88 + fig * 26 - g * 30;
-        out[1] = 55 + fig * 18 - g * 22;
-        out[2] = 34 + fig * 12 - g * 14;
+        // Around six and a half per cent reflectance, which is what a
+        // lacquered walnut door actually returns. Below about five, a surface
+        // stops carrying any modelling at all indoors and reads as a hole.
+        out[0] = 106 + fig * 28 - g * 30;
+        out[1] = 69 + fig * 19 - g * 22;
+        out[2] = 44 + fig * 13 - g * 14;
       }),
       normal: paintNormal(size, (u, v) => grain(u, v) * 0.16, 0.8),
       rough: paintGrey(size, (u, v) => 0.28 + grain(u, v) * 0.12),
+    };
+  },
+
+  /*
+   * Raised-and-fielded oak panelling, for the majlis, the dining room and the
+   * study.
+   *
+   * Panelling was previously drawn as dark walnut with a tint over it, which
+   * put its reflectance at under three per cent — darker than any real timber,
+   * and dark enough that with no bounce light in the room the walls rendered
+   * black.  This is quarter-sawn oak at about eighteen per cent, which is what
+   * a lacquered oak panel actually returns, and it is built as joinery: stiles
+   * and rails proud, a chamfer running down into each field, the grain turning
+   * with the member it is cut from.
+   */
+  oakPanel: (size) => {
+    const COLS = 3;
+    const ROWS = 2;
+    const RAIL = 0.13;   // half-width of the stile/rail, as a fraction of a bay
+    const CHAMFER = 0.09; // the fielding chamfer, over the same fraction
+
+    /** Where in its bay a point falls, and how far it is from the bay edge. */
+    const bay = (u, v) => {
+      const bu = u * COLS;
+      const bv = v * ROWS;
+      const col = Math.floor(bu);
+      const row = Math.floor(bv);
+      const cu = bu - col;
+      const cv = bv - row;
+      const du = Math.min(cu, 1 - cu);
+      const dv = Math.min(cv, 1 - cv);
+      return { col, row, cu, cv, edge: Math.min(du, dv), vertical: du < dv };
+    };
+
+    /**
+     * The section through a panel: the frame stands proud, a chamfer falls
+     * away from it, and the field sits back with a shallow crown.
+     */
+    const relief = (u, v) => {
+      const { edge } = bay(u, v);
+      if (edge < RAIL) return 1;
+      if (edge < RAIL + CHAMFER) return mix(1, 0.42, (edge - RAIL) / CHAMFER);
+      return 0.42 + Math.min(0.14, (edge - RAIL - CHAMFER) * 0.9);
+    };
+
+    /** Grain runs along the member, so it turns through ninety degrees. */
+    const grain = (u, v) => {
+      const b = bay(u, v);
+      const upright = b.edge < RAIL && b.vertical;
+      const along = upright ? v * 15 : u * 12;
+      const across = upright ? u * 5 : v * 4;
+      const bands = Math.sin(along * Math.PI + pfbm(u * 3, v * 3, 6, 4) * 5 + across);
+      return bands * 0.5 + 0.5;
+    };
+
+    /** The quirk: the shadow line where the field is cut away from the frame. */
+    const quirk = (u, v) => {
+      const { edge } = bay(u, v);
+      return clamp(1 - Math.abs(edge - RAIL) / 0.016, 0, 1);
+    };
+
+    return {
+      albedo: paint(size, (u, v, out) => {
+        const b = bay(u, v);
+        const g = grain(u, v);
+        const fig = pfbm(u * 2.5, v * 2.5, 6, 3);
+        // Each board is cut from a different part of the log.
+        const tone = hash2(b.col * 7 + b.row * 13, 23) * 0.5 + hash2(b.row, 5) * 0.5;
+        const h = relief(u, v);
+        // The frame stands into the light and the field falls away from it;
+        // the quirk between them is a hard shadow line, and it is the line
+        // that makes the wall read as panelling rather than as boarding.
+        const shade = (0.82 + h * 0.30) * (1 - quirk(u, v) * 0.46);
+        out[0] = (178 + tone * 24 + fig * 22 - g * 22) * shade;
+        out[1] = (134 + tone * 19 + fig * 17 - g * 18) * shade;
+        out[2] = (90 + tone * 14 + fig * 12 - g * 13) * shade;
+      }),
+      normal: paintNormal(size, (u, v) => relief(u, v) * 0.9 - quirk(u, v) * 0.35 + grain(u, v) * 0.05, 1.6),
+      rough: paintGrey(size, (u, v) => 0.40 + grain(u, v) * 0.14),
     };
   },
 
@@ -56711,6 +56810,16 @@ function createCollisionWorld(cellSize = 4) {
  *   3. **Highlight.** Selecting a work package in the dashboard adds an
  *      emissive wash to exactly the geometry that package paid for.
  *
+ *   4. **Interior fill.** A real-time renderer has no global illumination, so
+ *      a room whose only light is a directional sun outside it renders black:
+ *      the sun is occluded by the walls and nothing bounces.  The fill is the
+ *      bounced light, modelled rather than faked — daylight admitted through
+ *      the openings during the day, the electric installation after dark —
+ *      and it is applied *geometrically*, to fragments that fall inside one of
+ *      the building's envelope boxes, so the same wall gets it on its inside
+ *      face and not on the sunlit face outside.  One shared set of uniforms
+ *      drives it for every material in the world.
+ *
  * The patch is applied through `onBeforeCompile`, and every patched material
  * shares one `customProgramCacheKey`, so three compiles the program once and
  * reuses it across all of them.
@@ -56726,9 +56835,13 @@ const SURFACES = {
   tile: { tex: 'tile', tile: 1.6, roughness: 0.9 },
   woodFloor: { tex: 'woodFloor', tile: 2.2, roughness: 1.0 },
   woodDark: { tex: 'woodDark', tile: 1.4, roughness: 1.0 },
-  panel: { tex: 'woodDark', tile: 1.15, colour: 0xc8b291, roughness: 1.0 },
-  carpet: { tex: 'carpet', tile: 1.25, colour: 0xb9a894, roughness: 1.0 },
+  panel: { tex: 'oakPanel', tile: 2.0, roughness: 0.44 },
+  carpet: { tex: 'carpet', tile: 1.25, colour: 0xd2c0a8, roughness: 1.0 },
   fabric: { tex: 'fabric', tile: 1.0, colour: 0x7d5a52, roughness: 1.0 },
+  // Upholstery is a separate entry from the acoustic fabric above because the
+  // two want opposite things: the cinema's wall lining should swallow light,
+  // and a sofa in a daylit room should not.
+  upholstery: { tex: 'fabric', tile: 1.0, colour: 0xe0c6ad, roughness: 1.0 },
   epoxy: { tex: 'concrete', tile: 2.4, colour: 0x8b9298, roughness: 0.7 },
   plaster: { tex: 'plaster', tile: 2.8, roughness: 1.0 },
   paintWarm: { tex: 'paintWarm', tile: 2.8, roughness: 1.0 },
@@ -56736,6 +56849,7 @@ const SURFACES = {
   concrete: { tex: 'concrete', tile: 2.2, roughness: 1.0 },
   brick: { tex: 'brick', tile: 1.5, roughness: 1.0 },
   sandstone: { tex: 'sandstone', tile: 1.75, roughness: 1.0 },
+  limestone: { tex: 'limestone', tile: 1.15, roughness: 1.0 },
   roofScreed: { tex: 'roofScreed', tile: 2.0, roughness: 1.0 },
   grass: { tex: 'grass', tile: 2.6, roughness: 1.0 },
   paver: { tex: 'paver', tile: 2.4, roughness: 1.0 },
@@ -56746,16 +56860,72 @@ const SURFACES = {
   glassClear: { tex: null, colour: 0xbcd6e2, roughness: 0.06, metalness: 0.0, opacity: 0.24, transparent: true },
   steel: { tex: null, colour: 0x8d949c, roughness: 0.42, metalness: 0.9 },
   paintedSteel: { tex: null, colour: 0xd8b431, roughness: 0.55, metalness: 0.35 },
+  craneSteel: { tex: null, colour: 0xe0a52a, roughness: 0.62, metalness: 0.28 },
+  hiVis: { tex: null, colour: 0xe8a317, roughness: 0.85, metalness: 0.0 },
+  workwear: { tex: null, colour: 0x46536b, roughness: 0.95, metalness: 0.0 },
+  skin: { tex: null, colour: 0x9a6b4a, roughness: 0.85, metalness: 0.0 },
   water: { tex: 'water', tile: 3.0, colour: 0x2f7f96, roughness: 0.06, metalness: 0.12, opacity: 0.78, transparent: true },
 };
 
-const REVEAL_CACHE_KEY = 'mansion-reveal-v1';
+const REVEAL_CACHE_KEY = 'mansion-reveal-v2';
+
+/** How many envelope boxes the interior fill can be described by. */
+const FILL_BOX_LIMIT = 4;
+
+/**
+ * The uniforms the interior fill shares across every material in the world.
+ *
+ * Shared *objects*, not copies: `onBeforeCompile` assigns these into each
+ * program's uniform map, so setting the colour once here changes every
+ * material at once and there is no per-material loop on the frame path.
+ */
+function createInteriorFill() {
+  const min = [];
+  const max = [];
+  const weight = [];
+  for (let i = 0; i < FILL_BOX_LIMIT; i += 1) {
+    min.push(new THREE.Vector3(0, 0, 0));
+    max.push(new THREE.Vector3(0, 0, 0));
+    weight.push(1);
+  }
+  const uniforms = {
+    uFillColour: { value: new THREE.Color(0, 0, 0) },
+    uFillBoxMin: { value: min },
+    uFillBoxMax: { value: max },
+    uFillWeight: { value: weight },
+    uFillCount: { value: 0 },
+  };
+  return {
+    uniforms,
+    /**
+     * Describe the interior as up to four world-space boxes.
+     *
+     * `weight` scales the fill inside a box: a fully enclosed room takes the
+     * whole of it, a roofed but open-sided space like the portico takes about
+     * half, because the sky is already lighting it through its open sides and
+     * counting that light twice is what turns a loggia chalk white.
+     */
+    setBoxes(boxes) {
+      const n = Math.min(boxes.length, FILL_BOX_LIMIT);
+      for (let i = 0; i < n; i += 1) {
+        const b = boxes[i];
+        min[i].set(b.x0, b.y0, b.z0);
+        max[i].set(b.x1, b.y1, b.z1);
+        weight[i] = b.weight !== undefined ? b.weight : 1;
+      }
+      uniforms.uFillCount.value = n;
+      return n;
+    },
+    /** Set the bounced-light colour. Magnitude is baked into the colour. */
+    setColour(colour) { uniforms.uFillColour.value.copy(colour); },
+  };
+}
 
 /**
  * Graft reveal / x-ray / highlight onto a material and return its uniforms.
  * Safe to call on any of three's built-in materials.
  */
-function makeRevealable(material) {
+function makeRevealable(material, fill) {
   const uniforms = {
     uRevealDir: { value: new THREE.Vector3(0, 1, 0) },
     uRevealDist: { value: 1e9 },
@@ -56766,23 +56936,68 @@ function makeRevealable(material) {
 
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
+    if (fill) Object.assign(shader.uniforms, fill.uniforms);
 
-    shader.vertexShader = `varying vec3 vRevealWorld;\n${shader.vertexShader}`.replace(
-      '#include <project_vertex>',
-      // `transformed` is set by <begin_vertex>, which always runs before this.
-      'vRevealWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;\n\t#include <project_vertex>',
-    );
+    shader.vertexShader = `varying vec3 vRevealWorld;
+varying vec3 vRevealNormal;
+${shader.vertexShader}`
+      .replace(
+        '#include <beginnormal_vertex>',
+        // An instanced mesh's world transform is modelMatrix * instanceMatrix;
+        // leaving the instance matrix out puts every instance's reveal plane
+        // and fill test at the prototype's origin instead of its own.
+        `#include <beginnormal_vertex>
+\t#ifdef USE_INSTANCING
+\t\tvRevealNormal = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * objectNormal);
+\t#else
+\t\tvRevealNormal = normalize(mat3(modelMatrix) * objectNormal);
+\t#endif`,
+      )
+      .replace(
+        '#include <project_vertex>',
+        // `transformed` is set by <begin_vertex>, which always runs before this.
+        `#ifdef USE_INSTANCING
+\t\tvRevealWorld = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
+\t#else
+\t\tvRevealWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;
+\t#endif
+\t#include <project_vertex>`,
+      );
 
     shader.fragmentShader = `varying vec3 vRevealWorld;
+varying vec3 vRevealNormal;
 uniform vec3 uRevealDir;
 uniform float uRevealDist;
 uniform float uXrayMix;
 uniform vec3 uXrayColour;
 uniform float uHighlight;
+uniform vec3 uFillColour;
+uniform vec3 uFillBoxMin[${FILL_BOX_LIMIT}];
+uniform vec3 uFillBoxMax[${FILL_BOX_LIMIT}];
+uniform float uFillWeight[${FILL_BOX_LIMIT}];
+uniform int uFillCount;
 ${shader.fragmentShader}`
       .replace(
         'void main() {',
         'void main() {\n\tif (dot(vRevealWorld, uRevealDir) > uRevealDist) discard;',
+      )
+      .replace(
+        '#include <lights_fragment_end>',
+        `#include <lights_fragment_end>
+\t{
+\t\tfloat insideEnvelope = 0.0;
+\t\tfor (int i = 0; i < ${FILL_BOX_LIMIT}; i++) {
+\t\t\tif (i >= uFillCount) break;
+\t\t\tif (all(greaterThanEqual(vRevealWorld, uFillBoxMin[i])) && all(lessThanEqual(vRevealWorld, uFillBoxMax[i]))) {
+\t\t\t\tinsideEnvelope = max(insideEnvelope, uFillWeight[i]);
+\t\t\t}
+\t\t}
+\t\t// Bounced light is not isotropic: more of it arrives at an upward face
+\t\t// off the floor than at a soffit, which is what keeps the fill from
+\t\t// flattening a room into a single tone.
+\t\tfloat fillGradient = 0.74 + 0.40 * (0.5 + 0.5 * vRevealNormal.y);
+\t\t// RECIPROCAL_PI, so uFillColour is in the same units as the intensity\n\t\t// of an ambient or hemisphere light and the three can be reasoned about\n\t\t// together.\n\t\treflectedLight.indirectDiffuse += uFillColour * (insideEnvelope * fillGradient * RECIPROCAL_PI) * diffuseColor.rgb;
+\t}`,
       )
       .replace(
         '#include <dithering_fragment>',
@@ -56824,7 +57039,7 @@ function setHighlight(material, amount) {
  * every time, because each construction element needs its own reveal plane;
  * the textures behind them are shared, and so is the compiled program.
  */
-function createMaterials(textures) {
+function createMaterials(textures, fill) {
   const created = [];
 
   function make(name, opts = {}) {
@@ -56866,7 +57081,7 @@ function createMaterials(textures) {
     if (opts.flatShading) material.flatShading = true;
 
     material.name = name;
-    makeRevealable(material);
+    makeRevealable(material, fill);
     created.push(material);
     return material;
   }
@@ -57165,9 +57380,9 @@ function solarVector(altitude, azimuth) {
 
 /** The named times of day, as decimal hours of local solar time. */
 const TIME_PRESETS = [
-  { id: 'dawn', label: 'Dawn', hour: 6.05, key: 'Digit5' },
+  { id: 'dawn', label: 'Dawn', hour: 6.7, key: 'Digit5' },
   { id: 'day', label: 'Day', hour: 13.0, key: 'Digit6' },
-  { id: 'golden', label: 'Golden hour', hour: 17.95, key: 'Digit7' },
+  { id: 'golden', label: 'Golden hour', hour: 17.35, key: 'Digit7' },
   { id: 'dusk', label: 'Dusk', hour: 19.05, key: 'Digit8' },
   { id: 'night', label: 'Night', hour: 22.4, key: 'Digit9' },
 ];
@@ -57260,6 +57475,28 @@ function createSky(scene, options = {}) {
   scene.fog = new THREE.FogExp2(0xc9d4e0, 0.0026);
 
   const grade = Object.assign({}, DEFAULT_GRADE, { lift: [...DEFAULT_GRADE.lift], gain: [...DEFAULT_GRADE.gain] });
+
+  /**
+   * The bounced light inside the building — see materials.js, behaviour 4.
+   *
+   * Two sources, summed:
+   *
+   *   *Daylight.*  Sunlight and skylight admitted through the openings and
+   *   bounced off the floor and the walls.  It follows the sun's elevation but
+   *   with a much shallower curve than the sun itself, because a room's
+   *   illuminance is dominated by the diffuse sky component, which survives
+   *   long after the sun has stopped striking the windows directly.  It also
+   *   never quite reaches zero: at the sun's own colour temperature, a room
+   *   with the lights off at dusk is dim, not black.
+   *
+   *   *The electric installation.*  Warm, and switched by exactly the same
+   *   term that turns the light fittings' emissive on, so the fill and the
+   *   fittings can never disagree about whether the lights are on.
+   */
+  const interiorFill = new THREE.Color(0, 0, 0);
+  const fillDaylight = new THREE.Color();
+  const fillLamps = new THREE.Color();
+  let fillScale = 1;
   const sunDir = new THREE.Vector3(0, 1, 0);
   const moonDir = new THREE.Vector3(0, 1, 0);
   let altitude = 1;
@@ -57284,6 +57521,12 @@ function createSky(scene, options = {}) {
     const above = Math.max(0, Math.sin(alt));
     const nightFactor = clamp(smoothstep(0.06, -0.16, Math.sin(alt)), 0, 1);
     const twilight = clamp(smoothstep(-0.26, 0.14, Math.sin(alt)) * (1 - above * 0.65), 0, 1);
+    // Irradiance does not fall off linearly with the sine of the altitude as
+    // far as the eye is concerned: at ten degrees the sun is still perfectly
+    // capable of lighting a façade, and the eye adapts besides. A gamma on the
+    // elevation is what keeps golden hour golden instead of merely dark.
+    const lit = Math.pow(above, 0.42);
+    const soft = Math.pow(above, 0.5);
 
     // Atmosphere: thicker and mie-heavier when the sun is low.
     const u = skyMaterial.uniforms;
@@ -57292,30 +57535,30 @@ function createSky(scene, options = {}) {
     u.uRayleigh.value = mix(3.3, 1.35, above);
     u.uMieCoefficient.value = mix(0.021, 0.0042, above);
     u.uMieDirectionalG.value = mix(0.86, 0.78, above);
-    u.uIntensity.value = mix(1.35, 0.92, above);
+    u.uIntensity.value = mix(1.25, 0.92, soft);
     u.uNight.value = nightFactor;
     u.uMoonDirection.value.copy(moonDir);
     u.uMoonBrightness.value = clamp(Math.max(0, moonDir.y) * 1.4 + 0.15, 0, 1.4);
 
     // Sun colour: white at noon, deep amber at the horizon.
-    const warmth = clamp(1 - above * 1.6, 0, 1);
+    const warmth = clamp(1 - lit * 1.25, 0, 1);
     sunLight.color.setRGB(
       mix(1.0, 1.0, warmth),
       mix(0.95, 0.62, warmth),
       mix(0.86, 0.34, warmth),
     );
-    sunLight.intensity = mix(0.0, 2.55, clamp(above * 1.5, 0, 1));
+    sunLight.intensity = 2.7 * lit;
     sunLight.visible = sunLight.intensity > 0.005;
 
     moonLight.position.copy(moonDir).multiplyScalar(120);
     moonLight.target.position.set(0, 0, 0);
     moonLight.target.updateMatrixWorld();
-    moonLight.intensity = nightFactor * clamp(Math.max(0, moonDir.y), 0, 1) * 0.55;
+    moonLight.intensity = nightFactor * clamp(Math.max(0, moonDir.y), 0, 1) * 0.8;
     moonLight.visible = moonLight.intensity > 0.005;
     moonLight.castShadow = false;
 
     // Sky bounce: blue by day, cold and dim at night.
-    hemi.intensity = mix(0.09, 0.62, clamp(above * 1.4, 0, 1)) + twilight * 0.10;
+    hemi.intensity = mix(0.14, 0.78, soft) + twilight * 0.12;
     hemi.color.setRGB(
       mix(0.16, 0.74, above),
       mix(0.22, 0.83, above),
@@ -57326,7 +57569,20 @@ function createSky(scene, options = {}) {
       mix(0.05, 0.36, above),
       mix(0.07, 0.28, above),
     );
-    ambient.intensity = mix(0.045, 0.11, above) + nightFactor * 0.028;
+    ambient.intensity = mix(0.075, 0.14, soft) + nightFactor * 0.03;
+
+    // Interior bounce. `lit` is already the perceptual curve on the sun's
+    // elevation; the interior rides an even shallower one, and carries a
+    // floor so that a windowless basement is never pitch dark.
+    const admitted = 0.14 + 0.46 * Math.pow(above, 0.30);
+    fillDaylight.setRGB(
+      mix(1.0, 0.82, above),
+      mix(0.90, 0.86, above),
+      mix(0.74, 0.96, above),
+    ).multiplyScalar(admitted);
+    const lampsOn = 1 - clamp(smoothstep(-0.14, 0.10, Math.sin(alt)), 0, 1);
+    fillLamps.setRGB(1.0, 0.82, 0.58).multiplyScalar(0.50 * lampsOn);
+    interiorFill.copy(fillDaylight).add(fillLamps).multiplyScalar(fillScale);
 
     // Fog picks up the horizon colour so distance reads correctly at any hour.
     const fogNight = new THREE.Color(0x0d1626);
@@ -57352,14 +57608,14 @@ function createSky(scene, options = {}) {
     cloudMaterial.uniforms.uOpacity.value = mix(0.55, 0.88, above) * (1 - nightFactor * 0.45);
 
     // Colour grade for the post chain.
-    grade.exposure = mix(1.18, 0.98, clamp(above * 1.35, 0, 1));
-    grade.bloom = mix(0.62, 0.34, clamp(above * 1.5, 0, 1)) + twilight * 0.16;
-    grade.threshold = mix(0.88, 1.28, clamp(above * 1.4, 0, 1));
-    grade.saturation = mix(1.11, 1.03, clamp(above * 1.4, 0, 1));
-    grade.contrast = mix(1.07, 1.03, clamp(above * 1.5, 0, 1));
-    grade.vignette = mix(0.32, 0.22, clamp(above * 1.4, 0, 1));
-    grade.grain = mix(0.016, 0.007, clamp(above * 1.6, 0, 1));
-    grade.aberration = mix(0.0019, 0.0010, clamp(above * 1.5, 0, 1));
+    grade.exposure = mix(1.42, 0.98, clamp(lit * 1.15, 0, 1));
+    grade.bloom = mix(0.58, 0.32, clamp(lit * 1.3, 0, 1)) + twilight * 0.14;
+    grade.threshold = mix(0.95, 1.28, clamp(lit * 1.3, 0, 1));
+    grade.saturation = mix(1.10, 1.03, clamp(lit * 1.3, 0, 1));
+    grade.contrast = mix(1.05, 1.03, clamp(lit * 1.3, 0, 1));
+    grade.vignette = mix(0.28, 0.20, clamp(lit * 1.3, 0, 1));
+    grade.grain = mix(0.011, 0.006, clamp(lit * 1.4, 0, 1));
+    grade.aberration = mix(0.0015, 0.0009, clamp(lit * 1.4, 0, 1));
     grade.lift = [
       0.003 + nightFactor * 0.010,
       0.004 + nightFactor * 0.013,
@@ -57380,6 +57636,8 @@ function createSky(scene, options = {}) {
     hemi,
     ambient,
     grade,
+    /** Bounced interior light, for the fill uniform. Read every frame. */
+    interiorFill,
     skyMesh,
     cloudMesh,
 
@@ -57392,6 +57650,12 @@ function createSky(scene, options = {}) {
     /** 0 at full night, 1 at full day — used to switch interior lights on. */
     get daylight() { return clamp(smoothstep(-0.14, 0.10, Math.sin(altitude)), 0, 1); },
     get cloudCover() { return cloudCover; },
+    /** Interior-fill trim, exposed so the QA harness can sweep it. */
+    get fillScale() { return fillScale; },
+    setFillScale(value) {
+      fillScale = clamp(value, 0, 6);
+      refresh();
+    },
 
     setHour(value) {
       hour = ((value % 24) + 24) % 24;
@@ -57562,6 +57826,26 @@ const PORTICO = {
   frontRow: [-4.3, -2.58, -0.86, 0.86, 2.58, 4.3],
   returnZ: [4.4, 5.6],
 };
+
+/**
+ * The cut-outs the ground is built around.
+ *
+ * The ground, the plinth and the working site all have to agree about exactly
+ * where the building stands, or the earth reads as sliced. They are defined
+ * once, here, and imported by everything that needs them.
+ */
+const GROUND_PAD = { plinth: 0.35, step: 0.90 };
+
+const FOOTPRINT_HOLES = [
+  { x0: SHELL.x0 - GROUND_PAD.step, z0: SHELL.z0 - GROUND_PAD.step,
+    x1: SHELL.x1 + GROUND_PAD.step, z1: SHELL.z1 + GROUND_PAD.step },
+  { x0: GARAGE.x0 - GROUND_PAD.step, z0: GARAGE.z0 - GROUND_PAD.step,
+    x1: GARAGE.x1, z1: GARAGE.z1 + GROUND_PAD.step },
+  { x0: PORTICO.x0 - 0.75, z0: PORTICO.z0, x1: PORTICO.x1 + 0.75, z1: PORTICO.z1 + 1.3 },
+];
+
+/** Formation level of the basement dig — the bottom of the excavation. */
+const FORMATION_LEVEL = -3.35;
 
 /**
  * Rooms.
@@ -57822,8 +58106,8 @@ const SITE = {
  */
 const SPAWNS = [
   { id: 'gate', name: 'At the gate', category: 'Approach', x: 0, y: -0.4, z: 13.2, yaw: 0 },
-  { id: 'forecourt', name: 'Forecourt', category: 'Approach', x: 0, y: -0.4, z: 8.2, yaw: 0 },
-  { id: 'portico', name: 'Under the portico', category: 'Approach', x: 0, y: 0, z: 5.4, yaw: 0 },
+  { id: 'forecourt', name: 'Forecourt', category: 'Approach', x: 0, y: -0.4, z: 10.6, yaw: 0 },
+  { id: 'portico', name: 'Under the portico', category: 'Approach', x: 2.8, y: 0, z: 5.9, yaw: 0.55 },
   { id: 'pool', name: 'Poolside', category: 'Approach', x: 13.6, y: -0.4, z: 1.9, yaw: 0 },
   { id: 'garage', name: 'Garage', category: 'Approach', x: -13.2, y: 0, z: 1.2, yaw: 0 },
 
@@ -58890,7 +59174,7 @@ function buildMansion(ctx) {
   {
     const railBuilder = createSurfaceBuilder(tile('brass'));
     const balusterGeo = balusterGeometry(0.035, 0.86, 8);
-    const balusterMat = materials.make('steel', { colour: 0x2a2c30, roughness: 0.5 });
+    const balusterMat = materials.make('steel', { colour: 0x24262b, roughness: 0.5 });
     const spots = [];
     const boxes = [];
 
@@ -59030,7 +59314,7 @@ function buildMansion(ctx) {
 
     // The eight columns of the order.
     const colGeo = columnGeometry(PORTICO.columnRadius, PORTICO.columnTop - PORTICO.columnBase, 22);
-    const colMat = materials.make('sandstone', { colour: 0xe8dcc4 });
+    const colMat = materials.make('limestone', { colour: 0xf0e6d2 });
     const positions = [];
     for (const x of PORTICO.frontRow) positions.push({ x, z: PORTICO.returnZ[1] });
     positions.push({ x: PORTICO.frontRow[0], z: PORTICO.returnZ[0] });
@@ -59132,7 +59416,7 @@ function buildMansion(ctx) {
 
     const drumGroup = new THREE.Group();
     drumGroup.name = 'roof:cupola';
-    const stoneMat = materials.make('sandstone', { colour: 0xeadfc8 });
+    const stoneMat = materials.make('limestone', { colour: 0xefe4cd });
     const drum = new THREE.Mesh(
       new THREE.CylinderGeometry(ROOF.domeRadius, ROOF.domeRadius, ROOF.drumTop - ROOF.drumBottom, 24, 1, true),
       stoneMat,
@@ -59143,7 +59427,7 @@ function buildMansion(ctx) {
 
     const dome = new THREE.Mesh(
       domeGeometry(ROOF.domeRadius * 1.06, ROOF.domeTop - ROOF.drumTop, 28),
-      materials.make('sandstone', { colour: 0xd9c9a6 }),
+      materials.make('limestone', { colour: 0xe4d7ba }),
     );
     dome.position.set(c.x, ROOF.drumTop, c.z);
     dome.castShadow = true;
@@ -59350,12 +59634,10 @@ function buildSite(ctx) {
   // The ground and the plinth are built *around* the building, not through
   // it. A solid ground slab under the footprint would drive a 0.8 m slab of
   // grass straight through the middle of the home cinema.
-  const PLINTH_PAD = 0.35;
-  const STEP_PAD = 0.90;
-  const holeShell = { x0: SHELL.x0 - STEP_PAD, z0: SHELL.z0 - STEP_PAD, x1: SHELL.x1 + STEP_PAD, z1: SHELL.z1 + STEP_PAD };
-  const holeGarage = { x0: GARAGE.x0 - STEP_PAD, z0: GARAGE.z0 - STEP_PAD, x1: GARAGE.x1, z1: GARAGE.z1 + STEP_PAD };
-  const holePortico = { x0: PORTICO.x0 - 0.75, z0: PORTICO.z0, x1: PORTICO.x1 + 0.75, z1: PORTICO.z1 + 1.3 };
-  const footprintHoles = [holeShell, holeGarage, holePortico];
+  const PLINTH_PAD = GROUND_PAD.plinth;
+  const STEP_PAD = GROUND_PAD.step;
+  const [holeShell, holeGarage, holePortico] = FOOTPRINT_HOLES;
+  const footprintHoles = FOOTPRINT_HOLES;
 
   /* ------------------------------------------------------------- ground -- */
   {
@@ -59581,7 +59863,7 @@ function buildSite(ctx) {
     const f = SITE.fountain;
     const group = new THREE.Group();
     group.name = 'site:fountain';
-    const stone = materials.make('sandstone', { colour: 0xded1b4 });
+    const stone = materials.make('limestone', { colour: 0xe8dcc0 });
 
     const basin = new THREE.Mesh(new THREE.CylinderGeometry(f.radius, f.radius * 1.05, f.basinHeight, 28, 1, false), stone);
     basin.position.set(f.x, SITE_LEVEL + f.basinHeight / 2, f.z);
@@ -61032,7 +61314,7 @@ function furnishingSchedule() {
 
 /** Which merge material each kit material maps to. */
 const MATERIAL_OF = {
-  fabric: 'fabric',
+  fabric: 'upholstery',
   wood: 'woodDark',
   stone: 'marbleWhite',
   brass: 'brass',
@@ -62759,6 +63041,1002 @@ const PROJECT_FACTS = {
   reserves: RESERVES,
 };
 
+/* ================= mansion/src/world/construction.js ================= */
+/**
+ * The live construction site: the tower crane, the workforce, the scaffold,
+ * the excavator and the compound.
+ *
+ * Everything in this module is driven by the same programme as the building
+ * itself.  Nothing here is on a timer that runs regardless of the schedule:
+ *
+ *   - the crane is erected during package P4 (*Boundary wall, crane base &
+ *     scaffolding*), climbs as the frame climbs, and is dismantled when the
+ *     façade package E4 finishes;
+ *   - the scaffold erects with the masonry, and is struck from the top down as
+ *     the façade completes, because you cannot clad a wall you have already
+ *     taken the scaffold off;
+ *   - the excavator and the spoil heap exist between the start of the bulk
+ *     excavation and the backfill;
+ *   - the workforce is not decoration.  Its size is `siteHeadcount` — the
+ *     head count the resource model derives from each active package's budget,
+ *     duration, crew rate and labour content — and each figure is posted to a
+ *     zone that belongs to a package that is actually in progress on the day
+ *     you are looking at.  Scrub to a curing lag and the site empties, because
+ *     on that day nothing is being earned.
+ *
+ * So the masons laying brick on day 300 are laying it because E1 is 40 per
+ * cent complete on day 300 and the masonry pool has thirty-one people on it.
+ *
+ * The plant is deliberately not solid.  A timeline scrub can move a crane or
+ * strike a scaffold while you are standing where it used to be, and being
+ * sealed inside a lattice mast you cannot see out of is a worse failure than
+ * being able to walk through one.
+ */
+
+
+
+
+
+
+
+
+/** Where the tower crane stands, and how big it is. */
+const CRANE = {
+  x: 12.8, z: -11.2,
+  padTop: SITE_LEVEL + 0.55,
+  mastLow: 15.0,      // erected height, before the frame starts
+  mastHigh: 26.0,     // after the roof slab is cast
+  mastWidth: 1.7,
+  jib: 26.0,
+  counterJib: 9.0,
+  travelClear: 3.2,   // how far above the work face the load is carried
+  cycleSeconds: 27,
+};
+
+/** The site compound: cabins, stockpiles and the batching area. */
+const COMPOUND = { x0: -16.2, x1: -10.7, z0: -12.6, z1: -4.2 };
+
+/** Where the crane picks its loads from. */
+const STOCKPILE = { x: -13.4, z: -6.2 };
+
+/**
+ * Zones the workforce is posted to, by work package.
+ *
+ * `rect` is the plan area, `y` the level the gang stands on, `task` how they
+ * are animated and `edge` whether they work at the perimeter of the rect (a
+ * mason builds a wall, so he stands on the wall line) or anywhere within it.
+ */
+const WORKER_ZONES = {
+  P2: { rect: { x0: -14, x1: 14, z0: -13, z1: 13 }, y: SITE_LEVEL, task: 'work', edge: false },
+  P3: { rect: { x0: -16, x1: -11, z0: -12, z1: -4 }, y: SITE_LEVEL, task: 'carry', edge: false },
+  P4: { rect: { x0: -16.4, x1: 16.4, z0: -14.4, z1: 14.4 }, y: SITE_LEVEL, task: 'lay', edge: true },
+  S1: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: -2.9, task: 'work', edge: false },
+  S2: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: -3.0, task: 'work', edge: false },
+  S3: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: -3.0, task: 'work', edge: false },
+  S4: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: -3.0, task: 'carry', edge: false },
+  S5: { rect: { x0: -9.6, x1: 9.6, z0: -12.6, z1: 2.6 }, y: -3.0, task: 'lay', edge: true },
+  S6: { rect: { x0: -9.6, x1: 9.6, z0: -12.6, z1: 2.6 }, y: -3.0, task: 'work', edge: true },
+  S7: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: -0.30, task: 'work', edge: false },
+  F1: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 0, task: 'work', edge: true },
+  F2: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 3.70, task: 'work', edge: false },
+  F3: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 4, task: 'work', edge: true },
+  F4: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 7.30, task: 'work', edge: false },
+  F5: { rect: { x0: -2, x1: 3.5, z0: -7, z1: -2 }, y: 0, task: 'work', edge: false },
+  F6: { rect: { x0: PORTICO.x0, x1: PORTICO.x1, z0: PORTICO.z0, z1: PORTICO.z1 }, y: 0, task: 'lay', edge: false },
+  F7: { rect: { x0: -8, x1: 8, z0: -11, z1: 1 }, y: ROOF.level, task: 'lay', edge: true },
+  E1: { rect: { x0: -9.6, x1: 9.6, z0: -12.6, z1: 2.6 }, y: 0, task: 'lay', edge: true },
+  E2: { rect: { x0: -9.6, x1: 9.6, z0: -12.6, z1: 2.6 }, y: 4, task: 'lay', edge: true },
+  E3: { rect: { x0: -8, x1: 8, z0: -11, z1: 1 }, y: ROOF.level, task: 'work', edge: false },
+  E4: { rect: { x0: -10.9, x1: 10.9, z0: -13.9, z1: 3.9 }, y: 0, task: 'lay', edge: true, scaffold: true },
+  E5: { rect: { x0: -10.9, x1: 10.9, z0: -13.9, z1: 3.9 }, y: 0, task: 'lay', edge: true, scaffold: true },
+  E6: { rect: { x0: -9.8, x1: 9.8, z0: -12.8, z1: 2.8 }, y: 0, task: 'work', edge: true, scaffold: true },
+  E7: { rect: { x0: -5, x1: 5, z0: 1, z1: 3.4 }, y: 0, task: 'work', edge: false },
+  M1: { rect: { x0: -8, x1: 8, z0: -11, z1: 1 }, y: -3.0, task: 'work', edge: false },
+  M2: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 0, task: 'work', edge: true },
+  M3: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 4, task: 'work', edge: true },
+  M4: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 4, task: 'work', edge: false },
+  M5: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 0, task: 'work', edge: false },
+  M6: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 4, task: 'work', edge: false },
+  M7: { rect: { x0: -8, x1: 8, z0: -11, z1: 1 }, y: ROOF.level, task: 'work', edge: false },
+  I1: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 0, task: 'work', edge: true },
+  I2: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 4, task: 'work', edge: false },
+  I3: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 0, task: 'work', edge: false },
+  I4: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 4, task: 'work', edge: false },
+  I5: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 0, task: 'work', edge: false },
+  I6: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 4, task: 'carry', edge: false },
+  I7: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 0, task: 'work', edge: true },
+  I8: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 4, task: 'work', edge: true },
+  I9: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 4, task: 'work', edge: false },
+  I10: { rect: { x0: -10, x1: -2, z0: -7, z1: -2 }, y: 0, task: 'work', edge: false },
+  L1: { rect: { x0: -8, x1: 8, z0: 4, z1: 12 }, y: SITE_LEVEL, task: 'lay', edge: false },
+  L2: { rect: { x0: -15, x1: 15, z0: 4, z1: 13 }, y: SITE_LEVEL, task: 'work', edge: false },
+  L3: { rect: { x0: -15, x1: 15, z0: 4, z1: 13 }, y: SITE_LEVEL, task: 'work', edge: false },
+  L4: { rect: { x0: 11, x1: 16, z0: -6, z1: 4 }, y: SITE_LEVEL, task: 'lay', edge: false },
+  L5: { rect: { x0: -2.5, x1: 2.5, z0: 6.5, z1: 9.5 }, y: SITE_LEVEL, task: 'lay', edge: false },
+  L6: { rect: { x0: -14, x1: 14, z0: 4, z1: 13 }, y: SITE_LEVEL, task: 'work', edge: false },
+  L7: { rect: { x0: -4, x1: 4, z0: 12, z1: 14.6 }, y: SITE_LEVEL, task: 'lay', edge: false },
+  H2: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 0, task: 'work', edge: false },
+  H3: { rect: { x0: -9, x1: 9, z0: -12, z1: 2 }, y: 0, task: 'work', edge: false },
+};
+
+/** A deterministic point in a rectangle, or on its perimeter. */
+function zoneStation(zone, seed) {
+  const { rect, edge } = zone;
+  const a = hash2(seed * 3 + 1, 17);
+  const b = hash2(seed * 5 + 7, 41);
+  if (!edge) {
+    return {
+      x: mix(rect.x0 + 0.6, rect.x1 - 0.6, a),
+      z: mix(rect.z0 + 0.6, rect.z1 - 0.6, b),
+      yaw: b * Math.PI * 2,
+    };
+  }
+  // On the perimeter: walk `a` around the rectangle and face inwards, which
+  // is what puts a bricklayer on the wall line rather than in the room.
+  const w = rect.x1 - rect.x0;
+  const d = rect.z1 - rect.z0;
+  const perimeter = 2 * (w + d);
+  let t = a * perimeter;
+  const inset = 0.55;
+  if (t < w) return { x: rect.x0 + t, z: rect.z0 + inset, yaw: Math.PI };
+  t -= w;
+  if (t < d) return { x: rect.x1 - inset, z: rect.z0 + t, yaw: -Math.PI / 2 };
+  t -= d;
+  if (t < w) return { x: rect.x1 - t, z: rect.z1 - inset, yaw: 0 };
+  t -= w;
+  return { x: rect.x0 + inset, z: rect.z1 - t, yaw: Math.PI / 2 };
+}
+
+/** A square lattice mast: four legs, horizontal ties and cross bracing. */
+function latticeMast(b, cx, cz, base, top, width, member) {
+  const h = width / 2;
+  const legs = [[-h, -h], [h, -h], [h, h], [-h, h]];
+  for (const [ox, oz] of legs) {
+    b.box(cx + ox - member, base, cz + oz - member, cx + ox + member, top, cz + oz + member);
+  }
+  const bay = 1.9;
+  for (let y = base; y <= top + 1e-6; y += bay) {
+    for (let i = 0; i < 4; i += 1) {
+      const [ax, az] = legs[i];
+      const [bx, bz] = legs[(i + 1) % 4];
+      b.box(cx + Math.min(ax, bx) - member, y - member, cz + Math.min(az, bz) - member,
+        cx + Math.max(ax, bx) + member, y + member, cz + Math.max(az, bz) + member);
+    }
+    // One diagonal per face per bay, alternating hand so the mast reads as a
+    // braced tower rather than as a ladder.
+    const yTop = Math.min(top, y + bay);
+    if (yTop - y < 0.3) continue;
+    const steps = 4;
+    for (let i = 0; i < 4; i += 1) {
+      const [ax, az] = legs[i];
+      const [bx, bz] = legs[(i + 1) % 4];
+      const flip = (Math.round(y / bay) + i) % 2 === 0;
+      for (let s = 0; s < steps; s += 1) {
+        const t = (s + 0.5) / steps;
+        const px = mix(flip ? ax : bx, flip ? bx : ax, t);
+        const pz = mix(flip ? az : bz, flip ? bz : az, t);
+        const py = mix(y, yTop, t);
+        b.box(cx + px - member, py - (yTop - y) / (steps * 2) - member, cz + pz - member,
+          cx + px + member, py + (yTop - y) / (steps * 2) + member, cz + pz + member);
+      }
+    }
+  }
+}
+
+/** A horizontal lattice boom, built along +X from the origin. */
+function latticeBoom(b, length, depth, member, taper = 0.55) {
+  const bay = 2.0;
+  for (let i = 0; i * bay < length; i += 1) {
+    const x0 = i * bay;
+    const x1 = Math.min(length, x0 + bay);
+    const d0 = depth * mix(1, taper, x0 / length) / 2;
+    const d1 = depth * mix(1, taper, x1 / length) / 2;
+    // Top and bottom chords, and the two side chords.
+    for (const s of [-1, 1]) {
+      b.box(x0, -d0, s * d0 - member, x1, -d0 + member * 2, s * d0 + member);
+      b.box(x0, d0 - member * 2, s * d0 - member, x1, d0, s * d0 + member);
+      // Diagonal in the vertical plane.
+      const steps = 3;
+      for (let k = 0; k < steps; k += 1) {
+        const t = (k + 0.5) / steps;
+        const px = mix(x0, x1, t);
+        const py = mix(-d0, d1, (k % 2 === 0) ? t : 1 - t);
+        b.box(px - member, py - member * 2, s * d0 - member, px + member, py + member * 2, s * d0 + member);
+      }
+    }
+    // Cross ties.
+    b.box(x0 - member, -d0, -d0, x0 + member, -d0 + member * 2, d0);
+    b.box(x0 - member, d0 - member * 2, -d0, x0 + member, d0, d0);
+  }
+}
+
+/**
+ * Where the crane's hook is on its cycle.
+ *
+ * A tower crane cycle is: slew and trolley out to the stockpile, lower, hook
+ * on, hoist, slew to the work face, trolley in, lower, release, hoist clear.
+ * `u` runs 0..1 over one cycle and the track below is that sequence, so the
+ * load only exists between hooking on and letting go.
+ */
+function craneCycle(u, pick, place, travelY) {
+  const seg = (a, b) => clamp((u - a) / (b - a), 0, 1);
+  let from = pick;
+  let to = pick;
+  let t = 0;
+  let hook = travelY;
+  let loaded = false;
+  if (u < 0.10) {                       // lower onto the stack
+    hook = mix(travelY, pick.y, smoothstep(0, 1, seg(0.00, 0.10)));
+  } else if (u < 0.16) {                // hook on
+    hook = pick.y;
+  } else if (u < 0.28) {                // hoist
+    hook = mix(pick.y, travelY, smoothstep(0, 1, seg(0.16, 0.28)));
+    loaded = true;
+  } else if (u < 0.52) {                // slew and trolley to the work face
+    from = pick; to = place; t = smoothstep(0, 1, seg(0.28, 0.52));
+    loaded = true;
+  } else if (u < 0.64) {                // lower into place
+    from = place; to = place; t = 1;
+    hook = mix(travelY, place.y, smoothstep(0, 1, seg(0.52, 0.64)));
+    loaded = true;
+  } else if (u < 0.70) {                // land and release
+    from = place; to = place; t = 1;
+    hook = place.y;
+    loaded = u < 0.68;
+  } else if (u < 0.82) {                // hoist clear, empty
+    from = place; to = place; t = 1;
+    hook = mix(place.y, travelY, smoothstep(0, 1, seg(0.70, 0.82)));
+  } else {                              // slew back
+    from = place; to = pick; t = smoothstep(0, 1, seg(0.82, 1.00));
+  }
+  // Interpolate the slew the short way round, so the jib never spins 300°.
+  let delta = to.angle - from.angle;
+  while (delta > Math.PI) delta -= Math.PI * 2;
+  while (delta < -Math.PI) delta += Math.PI * 2;
+  return {
+    angle: from.angle + delta * t,
+    radius: mix(from.radius, to.radius, t),
+    hook,
+    loaded,
+  };
+}
+
+function buildConstruction(ctx) {
+  const { scene, materials, project, quality } = ctx;
+
+  const root = new THREE.Group();
+  root.name = 'construction';
+  scene.add(root);
+
+  const tier = quality && quality.tier ? quality.tier : { name: 'high' };
+  const maxWorkers = tier.name === 'low' ? 20 : (tier.name === 'medium' ? 34 : 48);
+
+  /* ------------------------------------------------------------- the crane */
+  const craneGroup = new THREE.Group();
+  craneGroup.name = 'crane';
+  root.add(craneGroup);
+
+  const padB = createSurfaceBuilder(1.6);
+  padB.box(CRANE.x - 2.4, SITE_LEVEL - 0.4, CRANE.z - 2.4, CRANE.x + 2.4, CRANE.padTop, CRANE.z + 2.4);
+  const padMat = materials.make('concrete');
+  const padMesh = new THREE.Mesh(padB.build(), padMat);
+  padMesh.name = 'crane:base';
+  padMesh.castShadow = true;
+  padMesh.receiveShadow = true;
+  craneGroup.add(padMesh);
+
+  const mastB = createSurfaceBuilder(1.2);
+  latticeMast(mastB, CRANE.x, CRANE.z, CRANE.padTop, CRANE.mastHigh, CRANE.mastWidth, 0.075);
+  const mastMat = materials.make('craneSteel');
+  const mastMesh = new THREE.Mesh(mastB.build(), mastMat);
+  mastMesh.name = 'crane:mast';
+  mastMesh.castShadow = true;
+  craneGroup.add(mastMesh);
+
+  // The turret carries the jib, the counter-jib, the machinery deck and the
+  // cab, and is the only part that slews.
+  const turret = new THREE.Group();
+  turret.name = 'crane:turret';
+  craneGroup.add(turret);
+
+  const turretB = createSurfaceBuilder(1.2);
+  // Slewing ring and the A-frame over it.
+  turretB.box(-1.0, -0.55, -1.0, 1.0, 0, 1.0);
+  turretB.box(-0.12, 0, -0.9, 0.12, 3.4, -0.55);
+  turretB.box(-0.12, 0, 0.55, 0.12, 3.4, 0.9);
+  turretB.box(-0.16, 3.2, -0.9, 0.16, 3.4, 0.9);
+  latticeBoom(turretB, CRANE.jib, 1.55, 0.065);
+  // Counter-jib, machinery deck and counterweight blocks.
+  turretB.box(-CRANE.counterJib, -0.55, -0.62, 0, -0.20, 0.62);
+  turretB.box(-CRANE.counterJib, -0.20, -0.62, -CRANE.counterJib + 3.0, 0.85, 0.62);
+  turretB.box(-CRANE.counterJib + 3.2, -0.20, -0.55, -CRANE.counterJib + 5.6, 0.55, 0.55);
+  // Pendant ties from the A-frame to the jib and the counter-jib.
+  for (const [x0, x1] of [[0.2, CRANE.jib * 0.55], [CRANE.jib * 0.55, CRANE.jib - 0.5]]) {
+    const y0 = 3.3 - (x0 / CRANE.jib) * 2.4;
+    const y1 = 3.3 - (x1 / CRANE.jib) * 3.0;
+    const steps = 6;
+    for (let i = 0; i < steps; i += 1) {
+      const t0 = i / steps;
+      const t1 = (i + 1) / steps;
+      turretB.box(mix(x0, x1, t0), mix(y0, y1, t0) - 0.05, -0.05,
+        mix(x0, x1, t1), mix(y0, y1, t1) + 0.05, 0.05);
+    }
+  }
+  // The operator's cab, hung under the A-frame.
+  turretB.box(0.9, -1.9, -0.72, 2.3, -0.35, 0.72);
+  const turretMat = materials.make('craneSteel');
+  const turretMesh = new THREE.Mesh(turretB.build(), turretMat);
+  turretMesh.name = 'crane:jib';
+  turretMesh.castShadow = true;
+  turret.add(turretMesh);
+
+  // Trolley, hoist rope, hook block and the load, all hung from the jib.
+  const trolley = new THREE.Group();
+  turret.add(trolley);
+  const trolleyB = createSurfaceBuilder(0.8);
+  trolleyB.box(-0.42, -0.62, -0.34, 0.42, -0.20, 0.34);
+  const trolleyMesh = new THREE.Mesh(trolleyB.build(), materials.make('steel'));
+  trolleyMesh.name = 'crane:trolley';
+  trolley.add(trolleyMesh);
+
+  const ropeGeo = new THREE.BoxGeometry(0.05, 1, 0.05);
+  ropeGeo.translate(0, -0.5, 0);   // pivot at the top, so scale.y is the drop
+  const ropeMesh = new THREE.Mesh(ropeGeo, materials.make('steel', { colour: 0x50565f }));
+  ropeMesh.name = 'crane:rope';
+  ropeMesh.position.y = -0.62;
+  trolley.add(ropeMesh);
+
+  const hookGroup = new THREE.Group();
+  trolley.add(hookGroup);
+  const hookB = createSurfaceBuilder(0.6);
+  hookB.box(-0.28, -0.10, -0.16, 0.28, 0.32, 0.16);
+  hookB.box(-0.06, -0.62, -0.06, 0.06, -0.10, 0.06);
+  hookB.box(-0.06, -0.72, -0.06, 0.22, -0.62, 0.06);
+  const hookMesh = new THREE.Mesh(hookB.build(), materials.make('steel'));
+  hookMesh.name = 'crane:hook';
+  hookGroup.add(hookMesh);
+
+  // The load: a banded pallet of facing brick, which is what a crane on a
+  // masonry job spends its day lifting.
+  const loadB = createSurfaceBuilder(0.5);
+  loadB.box(-0.62, -1.62, -0.46, 0.62, -0.78, 0.46);
+  const loadMesh = new THREE.Mesh(loadB.build(), materials.make('brick'));
+  loadMesh.name = 'crane:load';
+  loadMesh.castShadow = true;
+  hookGroup.add(loadMesh);
+
+  /* -------------------------------------------------------- the scaffold -- */
+  // Tube and fitting around the elevations, standards at 2.0 m, four lifts,
+  // boarded at every lift, stopping short of the portico and the garage.
+  const scaffoldGroup = new THREE.Group();
+  root.add(scaffoldGroup);
+  const scafOffset = 0.95;
+  const scafLift = 2.0;
+  const scafTop = ROOF.parapetTop + 1.0;
+  const tubeB = createSurfaceBuilder(1.0);
+  const boardB = createSurfaceBuilder(1.0);
+  {
+    const x0 = SHELL.x0 - scafOffset;
+    const x1 = SHELL.x1 + scafOffset;
+    const z0 = SHELL.z0 - scafOffset;
+    const z1 = SHELL.z1 + scafOffset;
+    const runs = [
+      { fixed: 'z', at: z0, from: x0, to: x1, out: -1 },
+      { fixed: 'z', at: z1, from: x0, to: x1, out: 1 },
+      { fixed: 'x', at: x0, from: z0, to: z1, out: -1 },
+      { fixed: 'x', at: x1, from: z0, to: z1, out: 1 },
+    ];
+    const blocked = (x, z) => (
+      // The portico is a two-storey order — no scaffold across its face; the
+      // garage roof is only 3.5 m up, so the west run stops at its flank.
+      (x > PORTICO.x0 - 0.8 && x < PORTICO.x1 + 0.8 && z > PORTICO.z0 - 1.6)
+      || (x < GARAGE.x1 + 0.6 && z > GARAGE.z0 - 0.8 && z < GARAGE.z1 + 0.8)
+    );
+    for (const run of runs) {
+      const span = run.to - run.from;
+      const bays = Math.max(1, Math.round(span / 2.0));
+      for (let i = 0; i <= bays; i += 1) {
+        const t = run.from + (span * i) / bays;
+        const px = run.fixed === 'z' ? t : run.at;
+        const pz = run.fixed === 'z' ? run.at : t;
+        if (blocked(px, pz)) continue;
+        // Two standards per bay: an inner and an outer board width apart.
+        for (const off of [-0.32, 0.32]) {
+          const sx = run.fixed === 'z' ? px : px + off * run.out;
+          const sz = run.fixed === 'z' ? pz + off * run.out : pz;
+          tubeB.box(sx - 0.026, SITE_LEVEL, sz - 0.026, sx + 0.026, scafTop, sz + 0.026);
+        }
+        // Transom across the bay.
+        for (let lift = 1; lift * scafLift < scafTop; lift += 1) {
+          const y = SITE_LEVEL + lift * scafLift;
+          if (run.fixed === 'z') tubeB.box(px - 0.026, y - 0.026, pz - 0.36, px + 0.026, y + 0.026, pz + 0.36);
+          else tubeB.box(px - 0.36, y - 0.026, pz - 0.026, px + 0.36, y + 0.026, pz + 0.026);
+        }
+      }
+      // Ledgers and boards, run bay by bay so a blocked bay leaves a gap.
+      for (let i = 0; i < bays; i += 1) {
+        const ta = run.from + (span * i) / bays;
+        const tb = run.from + (span * (i + 1)) / bays;
+        const ax = run.fixed === 'z' ? ta : run.at;
+        const az = run.fixed === 'z' ? run.at : ta;
+        const bx = run.fixed === 'z' ? tb : run.at;
+        const bz = run.fixed === 'z' ? run.at : tb;
+        if (blocked(ax, az) || blocked(bx, bz)) continue;
+        for (let lift = 1; lift * scafLift < scafTop; lift += 1) {
+          const y = SITE_LEVEL + lift * scafLift;
+          for (const off of [-0.32, 0.32]) {
+            if (run.fixed === 'z') {
+              const zz = az + off * run.out;
+              tubeB.box(ax, y - 0.026, zz - 0.026, bx, y + 0.026, zz + 0.026);
+            } else {
+              const xx = ax + off * run.out;
+              tubeB.box(xx - 0.026, y - 0.026, az, xx + 0.026, y + 0.026, bz);
+            }
+          }
+          // Guard rail one metre over the boards.
+          if (run.fixed === 'z') {
+            const zz = az + 0.36 * run.out;
+            tubeB.box(ax, y + 0.94, zz - 0.026, bx, y + 0.99, zz + 0.026);
+            boardB.box(ax, y + 0.03, az - 0.34, bx, y + 0.08, az + 0.34);
+          } else {
+            const xx = ax + 0.36 * run.out;
+            tubeB.box(xx - 0.026, y + 0.94, az, xx + 0.026, y + 0.99, bz);
+            boardB.box(ax - 0.34, y + 0.03, az, ax + 0.34, y + 0.08, bz);
+          }
+        }
+      }
+    }
+  }
+  const scafTubeMat = materials.make('steel', { colour: 0x9aa1a8 });
+  const scafBoardMat = materials.make('plywood');
+  const scafTubeMesh = new THREE.Mesh(tubeB.build(), scafTubeMat);
+  scafTubeMesh.name = 'scaffold:tubes';
+  const scafBoardMesh = new THREE.Mesh(boardB.build(), scafBoardMat);
+  scafBoardMesh.name = 'scaffold:boards';
+  scafBoardMesh.castShadow = tier.name !== 'low';
+  scaffoldGroup.add(scafTubeMesh, scafBoardMesh);
+
+  /* -------------------------------------------------- excavation & spoil -- */
+  const digGroup = new THREE.Group();
+  root.add(digGroup);
+  const spoilB = createSurfaceBuilder(2.4);
+  for (let i = 0; i < 5; i += 1) {
+    const cx = -8 + i * 4.0;
+    const cz = -14.0 + hash2(i, 3) * 0.5;
+    const h = 1.1 + hash2(i, 9) * 0.7;
+    // Each heap is a short stack of shrinking boxes — an angle of repose,
+    // roughly, and cheaper than a cone.
+    for (let s = 0; s < 4; s += 1) {
+      const k = s / 4;
+      const r = mix(2.3, 0.4, k);
+      spoilB.box(cx - r, SITE_LEVEL + h * k, cz - r * 0.8, cx + r, SITE_LEVEL + h * (k + 0.25), cz + r * 0.8);
+    }
+  }
+  const spoilMesh = new THREE.Mesh(spoilB.build(), materials.make('soil'));
+  spoilMesh.name = 'site:spoil';
+  spoilMesh.receiveShadow = true;
+  spoilMesh.castShadow = true;
+  digGroup.add(spoilMesh);
+
+  // A tracked excavator, with a boom that works.
+  const excavator = new THREE.Group();
+  excavator.position.set(-3.4, SITE_LEVEL, -7.5);
+  excavator.rotation.y = 0.6;
+  digGroup.add(excavator);
+  const trackB = createSurfaceBuilder(0.9);
+  for (const s of [-1, 1]) trackB.box(-1.9, 0, s * 0.95 - 0.32, 1.9, 0.72, s * 0.95 + 0.32);
+  const trackMesh = new THREE.Mesh(trackB.build(), materials.make('steel', { colour: 0x3c4046 }));
+  trackMesh.name = 'plant:tracks';
+  excavator.add(trackMesh);
+  const houseGroup = new THREE.Group();
+  houseGroup.position.y = 0.72;
+  excavator.add(houseGroup);
+  const houseB = createSurfaceBuilder(0.9);
+  houseB.box(-1.7, 0, -1.05, 1.1, 1.15, 1.05);
+  houseB.box(-0.1, 0, -0.85, 1.25, 1.85, 0.85);
+  const houseMesh = new THREE.Mesh(houseB.build(), materials.make('paintedSteel'));
+  houseMesh.name = 'plant:excavator';
+  houseMesh.castShadow = true;
+  houseGroup.add(houseMesh);
+  const boomPivot = new THREE.Group();
+  boomPivot.position.set(1.1, 0.6, 0);
+  houseGroup.add(boomPivot);
+  const boomB = createSurfaceBuilder(0.9);
+  boomB.box(0, -0.20, -0.20, 3.1, 0.22, 0.20);
+  const boomMesh = new THREE.Mesh(boomB.build(), materials.make('paintedSteel'));
+  boomMesh.name = 'plant:boom';
+  boomMesh.castShadow = true;
+  boomPivot.add(boomMesh);
+  const dipperPivot = new THREE.Group();
+  dipperPivot.position.set(3.1, 0, 0);
+  boomPivot.add(dipperPivot);
+  const dipperB = createSurfaceBuilder(0.9);
+  dipperB.box(0, -0.16, -0.16, 2.0, 0.16, 0.16);
+  dipperB.box(1.85, -0.75, -0.42, 2.55, -0.05, 0.42);
+  const dipperMesh = new THREE.Mesh(dipperB.build(), materials.make('paintedSteel'));
+  dipperMesh.name = 'plant:dipper';
+  dipperMesh.castShadow = true;
+  dipperPivot.add(dipperMesh);
+
+  /* --------------------------------------------------- the working site -- */
+  // A building site is not a lawn.  From site clearance until the hardscape
+  // goes in, the plot is compacted earth, laid over the ground element so that
+  // the landscape packages can simply take it away again.
+  // The overlay is cut around the building exactly as the ground beneath it
+  // is — both take their holes from the same list in the plan, so the earth
+  // can never read as sliced where the two meet.
+  const groundB = createSurfaceBuilder(3.2);
+  const plotRect = { x0: PLOT.x0 + 0.15, z0: PLOT.z0 + 0.15, x1: PLOT.x1 - 0.15, z1: PLOT.z1 - 0.15 };
+  for (const r of subtractRects(plotRect, FOOTPRINT_HOLES)) {
+    groundB.box(r.x0, SITE_LEVEL + 0.004, r.z0, r.x1, SITE_LEVEL + 0.022, r.z1);
+  }
+  const siteGroundMesh = new THREE.Mesh(groundB.build(), materials.make('soil'));
+  siteGroundMesh.name = 'site:workingGround';
+  siteGroundMesh.receiveShadow = true;
+  root.add(siteGroundMesh);
+
+  // Before the dig, the footprint is undisturbed turf.
+  const capB = createSurfaceBuilder(3.2);
+  for (const hole of FOOTPRINT_HOLES) {
+    capB.box(hole.x0, SITE_LEVEL - 0.8, hole.z0, hole.x1, SITE_LEVEL, hole.z1);
+  }
+  const capTurfMesh = new THREE.Mesh(capB.build(), materials.make('grass', { colour: 0x79855a }));
+  capTurfMesh.name = 'site:untouchedGround';
+  capTurfMesh.receiveShadow = true;
+  root.add(capTurfMesh);
+
+  /**
+   * The dig, modelled as the earth that is *still there* rather than as a hole.
+   *
+   * A hole cannot be revealed: cut the top off a box and you are looking at
+   * the inside of a box, which is to say at nothing, and the sky shows through
+   * the floor.  So the excavation is a stack of thin lifts filling the
+   * footprint, and the reveal plane takes the lifts away from the top down as
+   * the package earns value — every stage has a real ground surface to stand
+   * on, because the lift under the plane still has its own top face.
+   *
+   * The cut face of the surrounding ground is the same plane read the other
+   * way round: the earth keeps what is *below* it, the face keeps what is
+   * *above* it, so the two always meet exactly at the formation of the day.
+   */
+  const LIFT = 0.2;
+  const pitEarthB = createSurfaceBuilder(2.2);
+  const pitFaceB = createSurfaceBuilder(2.2);
+  {
+    const hole = FOOTPRINT_HOLES[0];
+    const t = 0.30;
+    for (let y = FORMATION_LEVEL; y < SITE_LEVEL - 1e-6; y += LIFT) {
+      pitEarthB.box(hole.x0 + t, y, hole.z0 + t, hole.x1 - t, Math.min(SITE_LEVEL, y + LIFT), hole.z1 - t);
+    }
+    // The exposed sides, a ring one shoring-board thick.
+    pitFaceB.box(hole.x0, FORMATION_LEVEL, hole.z0, hole.x0 + t, SITE_LEVEL, hole.z1);
+    pitFaceB.box(hole.x1 - t, FORMATION_LEVEL, hole.z0, hole.x1, SITE_LEVEL, hole.z1);
+    pitFaceB.box(hole.x0 + t, FORMATION_LEVEL, hole.z0, hole.x1 - t, SITE_LEVEL, hole.z0 + t);
+    pitFaceB.box(hole.x0 + t, FORMATION_LEVEL, hole.z1 - t, hole.x1 - t, SITE_LEVEL, hole.z1);
+  }
+  const pitEarthMat = materials.make('soil');
+  const pitFaceMat = materials.make('soil', { colour: 0xd8cbb8 });
+  // The garage and the portico are not dug to basement depth, so their
+  // cut-outs are simply stripped ground until their own slabs are cast.
+  const shallowB = createSurfaceBuilder(3.2);
+  for (const hole of FOOTPRINT_HOLES.slice(1)) {
+    shallowB.box(hole.x0, SITE_LEVEL - 0.8, hole.z0, hole.x1, SITE_LEVEL, hole.z1);
+  }
+  const shallowMesh = new THREE.Mesh(shallowB.build(), materials.make('soil'));
+  shallowMesh.name = 'site:strippedGround';
+  shallowMesh.receiveShadow = true;
+  root.add(shallowMesh);
+
+  const pitEarthMesh = new THREE.Mesh(pitEarthB.build(), pitEarthMat);
+  pitEarthMesh.name = 'site:excavation';
+  pitEarthMesh.receiveShadow = true;
+  const pitFaceMesh = new THREE.Mesh(pitFaceB.build(), pitFaceMat);
+  pitFaceMesh.name = 'site:excavationFace';
+  pitFaceMesh.receiveShadow = true;
+  root.add(pitEarthMesh, pitFaceMesh);
+
+  /* ------------------------------------------------------- the compound -- */
+  const compoundGroup = new THREE.Group();
+  root.add(compoundGroup);
+  const hutB = createSurfaceBuilder(1.4);
+  const steelB = createSurfaceBuilder(1.0);
+  const brickB = createSurfaceBuilder(0.5);
+  const heapB = createSurfaceBuilder(2.0);
+  {
+    // Two site cabins: the agent's office and a store, on bearers.
+    for (let i = 0; i < 2; i += 1) {
+      const x = COMPOUND.x0 + 0.6;
+      const z = COMPOUND.z0 + 0.8 + i * 4.0;
+      hutB.box(x, SITE_LEVEL + 0.18, z, x + 4.4, SITE_LEVEL + 2.72, z + 2.6);
+      hutB.box(x - 0.12, SITE_LEVEL + 2.72, z - 0.12, x + 4.52, SITE_LEVEL + 2.90, z + 2.72);
+      steelB.box(x + 0.2, SITE_LEVEL, z + 0.2, x + 0.5, SITE_LEVEL + 0.18, z + 2.4);
+      steelB.box(x + 3.9, SITE_LEVEL, z + 0.2, x + 4.2, SITE_LEVEL + 0.18, z + 2.4);
+      // Window band and a door, as shallow reveals in the cladding.
+      steelB.box(x + 0.7, SITE_LEVEL + 1.30, z + 2.60, x + 2.5, SITE_LEVEL + 2.10, z + 2.66);
+      steelB.box(x + 3.0, SITE_LEVEL + 0.20, z + 2.60, x + 3.9, SITE_LEVEL + 2.30, z + 2.66);
+    }
+    // A water tank on a stand, and the batching area.
+    steelB.box(COMPOUND.x1 - 2.4, SITE_LEVEL, COMPOUND.z1 - 2.2, COMPOUND.x1 - 2.2, SITE_LEVEL + 2.4, COMPOUND.z1 - 2.0);
+    steelB.box(COMPOUND.x1 - 0.6, SITE_LEVEL, COMPOUND.z1 - 2.2, COMPOUND.x1 - 0.4, SITE_LEVEL + 2.4, COMPOUND.z1 - 2.0);
+    steelB.box(COMPOUND.x1 - 2.4, SITE_LEVEL, COMPOUND.z1 - 0.6, COMPOUND.x1 - 2.2, SITE_LEVEL + 2.4, COMPOUND.z1 - 0.4);
+    steelB.box(COMPOUND.x1 - 0.6, SITE_LEVEL, COMPOUND.z1 - 0.6, COMPOUND.x1 - 0.4, SITE_LEVEL + 2.4, COMPOUND.z1 - 0.4);
+    hutB.box(COMPOUND.x1 - 2.6, SITE_LEVEL + 2.4, COMPOUND.z1 - 2.4, COMPOUND.x1 - 0.2, SITE_LEVEL + 3.9, COMPOUND.z1 - 0.2);
+
+    // Reinforcement bundles.
+    for (let i = 0; i < 6; i += 1) {
+      const z = COMPOUND.z0 + 5.4 + (i % 3) * 0.28;
+      const y = SITE_LEVEL + 0.10 + Math.floor(i / 3) * 0.26;
+      steelB.box(COMPOUND.x1 - 4.6, y, z, COMPOUND.x1 - 0.6, y + 0.24, z + 0.24);
+    }
+    // Brick stacks, banded the way they arrive on a pallet.
+    for (let i = 0; i < 4; i += 1) {
+      const x = STOCKPILE.x - 1.6 + (i % 2) * 1.9;
+      const z = STOCKPILE.z - 1.0 + Math.floor(i / 2) * 1.6;
+      brickB.box(x, SITE_LEVEL, z, x + 1.5, SITE_LEVEL + 1.05, z + 1.15);
+    }
+    // Sand and aggregate.
+    for (let i = 0; i < 2; i += 1) {
+      const cx = COMPOUND.x0 + 2.2 + i * 2.6;
+      const cz = COMPOUND.z1 - 1.6;
+      for (let s = 0; s < 4; s += 1) {
+        const k = s / 4;
+        const r = mix(1.5, 0.28, k);
+        heapB.box(cx - r, SITE_LEVEL + 1.35 * k, cz - r, cx + r, SITE_LEVEL + 1.35 * (k + 0.25), cz + r);
+      }
+    }
+  }
+  const hutMesh = new THREE.Mesh(hutB.build(), materials.make('plywood'));
+  hutMesh.name = 'site:cabins';
+  hutMesh.castShadow = true;
+  const compSteelMesh = new THREE.Mesh(steelB.build(), materials.make('steel', { colour: 0x7d848c }));
+  compSteelMesh.name = 'site:steelStore';
+  const compBrickMesh = new THREE.Mesh(brickB.build(), materials.make('brick'));
+  compBrickMesh.name = 'site:brickStacks';
+  compBrickMesh.castShadow = true;
+  const compHeapMesh = new THREE.Mesh(heapB.build(), materials.make('gravel'));
+  compHeapMesh.name = 'site:aggregate';
+  compoundGroup.add(hutMesh, compSteelMesh, compBrickMesh, compHeapMesh);
+
+  /* -------------------------------------------------------- the workforce */
+  // Three instanced meshes make a figure: the body, the hi-vis over it, and
+  // one arm that swings from the shoulder.  A fourth carries whatever is in
+  // the worker's hand.  Four draw calls for the whole site.
+  const bodyB = createSurfaceBuilder(0.5);
+  bodyB.box(-0.19, 0, -0.10, -0.03, 0.80, 0.10);
+  bodyB.box(0.03, 0, -0.10, 0.19, 0.80, 0.10);
+  bodyB.box(-0.21, 0.80, -0.13, 0.21, 1.36, 0.13);
+  bodyB.box(-0.10, 1.36, -0.10, 0.10, 1.55, 0.10);
+  const vestB = createSurfaceBuilder(0.5);
+  vestB.box(-0.23, 0.86, -0.15, 0.23, 1.30, 0.15);
+  vestB.box(-0.13, 1.53, -0.13, 0.13, 1.65, 0.13);
+  const armB = createSurfaceBuilder(0.5);
+  armB.box(-0.055, -0.58, -0.055, 0.055, 0.03, 0.055);   // pivot at the shoulder
+  const handB = createSurfaceBuilder(0.4);
+  handB.box(-0.11, -0.05, -0.06, 0.11, 0.05, 0.06);
+
+  const bodyMesh = new THREE.InstancedMesh(bodyB.build(), materials.make('workwear'), maxWorkers);
+  const vestMesh = new THREE.InstancedMesh(vestB.build(), materials.make('hiVis'), maxWorkers);
+  const armMesh = new THREE.InstancedMesh(armB.build(), materials.make('skin'), maxWorkers);
+  const handMesh = new THREE.InstancedMesh(handB.build(), materials.make('brick'), maxWorkers);
+  for (const m of [bodyMesh, vestMesh, armMesh, handMesh]) {
+    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    m.frustumCulled = false;
+    m.count = 0;
+    root.add(m);
+  }
+  bodyMesh.name = 'site:workforce';
+  vestMesh.name = 'site:workforceVests';
+  armMesh.name = 'site:workforceArms';
+  handMesh.name = 'site:workforceLoads';
+  bodyMesh.castShadow = tier.name !== 'low';
+  vestMesh.castShadow = tier.name !== 'low';
+
+  /** One posted worker. Re-posted only when the day changes. */
+  const workers = [];
+  for (let i = 0; i < maxWorkers; i += 1) {
+    workers.push({ x: 0, y: 0, z: 0, yaw: 0, task: 'work', phase: 0, rate: 1, reach: 0 });
+  }
+  let workerCount = 0;
+
+  /* ------------------------------------------------------------- day state */
+  let day = project.horizon;
+  let elapsed = 0;
+  let xrayOn = false;
+  const pos = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  const scl = new THREE.Vector3(1, 1, 1);
+  const mat4 = new THREE.Matrix4();
+  const euler = new THREE.Euler();
+
+  /** The state the whole module derives from the day. */
+  const state = {
+    craneUp: false,
+    mastTop: CRANE.mastLow,
+    workFace: { x: 0, y: 0, z: -5 },
+    scaffold: 0,      // 0 none, else the height erected
+    striking: 0,      // height struck from the ground up, once the façade is done
+    compound: false,
+    formation: SITE_LEVEL,
+    digging: false,
+    spoil: false,
+    headcount: 0,
+  };
+
+  function progress(id) { return packageProgress(project, id, day); }
+
+  /** Post the workforce for a day: who is on site, and where they stand. */
+  function deploy() {
+    const active = activePackages(project, day).filter((a) => WORKER_ZONES[a.id]);
+    state.headcount = siteHeadcount(project, day);
+    if (!active.length) { workerCount = 0; return; }
+    // The resource model derives head count from a package's budget, and a
+    // package whose cost is nearly all material — the raft's reinforcement is
+    // bought under the pour that follows it — can round to nought assigned
+    // while it is plainly in progress. A package in progress has people on it,
+    // so the floor here is two figures per active package: the histogram in
+    // the dashboard stays the model's number, and the site is never deserted
+    // on a day when something is being earned.
+    const derived = Math.round(state.headcount * 0.42);
+    const head = clamp(Math.max(derived, active.length * 2), 1, maxWorkers);
+    // Share the figures out in proportion to each package's crew size, so the
+    // gang you can see is the gang the resource histogram is charging for.
+    const weights = active.map((a) => Math.max(0.25, 1 - Math.abs(a.progress - 0.5)));
+    const total = weights.reduce((s, w) => s + w, 0);
+    let index = 0;
+    for (let i = 0; i < active.length && index < head; i += 1) {
+      const share = Math.max(1, Math.round((head * weights[i]) / total));
+      const zone = WORKER_ZONES[active[i].id];
+      for (let k = 0; k < share && index < head; k += 1) {
+        const st = zoneStation(zone, index * 13 + i * 101 + 7);
+        const w = workers[index];
+        w.x = st.x; w.z = st.z; w.yaw = st.yaw;
+        w.y = zone.scaffold
+          // Façade trades work off the scaffold, so they are at lift level.
+          ? SITE_LEVEL + scafLift * (1 + Math.floor(hash2(index, 21) * 4))
+          : zone.y;
+        w.task = zone.task;
+        w.rate = 0.72 + hash2(index, 5) * 0.7;
+        w.phase = hash2(index, 11);
+        w.reach = 0.9 + hash2(index, 31) * 0.6;
+        index += 1;
+      }
+    }
+    workerCount = index;
+  }
+
+  /** The level the crane is currently serving. */
+  function workFaceFor() {
+    const roof = progress('F4');
+    const first = progress('F2');
+    const ground = progress('S7');
+    if (progress('E4') > 0.02 || progress('E2') > 0.02) return { x: -1.5, y: LEVELS[2].floor + 0.4, z: -5 };
+    if (roof > 0.02) return { x: 0.5, y: ROOF.level + 0.4, z: -4 };
+    if (first > 0.02) return { x: -1.0, y: LEVELS[2].floor + 0.4, z: -6 };
+    if (ground > 0.02) return { x: 1.0, y: LEVELS[1].floor + 0.4, z: -5 };
+    return { x: 0, y: LEVELS[0].floor + 0.6, z: -5 };
+  }
+
+  function applyDay(nextDay) {
+    day = nextDay;
+
+    // The crane: erected in the second half of P4, struck once the façade is
+    // complete. The mast climbs with the frame.
+    const erect = progress('P4');
+    const facade = progress('E4');
+    state.craneUp = erect > 0.45 && facade < 0.995;
+    const frame = Math.max(progress('F1'), progress('F2'), progress('F3'), progress('F4'));
+    state.mastTop = mix(CRANE.mastLow, CRANE.mastHigh, smoothstep(0, 1, frame));
+    craneGroup.visible = state.craneUp && !xrayOn;
+    if (state.craneUp) {
+      setReveal(mastMat, [0, 1, 0], state.mastTop);
+      turret.position.set(CRANE.x, state.mastTop, CRANE.z);
+    }
+    state.workFace = workFaceFor();
+
+    // The scaffold goes up with the ground floor masonry and comes down from
+    // the top as the façade finishes.
+    const masonry = Math.max(progress('E1'), progress('E2'));
+    const strike = clamp((facade - 0.86) / 0.14, 0, 1);
+    state.scaffold = masonry > 0.03 && facade < 0.999 ? mix(SITE_LEVEL, scafTop, smoothstep(0, 1, Math.min(1, masonry * 1.25))) : 0;
+    scaffoldGroup.visible = state.scaffold > 0 && !xrayOn;
+    if (scaffoldGroup.visible) {
+      if (strike <= 0) {
+        for (const m of [scafTubeMat, scafBoardMat]) setReveal(m, [0, 1, 0], state.scaffold);
+      } else {
+        // Struck from the ground up: keep only what is above the strike line.
+        for (const m of [scafTubeMat, scafBoardMat]) setReveal(m, [0, -1, 0], -mix(SITE_LEVEL, scafTop, strike));
+      }
+    }
+
+    // Excavation, and the spoil that stays until the backfill.
+    state.digging = progress('S1') > 0.02 && progress('S2') < 0.35;
+    state.spoil = progress('S1') > 0.02 && progress('S6') < 0.85;
+    digGroup.visible = (state.digging || state.spoil) && !xrayOn;
+    excavator.visible = state.digging;
+    spoilMesh.visible = state.spoil;
+
+    // Bare working ground, from site clearance until the hardscape starts.
+    const cleared = progress('P2');
+    const dig = progress('S1');
+    siteGroundMesh.visible = cleared > 0.25 && progress('L1') < 0.15 && !xrayOn;
+
+    // The footprint: turf until the site is cleared, then earth that the
+    // excavation takes away lift by lift.
+    capTurfMesh.visible = cleared <= 0.25 && !xrayOn;
+    const open = cleared > 0.25 && progress('S7') < 0.6 && !xrayOn;
+    pitEarthMesh.visible = open;
+    pitFaceMesh.visible = open;
+    shallowMesh.visible = open;
+    // Stop the plane at the top of the lowest lift: cut below it and that
+    // lift loses the top face that *is* the formation, and the sky shows
+    // through the bottom of the hole.
+    state.formation = mix(SITE_LEVEL, FORMATION_LEVEL + LIFT, smoothstep(0, 1, Math.min(1, dig * 1.1)));
+    if (open) {
+      setReveal(pitEarthMat, [0, 1, 0], state.formation);
+      setReveal(pitFaceMat, [0, -1, 0], -state.formation);
+    }
+    // The machine works off the formation of the day, so it goes down with
+    // the dig instead of hovering over it.
+    excavator.position.y = state.formation;
+
+    // The compound is up from the day the site office goes in until the
+    // builders' clean.
+    state.compound = progress('P3') > 0.15 && progress('H3') < 0.75;
+    compoundGroup.visible = state.compound && !xrayOn;
+
+    deploy();
+    for (const m of [bodyMesh, vestMesh, armMesh, handMesh]) {
+      m.count = workerCount;
+      // An instanced mesh with no instances is still a node the renderer walks
+      // and a draw call some paths still issue, so an empty site is hidden
+      // rather than merely emptied.
+      m.visible = workerCount > 0 && !xrayOn;
+    }
+  }
+
+  function setXrayMode(on) {
+    xrayOn = !!on;
+    // The x-ray is about the building's own systems: the plant would only be
+    // noise across it.
+    for (const g of [craneGroup, scaffoldGroup, digGroup, compoundGroup]) {
+      if (g.visible && xrayOn) g.visible = false;
+    }
+    for (const m of [bodyMesh, vestMesh, armMesh, handMesh]) m.visible = workerCount > 0 && !xrayOn;
+    if (xrayOn) {
+      for (const m of [siteGroundMesh, capTurfMesh, pitEarthMesh, pitFaceMesh, shallowMesh]) m.visible = false;
+    }
+    if (!xrayOn) applyDay(day);
+  }
+
+  /** Animate the crane's duty cycle and the gangs. */
+  function update(dt) {
+    elapsed += dt;
+
+    if (craneGroup.visible) {
+      const toAngle = (x, z) => -Math.atan2(z - CRANE.z, x - CRANE.x);
+      const toRadius = (x, z) => clamp(Math.hypot(x - CRANE.x, z - CRANE.z), 5.0, CRANE.jib - 1.5);
+      const pick = {
+        angle: toAngle(STOCKPILE.x, STOCKPILE.z),
+        radius: toRadius(STOCKPILE.x, STOCKPILE.z),
+        y: SITE_LEVEL + 1.3,
+      };
+      const place = {
+        angle: toAngle(state.workFace.x, state.workFace.z),
+        radius: toRadius(state.workFace.x, state.workFace.z),
+        y: state.workFace.y + 1.4,
+      };
+      const travelY = Math.max(pick.y, place.y) + CRANE.travelClear;
+      const u = (elapsed % CRANE.cycleSeconds) / CRANE.cycleSeconds;
+      const c = craneCycle(u, pick, place, travelY);
+      turret.rotation.y = c.angle;
+      trolley.position.x = c.radius;
+      const drop = Math.max(0.4, state.mastTop - c.hook - 0.62);
+      ropeMesh.scale.y = drop;
+      hookGroup.position.y = -0.62 - drop;
+      loadMesh.visible = c.loaded;
+    }
+
+    if (state.digging && excavator.visible) {
+      // Dig, swing, dump: about eight seconds, which is what a 20-tonne
+      // machine takes on a basement dig in this ground.
+      const u = (elapsed % 8.4) / 8.4;
+      houseGroup.rotation.y = 0.6 + Math.sin(u * Math.PI * 2) * 0.85;
+      boomPivot.rotation.z = -0.28 + Math.sin(u * Math.PI * 2 + 1.1) * 0.30;
+      dipperPivot.rotation.z = -0.75 + Math.sin(u * Math.PI * 2 + 2.4) * 0.55;
+    }
+
+    if (!workerCount) return;
+    for (let i = 0; i < workerCount; i += 1) {
+      const w = workers[i];
+      const t = (elapsed * w.rate + w.phase * 9.7);
+      let bob = 0;
+      let swing = 0;
+      let carry = false;
+      let x = w.x;
+      let z = w.z;
+      if (w.task === 'lay') {
+        // Down to the stack, up to the course: a bricklayer's cycle is about
+        // two and a half seconds a brick, and the brick is only in the hand on
+        // the way up.
+        const u = (t / 2.6) % 1;
+        swing = mix(-0.35, -2.35, smoothstep(0, 1, u < 0.5 ? u * 2 : (1 - u) * 2));
+        bob = Math.sin(u * Math.PI * 2) * 0.035;
+        carry = u < 0.5;
+      } else if (w.task === 'carry') {
+        // A short beat between the stockpile and the face, with the load up.
+        const u = (t / 7.0) % 1;
+        const leg = u < 0.5 ? u * 2 : (1 - u) * 2;
+        x = mix(w.x, w.x + Math.sin(w.yaw + 1.2) * 2.6, leg);
+        z = mix(w.z, w.z + Math.cos(w.yaw + 1.2) * 2.6, leg);
+        swing = -2.55;
+        bob = Math.abs(Math.sin(t * 4.4)) * 0.05;
+        carry = true;
+      } else {
+        swing = -1.1 + Math.sin(t * 2.9) * 0.75;
+        bob = Math.sin(t * 2.9) * 0.03;
+      }
+
+      euler.set(0, w.yaw, 0);
+      quat.setFromEuler(euler);
+      pos.set(x, w.y + bob, z);
+      scl.set(1, 1, 1);
+      mat4.compose(pos, quat, scl);
+      bodyMesh.setMatrixAt(i, mat4);
+      vestMesh.setMatrixAt(i, mat4);
+
+      // The arm hangs off the shoulder, on the side the worker is facing.
+      const shoulderX = Math.cos(w.yaw) * 0.0 + Math.sin(w.yaw) * 0.0;
+      euler.set(swing, w.yaw, 0, 'YXZ');
+      quat.setFromEuler(euler);
+      pos.set(x + shoulderX, w.y + bob + 1.30, z);
+      mat4.compose(pos, quat, scl);
+      armMesh.setMatrixAt(i, mat4);
+
+      // Whatever is in the hand, at the end of the arm.
+      const hx = Math.sin(w.yaw) * Math.sin(-swing) * 0.58;
+      const hz = Math.cos(w.yaw) * Math.sin(-swing) * 0.58;
+      pos.set(x + hx, w.y + bob + 1.30 - Math.cos(swing) * 0.58, z + hz);
+      euler.set(0, w.yaw, 0);
+      quat.setFromEuler(euler);
+      scl.set(carry ? 1 : 0.0001, carry ? 1 : 0.0001, carry ? 1 : 0.0001);
+      mat4.compose(pos, quat, scl);
+      handMesh.setMatrixAt(i, mat4);
+    }
+    scl.set(1, 1, 1);
+    bodyMesh.instanceMatrix.needsUpdate = true;
+    vestMesh.instanceMatrix.needsUpdate = true;
+    armMesh.instanceMatrix.needsUpdate = true;
+    handMesh.instanceMatrix.needsUpdate = true;
+  }
+
+  /** What the HUD says about the site on this day. */
+  function report() {
+    return {
+      headcount: Math.round(state.headcount),
+      onScreen: workerCount,
+      crane: state.craneUp,
+      scaffold: state.scaffold > 0,
+      excavating: state.digging,
+      compound: state.compound,
+    };
+  }
+
+  applyDay(day);
+
+  return {
+    /** No revealable elements: the plant is not paid for by a work package. */
+    elements: [],
+    root,
+    applyDay,
+    update,
+    setXray: setXrayMode,
+    report,
+    dispose() {
+      scene.remove(root);
+    },
+  };
+}
+
 /* ================= mansion/src/world/world.js ================= */
 /**
  * World assembly, and the one function that ties the project simulation to
@@ -62784,6 +64062,7 @@ const PROJECT_FACTS = {
 
 
 
+
 function createWorld(ctx) {
   const { textures, quality, project } = ctx;
 
@@ -62791,7 +64070,29 @@ function createWorld(ctx) {
   scene.name = 'world';
 
   const collision = createCollisionWorld(4);
-  const materials = createMaterials(textures);
+
+  /**
+   * The building's interior, as boxes.
+   *
+   * These are what tells the fill term in the shader which fragments are
+   * inside the house — see materials.js, behaviour 4. They are read straight
+   * off the plan rather than measured off the geometry, so they cannot drift
+   * away from the rooms they describe. The top of the shell box is the roof
+   * *soffit*, not the roof, so the roof's upper surface stays outside and is
+   * lit by the sky like the rest of the elevation.
+   */
+  const fill = createInteriorFill();
+  const materials = createMaterials(textures, fill);
+  fill.setBoxes([
+    { x0: SHELL.x0, x1: SHELL.x1, z0: SHELL.z0, z1: SHELL.z1,
+      y0: LEVELS[0].floor - 0.05, y1: ROOF.level - 0.34, weight: 1 },
+    { x0: GARAGE.x0, x1: GARAGE.x1, z0: GARAGE.z0, z1: GARAGE.z1,
+      y0: GARAGE.floor - 0.05, y1: GARAGE.wallTop, weight: 0.8 },
+    // The portico is open-sided but roofed, so it is in permanent shade and
+    // needs the same treatment: without it the front door reads as a hole.
+    { x0: PORTICO.x0, x1: PORTICO.x1, z0: PORTICO.z0, z1: PORTICO.z1,
+      y0: SITE_LEVEL - 0.05, y1: PORTICO.entablatureTop, weight: 0.5 },
+  ]);
   const tile = materials.tileOf;
 
   const sky = createSky(scene, { latitude: 31.4805, dayOfYear: 105 });
@@ -62916,6 +64217,17 @@ function createWorld(ctx) {
     for (const el of byPackage.get(highlightPkg) || []) setHighlight(el.material, 0.28);
   }
 
+  /**
+   * The live site — crane, gangs, scaffold, plant, compound.
+   *
+   * Registered as an extra rather than as a set of elements: the plant is not
+   * paid for by a work package and must not be revealed by one, but it does
+   * need to be told the day, the frame and the x-ray, which is exactly what an
+   * extra receives.
+   */
+  const construction = buildConstruction(shared);
+  registerExtra(construction);
+
   let pulse = 0;
 
   function update(dt, camera) {
@@ -62969,6 +64281,7 @@ function createWorld(ctx) {
    * the emissive furnishings (the chandeliers) glow with them.
    */
   function updateLighting() {
+    fill.setColour(sky.interiorFill);
     const night = 1 - sky.daylight;
     for (const el of elements) {
       if (!el.emissive) continue;
@@ -62983,9 +64296,11 @@ function createWorld(ctx) {
     scene,
     collision,
     materials,
+    fill,
     sky,
     mansion,
     site,
+    construction,
     openings,
     furnish,
     interactives,
@@ -63663,14 +64978,26 @@ function createHud(ctx) {
     const key = `${state.day}|${api.mode}|${api.world.xray}`;
     if (key === lastStats) return;
     lastStats = key;
-    fill(statsEl, [
+    const site = api.world.construction ? api.world.construction.report() : null;
+    const rows = [
       stat('Day', String(state.day)),
       stat('Phase', state.phase.name),
       stat('Complete', `${(evm.percentComplete * 100).toFixed(0)}%`),
       stat('SPI', evm.spi.toFixed(3), evm.spi >= 0.98 ? 'good' : (evm.spi < 0.94 ? 'bad' : 'warn')),
       stat('CPI', evm.cpi.toFixed(3), evm.cpi >= 0.98 ? 'good' : (evm.cpi < 0.94 ? 'bad' : 'warn')),
       stat('Forecast', api.formatPKR(evm.eac)),
-    ]);
+    ];
+    // What is actually happening on the ground, while there is a site at all.
+    if (site && (site.headcount > 0 || site.crane)) {
+      const plant = [];
+      if (site.excavating) plant.push('excavating');
+      if (site.crane) plant.push('crane');
+      if (site.scaffold) plant.push('scaffold');
+      rows.push(stat('On site', plant.length
+        ? `${site.headcount} · ${plant.join(' · ')}`
+        : `${site.headcount}`));
+    }
+    fill(statsEl, rows);
   }
 
   /* ------------------------------------------------------------- chrome */
@@ -63736,7 +65063,11 @@ function createTimeline(ctx) {
 
   /* --------------------------------------------------------- phase strip */
   {
-    // Walk the horizon once and record where the dominant phase changes.
+    // Twelve phases, so no colour identity: past about seven simultaneous
+    // classes a palette cannot keep them apart, and the phases are ordered
+    // anyway. Alternating tonal bands show you where one phase ends and the
+    // next begins; the phase you are on is named in the header above, and
+    // every band names itself on hover.
     const bands = [];
     let currentId = null;
     let start = 0;
@@ -63749,13 +65080,13 @@ function createTimeline(ctx) {
       }
     }
     bands.push({ id: currentId, from: start, to: horizon });
-    fill(byId('tlPhases'), bands.map((band) => {
+    fill(byId('tlPhases'), bands.map((band, i) => {
       const phase = PHASE_BY_ID.get(band.id) || PHASES[0];
       return el('i', {
         title: `${phase.name} — days ${band.from} to ${band.to}`,
         style: {
           width: `${((band.to - band.from) / horizon) * 100}%`,
-          background: phase.colour,
+          background: i % 2 ? 'rgba(216, 182, 120, 0.62)' : 'rgba(216, 182, 120, 0.30)',
         },
       });
     }));
@@ -63763,18 +65094,26 @@ function createTimeline(ctx) {
 
   /* ---------------------------------------------------------- milestones */
   {
+    // Four labels on two rows, so a long milestone name cannot land on top of
+    // its neighbour.
     const marks = [];
+    const labelled = new Set(['MS1', 'MS3', 'MS5', 'MS7']);
+    let rowIndex = 0;
     for (const ms of milestoneTable(project)) {
       const left = (ms.forecastDay / horizon) * 100;
-      marks.push(el('i', { style: { left: `${left}%` }, title: ms.name }));
-      // Only label the milestones that will not collide with each other.
-      if (['MS1', 'MS3', 'MS5', 'MS7'].includes(ms.id)) {
-        marks.push(el('b', {
-          style: { left: `${Math.min(96, Math.max(4, left))}%` },
-          text: ms.name.length > 22 ? `${ms.name.slice(0, 20)}…` : ms.name,
-          title: `${ms.name} — ${formatDay(ms.forecastDay)}`,
-        }));
-      }
+      marks.push(el('i', { style: { left: `${left}%` }, title: `${ms.name} — ${formatDay(ms.forecastDay)}` }));
+      if (!labelled.has(ms.id)) continue;
+      const row = rowIndex % 2;
+      rowIndex += 1;
+      marks.push(el('b', {
+        style: {
+          left: `${Math.min(97, Math.max(3, left))}%`,
+          top: `${6 + row * 11}px`,
+          transform: left > 80 ? 'translateX(-100%)' : (left < 8 ? 'none' : 'translateX(-50%)'),
+        },
+        text: ms.name,
+        title: `${ms.name} — ${formatDay(ms.forecastDay)}`,
+      }));
     }
     fill(byId('tlMarks'), marks);
   }
@@ -63828,7 +65167,7 @@ function createTimeline(ctx) {
         .map((entry) => el('span', {
           class: 'pkgchip',
           title: `${entry.pkg.code} ${entry.pkg.name}`,
-          style: { 'border-left': `3px solid ${phaseColour(entry.pkg.phase)}` },
+          style: { 'border-left': '3px solid var(--gold)' },
         }, [
           entry.pkg.name.length > 34 ? `${entry.pkg.name.slice(0, 32)}…` : entry.pkg.name,
           el('i', { text: `${Math.round(entry.progress * 100)}%` }),
@@ -63850,6 +65189,7 @@ function phaseColour(id) {
   const phase = PHASE_BY_ID.get(id);
   return phase ? phase.colour : '#d8b678';
 }
+
 
 /* ================= mansion/src/ui/charts.js ================= */
 /**
@@ -65371,9 +66711,9 @@ function createTours(ctx) {
     beat([-26, 10, 26], [0, 0, -2], 6,
       'Day 0. A bare, surveyed plot. Design and the soil investigation are running, and nothing can be dug until the LDA approval is in hand — the network makes that approval a predecessor of the excavation.', 0),
     beat([-22, 8, 22], [-2, 0, -2], 6,
-      'Site establishment. The boundary wall goes up first: it secures the site, and pilferage is a quantified risk on this register with a two point one crore impact.', Math.round(finish * 0.12)),
-    beat([-18, 7, 14], [-2, -2, -4], 6,
-      'Bulk excavation for the basement and the footings. Fourteen hundred cubic metres out, machine-dug and carted within fifteen kilometres.', Math.round(finish * 0.18)),
+      'Site establishment. The boundary wall goes up first — it secures the site, and pilferage is a quantified risk on this register with a two point one crore impact. The compound goes in behind it: two cabins, the stockpiles and the batching area, and the tower crane on its concrete base.', Math.round(finish * 0.12)),
+    beat([-16, 5, 11], [-2, -2.5, -5], 6,
+      'Bulk excavation. Fourteen hundred cubic metres out, machine-dug and carted within fifteen kilometres. Watch the formation drop lift by lift as the package earns value — the excavator is working the level the schedule says it is on, not an animation loop.', Math.round(finish * 0.18)),
     beat([-16, 6, 10], [-2, -2, -4], 6,
       'The raft. Blinding, anti-termite treatment, then reinforcement and a single 186 cubic metre pour. The first quality gate is the cover to that reinforcement; the second is the twenty-eight-day cube strength.', Math.round(finish * 0.26)),
     beat([-16, 6, 8], [-2, -1, -4], 6,
@@ -65384,10 +66724,10 @@ function createTours(ctx) {
       'Columns, first floor slab, columns again. The reveal you can see sweeping across each slab is the pour sequence: the model is showing the package earning value, not an animation.', Math.round(finish * 0.46)),
     beat([-22, 13, 16], [-1, 5, -4], 6,
       'Topped out. The roof slab is cast and the structure is complete — milestone three of seven, and the point at which the design is frozen and later changes are priced as variations.', Math.round(finish * 0.55)),
-    beat([-20, 9, 14], [-2, 3, -3], 6,
-      'Masonry. Ground floor first, first floor overlapping it by six days on a finish-to-start with a negative lag. The house is bare brick at this stage: the cladding and the plaster are different packages and have not been paid for yet.', Math.round(finish * 0.62)),
-    beat([-14, 6, 12], [-2, 4, -2], 6,
-      'Façade. Sandstone cladding dry-fixed on stainless anchors, the portico order set, the parapet and the cupola built. Forty working days of the longest single activity on the project.', Math.round(finish * 0.70)),
+    beat([-17, 7, 12], [-2, 3, -3], 6.5,
+      'Masonry. Ground floor first, first floor overlapping it by six days on a finish-to-start with a negative lag. The masons on the wall line are the masonry pool the resource model is charging for that day; the crane is lifting their brick from the stockpile on a twenty-seven second cycle. The house is bare brick here — the cladding and the plaster are different packages and have not been paid for yet.', Math.round(finish * 0.62)),
+    beat([-14, 6, 12], [-2, 4, -2], 6.5,
+      'Façade. Sandstone cladding dry-fixed on stainless anchors, the portico order set, the parapet and the cupola built — forty working days, the longest single activity on the project. The scaffold went up with the masonry and comes down from the ground as the cladding finishes, because you cannot clad a wall you have already struck the scaffold off.', Math.round(finish * 0.70)),
     beat([0, 1.75, 1.6], [0, 2.4, -3], 6,
       'Inside, the services rough-in is buried and the plaster has gone on. From this day the interior stops being a shell and starts being rooms.', Math.round(finish * 0.80)),
     beat([0, 1.75, 1.9], [0, 4.0, -1.4], 6.5,
@@ -65865,6 +67205,10 @@ async function boot() {
     world.applyDay(next);
     if (timeline) timeline.setDay(next);
     if (panels) panels.onDayChange(next);
+    // Refresh the stat bar here rather than waiting for the next tick of the
+    // frame loop's timer: scrubbing the timeline must never leave the day in
+    // the header disagreeing with the day under the slider.
+    if (hud) hud.refreshStats();
   }
 
   function setMode(mode) {

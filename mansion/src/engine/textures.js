@@ -238,6 +238,25 @@ const RECIPES = {
     };
   },
 
+  /* Dressed limestone for carved work — columns, balusters, mouldings, the
+     dome. No coursing: a turned shaft is cut from one block, and putting
+     ashlar joints on it is the single fastest way to make stone look like
+     wallpaper. */
+  limestone: (size) => {
+    const grain = (u, v) => pfbm(u * 1.6, v * 1.6, 6, 5) * 0.7 + pvalue(u, v, size / 3) * 0.3;
+    return {
+      albedo: paint(size, (u, v, out) => {
+        const g = grain(u, v);
+        const shell = Math.pow(clamp(pridged(u * 1.1, v * 1.1, 4, 3), 0, 1), 5) * 0.35;
+        out[0] = 224 - g * 30 - shell * 26;
+        out[1] = 214 - g * 30 - shell * 24;
+        out[2] = 192 - g * 28 - shell * 20;
+      }),
+      normal: paintNormal(size, (u, v) => grain(u, v) * 0.16, 0.7),
+      rough: paintGrey(size, (u, v) => 0.58 + grain(u, v) * 0.16),
+    };
+  },
+
   /* Interior plaster: almost flat, with the faintest trowel modulation. */
   plaster: (size) => ({
     albedo: paint(size, (u, v, out) => {
@@ -359,12 +378,94 @@ const RECIPES = {
       albedo: paint(size, (u, v, out) => {
         const g = grain(u, v);
         const fig = pfbm(u * 2, v * 2, 5, 3);
-        out[0] = 88 + fig * 26 - g * 30;
-        out[1] = 55 + fig * 18 - g * 22;
-        out[2] = 34 + fig * 12 - g * 14;
+        // Around six and a half per cent reflectance, which is what a
+        // lacquered walnut door actually returns. Below about five, a surface
+        // stops carrying any modelling at all indoors and reads as a hole.
+        out[0] = 106 + fig * 28 - g * 30;
+        out[1] = 69 + fig * 19 - g * 22;
+        out[2] = 44 + fig * 13 - g * 14;
       }),
       normal: paintNormal(size, (u, v) => grain(u, v) * 0.16, 0.8),
       rough: paintGrey(size, (u, v) => 0.28 + grain(u, v) * 0.12),
+    };
+  },
+
+  /*
+   * Raised-and-fielded oak panelling, for the majlis, the dining room and the
+   * study.
+   *
+   * Panelling was previously drawn as dark walnut with a tint over it, which
+   * put its reflectance at under three per cent — darker than any real timber,
+   * and dark enough that with no bounce light in the room the walls rendered
+   * black.  This is quarter-sawn oak at about eighteen per cent, which is what
+   * a lacquered oak panel actually returns, and it is built as joinery: stiles
+   * and rails proud, a chamfer running down into each field, the grain turning
+   * with the member it is cut from.
+   */
+  oakPanel: (size) => {
+    const COLS = 3;
+    const ROWS = 2;
+    const RAIL = 0.13;   // half-width of the stile/rail, as a fraction of a bay
+    const CHAMFER = 0.09; // the fielding chamfer, over the same fraction
+
+    /** Where in its bay a point falls, and how far it is from the bay edge. */
+    const bay = (u, v) => {
+      const bu = u * COLS;
+      const bv = v * ROWS;
+      const col = Math.floor(bu);
+      const row = Math.floor(bv);
+      const cu = bu - col;
+      const cv = bv - row;
+      const du = Math.min(cu, 1 - cu);
+      const dv = Math.min(cv, 1 - cv);
+      return { col, row, cu, cv, edge: Math.min(du, dv), vertical: du < dv };
+    };
+
+    /**
+     * The section through a panel: the frame stands proud, a chamfer falls
+     * away from it, and the field sits back with a shallow crown.
+     */
+    const relief = (u, v) => {
+      const { edge } = bay(u, v);
+      if (edge < RAIL) return 1;
+      if (edge < RAIL + CHAMFER) return mix(1, 0.42, (edge - RAIL) / CHAMFER);
+      return 0.42 + Math.min(0.14, (edge - RAIL - CHAMFER) * 0.9);
+    };
+
+    /** Grain runs along the member, so it turns through ninety degrees. */
+    const grain = (u, v) => {
+      const b = bay(u, v);
+      const upright = b.edge < RAIL && b.vertical;
+      const along = upright ? v * 15 : u * 12;
+      const across = upright ? u * 5 : v * 4;
+      const bands = Math.sin(along * Math.PI + pfbm(u * 3, v * 3, 6, 4) * 5 + across);
+      return bands * 0.5 + 0.5;
+    };
+
+    /** The quirk: the shadow line where the field is cut away from the frame. */
+    const quirk = (u, v) => {
+      const { edge } = bay(u, v);
+      return clamp(1 - Math.abs(edge - RAIL) / 0.016, 0, 1);
+    };
+
+    return {
+      albedo: paint(size, (u, v, out) => {
+        const b = bay(u, v);
+        const g = grain(u, v);
+        const fig = pfbm(u * 2.5, v * 2.5, 6, 3);
+        // Each board is cut from a different part of the log.
+        const tone = hash2(b.col * 7 + b.row * 13, 23) * 0.5 + hash2(b.row, 5) * 0.5;
+        const h = relief(u, v);
+        // The frame stands into the light and the field falls away from it;
+        // the quirk between them is a hard shadow line, and it is the line
+        // that makes the wall read as panelling rather than as boarding.
+        const shade = (0.82 + h * 0.30) * (1 - quirk(u, v) * 0.46);
+        out[0] = (178 + tone * 24 + fig * 22 - g * 22) * shade;
+        out[1] = (134 + tone * 19 + fig * 17 - g * 18) * shade;
+        out[2] = (90 + tone * 14 + fig * 12 - g * 13) * shade;
+      }),
+      normal: paintNormal(size, (u, v) => relief(u, v) * 0.9 - quirk(u, v) * 0.35 + grain(u, v) * 0.05, 1.6),
+      rough: paintGrey(size, (u, v) => 0.40 + grain(u, v) * 0.14),
     };
   },
 

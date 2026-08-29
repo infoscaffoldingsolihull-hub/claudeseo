@@ -12,7 +12,7 @@
  * arrives and not before.
  */
 import * as THREE from 'three';
-import { PLOT, SHELL, GARAGE, PORTICO, SITE, SITE_LEVEL, LEVEL_BY_ID } from './plan.js';
+import { PLOT, SHELL, GARAGE, PORTICO, SITE, SITE_LEVEL, LEVEL_BY_ID, GROUND_PAD, FOOTPRINT_HOLES } from './plan.js';
 import { createSurfaceBuilder, subtractRects } from './build.js';
 import { makeRng } from '../engine/rng.js';
 
@@ -61,12 +61,10 @@ export function buildSite(ctx) {
   // The ground and the plinth are built *around* the building, not through
   // it. A solid ground slab under the footprint would drive a 0.8 m slab of
   // grass straight through the middle of the home cinema.
-  const PLINTH_PAD = 0.35;
-  const STEP_PAD = 0.90;
-  const holeShell = { x0: SHELL.x0 - STEP_PAD, z0: SHELL.z0 - STEP_PAD, x1: SHELL.x1 + STEP_PAD, z1: SHELL.z1 + STEP_PAD };
-  const holeGarage = { x0: GARAGE.x0 - STEP_PAD, z0: GARAGE.z0 - STEP_PAD, x1: GARAGE.x1, z1: GARAGE.z1 + STEP_PAD };
-  const holePortico = { x0: PORTICO.x0 - 0.75, z0: PORTICO.z0, x1: PORTICO.x1 + 0.75, z1: PORTICO.z1 + 1.3 };
-  const footprintHoles = [holeShell, holeGarage, holePortico];
+  const PLINTH_PAD = GROUND_PAD.plinth;
+  const STEP_PAD = GROUND_PAD.step;
+  const [holeShell, holeGarage, holePortico] = FOOTPRINT_HOLES;
+  const footprintHoles = FOOTPRINT_HOLES;
 
   /* ------------------------------------------------------------- ground -- */
   {
@@ -292,7 +290,7 @@ export function buildSite(ctx) {
     const f = SITE.fountain;
     const group = new THREE.Group();
     group.name = 'site:fountain';
-    const stone = materials.make('sandstone', { colour: 0xded1b4 });
+    const stone = materials.make('limestone', { colour: 0xe8dcc0 });
 
     const basin = new THREE.Mesh(new THREE.CylinderGeometry(f.radius, f.radius * 1.05, f.basinHeight, 28, 1, false), stone);
     basin.position.set(f.x, SITE_LEVEL + f.basinHeight / 2, f.z);

@@ -547,7 +547,7 @@ export function buildMansion(ctx) {
   {
     const railBuilder = createSurfaceBuilder(tile('brass'));
     const balusterGeo = balusterGeometry(0.035, 0.86, 8);
-    const balusterMat = materials.make('steel', { colour: 0x2a2c30, roughness: 0.5 });
+    const balusterMat = materials.make('steel', { colour: 0x24262b, roughness: 0.5 });
     const spots = [];
     const boxes = [];
 
@@ -687,7 +687,7 @@ export function buildMansion(ctx) {
 
     // The eight columns of the order.
     const colGeo = columnGeometry(PORTICO.columnRadius, PORTICO.columnTop - PORTICO.columnBase, 22);
-    const colMat = materials.make('sandstone', { colour: 0xe8dcc4 });
+    const colMat = materials.make('limestone', { colour: 0xf0e6d2 });
     const positions = [];
     for (const x of PORTICO.frontRow) positions.push({ x, z: PORTICO.returnZ[1] });
     positions.push({ x: PORTICO.frontRow[0], z: PORTICO.returnZ[0] });
@@ -789,7 +789,7 @@ export function buildMansion(ctx) {
 
     const drumGroup = new THREE.Group();
     drumGroup.name = 'roof:cupola';
-    const stoneMat = materials.make('sandstone', { colour: 0xeadfc8 });
+    const stoneMat = materials.make('limestone', { colour: 0xefe4cd });
     const drum = new THREE.Mesh(
       new THREE.CylinderGeometry(ROOF.domeRadius, ROOF.domeRadius, ROOF.drumTop - ROOF.drumBottom, 24, 1, true),
       stoneMat,
@@ -800,7 +800,7 @@ export function buildMansion(ctx) {
 
     const dome = new THREE.Mesh(
       domeGeometry(ROOF.domeRadius * 1.06, ROOF.domeTop - ROOF.drumTop, 28),
-      materials.make('sandstone', { colour: 0xd9c9a6 }),
+      materials.make('limestone', { colour: 0xe4d7ba }),
     );
     dome.position.set(c.x, ROOF.drumTop, c.z);
     dome.castShadow = true;

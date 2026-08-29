@@ -495,7 +495,7 @@ function furnishingSchedule() {
 
 /** Which merge material each kit material maps to. */
 const MATERIAL_OF = {
-  fabric: 'fabric',
+  fabric: 'upholstery',
   wood: 'woodDark',
   stone: 'marbleWhite',
   brass: 'brass',

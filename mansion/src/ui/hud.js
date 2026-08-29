@@ -187,14 +187,26 @@ export function createHud(ctx) {
     const key = `${state.day}|${api.mode}|${api.world.xray}`;
     if (key === lastStats) return;
     lastStats = key;
-    fill(statsEl, [
+    const site = api.world.construction ? api.world.construction.report() : null;
+    const rows = [
       stat('Day', String(state.day)),
       stat('Phase', state.phase.name),
       stat('Complete', `${(evm.percentComplete * 100).toFixed(0)}%`),
       stat('SPI', evm.spi.toFixed(3), evm.spi >= 0.98 ? 'good' : (evm.spi < 0.94 ? 'bad' : 'warn')),
       stat('CPI', evm.cpi.toFixed(3), evm.cpi >= 0.98 ? 'good' : (evm.cpi < 0.94 ? 'bad' : 'warn')),
       stat('Forecast', api.formatPKR(evm.eac)),
-    ]);
+    ];
+    // What is actually happening on the ground, while there is a site at all.
+    if (site && (site.headcount > 0 || site.crane)) {
+      const plant = [];
+      if (site.excavating) plant.push('excavating');
+      if (site.crane) plant.push('crane');
+      if (site.scaffold) plant.push('scaffold');
+      rows.push(stat('On site', plant.length
+        ? `${site.headcount} · ${plant.join(' · ')}`
+        : `${site.headcount}`));
+    }
+    fill(statsEl, rows);
   }
 
   /* ------------------------------------------------------------- chrome */

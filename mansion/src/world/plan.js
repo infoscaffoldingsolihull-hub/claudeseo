@@ -106,6 +106,26 @@ export const PORTICO = {
 };
 
 /**
+ * The cut-outs the ground is built around.
+ *
+ * The ground, the plinth and the working site all have to agree about exactly
+ * where the building stands, or the earth reads as sliced. They are defined
+ * once, here, and imported by everything that needs them.
+ */
+export const GROUND_PAD = { plinth: 0.35, step: 0.90 };
+
+export const FOOTPRINT_HOLES = [
+  { x0: SHELL.x0 - GROUND_PAD.step, z0: SHELL.z0 - GROUND_PAD.step,
+    x1: SHELL.x1 + GROUND_PAD.step, z1: SHELL.z1 + GROUND_PAD.step },
+  { x0: GARAGE.x0 - GROUND_PAD.step, z0: GARAGE.z0 - GROUND_PAD.step,
+    x1: GARAGE.x1, z1: GARAGE.z1 + GROUND_PAD.step },
+  { x0: PORTICO.x0 - 0.75, z0: PORTICO.z0, x1: PORTICO.x1 + 0.75, z1: PORTICO.z1 + 1.3 },
+];
+
+/** Formation level of the basement dig — the bottom of the excavation. */
+export const FORMATION_LEVEL = -3.35;
+
+/**
  * Rooms.
  *
  *   floor / wall / ceiling  name a texture recipe in engine/textures.js
@@ -364,8 +384,8 @@ export const SITE = {
  */
 export const SPAWNS = [
   { id: 'gate', name: 'At the gate', category: 'Approach', x: 0, y: -0.4, z: 13.2, yaw: 0 },
-  { id: 'forecourt', name: 'Forecourt', category: 'Approach', x: 0, y: -0.4, z: 8.2, yaw: 0 },
-  { id: 'portico', name: 'Under the portico', category: 'Approach', x: 0, y: 0, z: 5.4, yaw: 0 },
+  { id: 'forecourt', name: 'Forecourt', category: 'Approach', x: 0, y: -0.4, z: 10.6, yaw: 0 },
+  { id: 'portico', name: 'Under the portico', category: 'Approach', x: 2.8, y: 0, z: 5.9, yaw: 0.55 },
   { id: 'pool', name: 'Poolside', category: 'Approach', x: 13.6, y: -0.4, z: 1.9, yaw: 0 },
   { id: 'garage', name: 'Garage', category: 'Approach', x: -13.2, y: 0, z: 1.2, yaw: 0 },
 

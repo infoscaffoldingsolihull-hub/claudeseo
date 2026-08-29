@@ -11,16 +11,17 @@
  */
 import * as THREE from 'three';
 import { createCollisionWorld } from './collision.js';
-import { createMaterials, setReveal, setXray, setHighlight } from './materials.js';
+import { createMaterials, createInteriorFill, setReveal, setXray, setHighlight } from './materials.js';
 import { createSky } from './sky.js';
 import { buildMansion, LAYER } from './mansion.js';
 import { buildSite } from './site.js';
 import { buildOpenings } from './openings.js';
 import { buildFurnishings } from './furnish.js';
+import { buildConstruction } from './construction.js';
 import { packageProgress } from '../pm/project.js';
 import { PKG_BY_ID } from '../pm/model.js';
 import { clamp, smoothstep } from '../engine/rng.js';
-import { SITE_LEVEL, PLOT } from './plan.js';
+import { SITE_LEVEL, PLOT, SHELL, GARAGE, PORTICO, LEVELS, ROOF } from './plan.js';
 
 export function createWorld(ctx) {
   const { textures, quality, project } = ctx;
@@ -29,7 +30,29 @@ export function createWorld(ctx) {
   scene.name = 'world';
 
   const collision = createCollisionWorld(4);
-  const materials = createMaterials(textures);
+
+  /**
+   * The building's interior, as boxes.
+   *
+   * These are what tells the fill term in the shader which fragments are
+   * inside the house — see materials.js, behaviour 4. They are read straight
+   * off the plan rather than measured off the geometry, so they cannot drift
+   * away from the rooms they describe. The top of the shell box is the roof
+   * *soffit*, not the roof, so the roof's upper surface stays outside and is
+   * lit by the sky like the rest of the elevation.
+   */
+  const fill = createInteriorFill();
+  const materials = createMaterials(textures, fill);
+  fill.setBoxes([
+    { x0: SHELL.x0, x1: SHELL.x1, z0: SHELL.z0, z1: SHELL.z1,
+      y0: LEVELS[0].floor - 0.05, y1: ROOF.level - 0.34, weight: 1 },
+    { x0: GARAGE.x0, x1: GARAGE.x1, z0: GARAGE.z0, z1: GARAGE.z1,
+      y0: GARAGE.floor - 0.05, y1: GARAGE.wallTop, weight: 0.8 },
+    // The portico is open-sided but roofed, so it is in permanent shade and
+    // needs the same treatment: without it the front door reads as a hole.
+    { x0: PORTICO.x0, x1: PORTICO.x1, z0: PORTICO.z0, z1: PORTICO.z1,
+      y0: SITE_LEVEL - 0.05, y1: PORTICO.entablatureTop, weight: 0.5 },
+  ]);
   const tile = materials.tileOf;
 
   const sky = createSky(scene, { latitude: 31.4805, dayOfYear: 105 });
@@ -154,6 +177,17 @@ export function createWorld(ctx) {
     for (const el of byPackage.get(highlightPkg) || []) setHighlight(el.material, 0.28);
   }
 
+  /**
+   * The live site — crane, gangs, scaffold, plant, compound.
+   *
+   * Registered as an extra rather than as a set of elements: the plant is not
+   * paid for by a work package and must not be revealed by one, but it does
+   * need to be told the day, the frame and the x-ray, which is exactly what an
+   * extra receives.
+   */
+  const construction = buildConstruction(shared);
+  registerExtra(construction);
+
   let pulse = 0;
 
   function update(dt, camera) {
@@ -207,6 +241,7 @@ export function createWorld(ctx) {
    * the emissive furnishings (the chandeliers) glow with them.
    */
   function updateLighting() {
+    fill.setColour(sky.interiorFill);
     const night = 1 - sky.daylight;
     for (const el of elements) {
       if (!el.emissive) continue;
@@ -221,9 +256,11 @@ export function createWorld(ctx) {
     scene,
     collision,
     materials,
+    fill,
     sky,
     mansion,
     site,
+    construction,
     openings,
     furnish,
     interactives,

@@ -164,6 +164,10 @@ async function boot() {
     world.applyDay(next);
     if (timeline) timeline.setDay(next);
     if (panels) panels.onDayChange(next);
+    // Refresh the stat bar here rather than waiting for the next tick of the
+    // frame loop's timer: scrubbing the timeline must never leave the day in
+    // the header disagreeing with the day under the slider.
+    if (hud) hud.refreshStats();
   }
 
   function setMode(mode) {
