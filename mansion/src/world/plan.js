@@ -38,7 +38,7 @@ export const SITE_LEVEL = -0.45;
 export const PLOT = {
   x0: -17, x1: 17,
   z0: -15, z1: 15,
-  areaM2: 1020,
+  areaM2: 1011,   // two kanals; the boundary rectangle is a little larger
   wallHeight: 2.4,
   wallThickness: 0.30,
   gate: { x0: -3.2, x1: 3.2, z: 15, height: 2.9 },

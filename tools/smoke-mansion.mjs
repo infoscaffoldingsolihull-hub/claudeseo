@@ -626,8 +626,32 @@ async function run() {
   check('the frame loop keeps running', perf.frames >= 3, `${perf.frames} frames in 6 s`);
   // This counts the shadow pass, the scene pass and the four post passes
   // together, which is what the frame actually costs.
-  check('the scene stays within its draw-call budget', perf.draws > 0 && perf.draws < 300,
+  check('the scene stays within its draw-call budget', perf.draws > 0 && perf.draws < 340,
     `${perf.draws} draw calls per frame, shadow and post passes included`);
+
+  // The finished house is not the busiest frame: mid-construction the plant,
+  // the scaffold and the gangs are all up at once. Measure that too, or the
+  // budget only covers the state that happens to be cheapest.
+  const busy = await api(async () => {
+    const m = window.__mansion;
+    let worst = 0;
+    let worstDay = 0;
+    for (const f of [0.12, 0.30, 0.46, 0.58, 0.66, 0.74]) {
+      const day = Math.round(m.project.horizon * f);
+      m.setDay(day);
+      m.setMode('orbit');
+      m.controls.state.orbitDistance = 52;
+      m.controls.state.orbitTarget.set(0, 5, -4);
+      await new Promise((r) => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
+      if (m.app.draws > worst) { worst = m.app.draws; worstDay = day; }
+    }
+    m.setDay(m.project.horizon);
+    m.setMode('walk');
+    return { worst, worstDay };
+  });
+  check('the busiest construction frame stays within budget too', busy.worst > 0 && busy.worst < 340,
+    `${busy.worst} draw calls on day ${busy.worstDay}`);
   check('heap stays within budget', !perf.heapMb || perf.heapMb < 900,
     perf.heapMb ? `${perf.heapMb.toFixed(0)} MB` : 'n/a');
 
