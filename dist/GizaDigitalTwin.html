@@ -63396,7 +63396,7 @@ class InteriorSystem {
      * their choice rather than an accident of collision order.
      */
     const hallD = 4.2;
-    const hallW = 4.6;
+    const hallW = 6.0;
     const hallZ = junctionZ + 2.2;
     const hallNorthZ = hallZ - hallD / 2;
     const hallSouthZ = hallZ + hallD / 2;
@@ -63428,17 +63428,29 @@ class InteriorSystem {
     // the collision world will step a player up.
     for (let i = 0; i < 2; i++) {
       const top = hallFloorY + 0.53 * (i + 1);
-      rough.push(box(1.5, 0.53, hallD - 0.6 - i * 1.1, AXIS_X + 0.95, top - 0.265, hallZ + 0.3 + i * 0.55));
+      rough.push(box(1.5, 0.53, hallD - 0.6 - i * 1.1, AXIS_X + 1.75, top - 0.265, hallZ + 0.3 + i * 0.55));
       colliders.push({
-        minX: AXIS_X + 0.2, maxX: AXIS_X + 1.7,
+        // Off the line you walk in on. Hard against the entry line, this flight
+        // was climbed by accident on the way to the passage down.
+        minX: AXIS_X + 1.0, maxX: AXIS_X + 2.5,
         minY: top - 0.6, maxY: top,
         minZ: hallZ - hallD / 2 + 0.3 + i * 1.1, maxZ: hallSouthZ,
         tag: 'junction-ledge',
       });
     }
+    // Bedrock under the knot.  Three passages and a room meeting in one place
+    // leaves corners where a player can slip between two shells, and below a
+    // tomb there is nothing to land on.  There is solid rock here in reality,
+    // so there is solid rock here now, and the fall becomes a stumble.
+    colliders.push({
+      minX: AXIS_X - 7, maxX: AXIS_X + 7,
+      minY: hallFloorY - 2.4, maxY: hallFloorY - 0.02,
+      minZ: hallNorthZ - 6, maxZ: hallSouthZ + 6, tag: 'bedrock',
+    });
     this.nodes.junction = new THREE.Vector3(AXIS_X, hallFloorY, hallZ);
     this.nodes.lowerPassage = new THREE.Vector3(lowerX, hallFloorY, hallSouthZ + 3.0);
-    this.nodes.lowerMid = new THREE.Vector3(lowerX, lerp(hallFloorY, descEndY - 1.05, 0.55), lerp(hallSouthZ, descEndZ, 0.55));
+    this.nodes.lowerUpper = new THREE.Vector3(lowerX, lerp(hallFloorY, descEndY - 1.05, 0.22), lerp(hallSouthZ, descEndZ, 0.22));
+    this.nodes.lowerMid = new THREE.Vector3(lowerX, lerp(hallFloorY, descEndY - 1.05, 0.6), lerp(hallSouthZ, descEndZ, 0.6));
     this.viewpoints.junction = { position: this.nodes.junction.clone(), yaw: Math.PI };
     this.torchSites.push({ x: AXIS_X - hallW / 2 + 0.5, y: hallFloorY + 1.9, z: hallZ, scale: 0.8 });
 
@@ -63470,28 +63482,99 @@ class InteriorSystem {
     this.torchSites.push({ x: lowerX + sub.w / 2 - 1.2, y: lowerEndY + 0.6, z: subCenterZ + 1.5, scale: 0.85 });
 
     // -------------------------------------------------- ascending passage
+    const gg = K.grandGallery;
     const ascLen = K.ascendingLength;
     const ascEndY = junctionY + ascLen * Math.sin(SLOPE);
     const ascEndZ = junctionZ + ascLen * Math.cos(SLOPE);
     const ascStartY = hallFloorY + 1.05;
-    buildPassage(lime, colliders, ascStartY, hallSouthZ, ascEndY, ascEndZ, PW, PH);
+    // Stops at the north wall of the hall at its head; the last four metres of
+    // the surveyed run are that room.
+    const ascStopZ = ascEndZ - 4.2;
+    const ascStopY = ascEndY - 4.2 * Math.tan(SLOPE);
+    buildPassage(lime, colliders, ascStartY, hallSouthZ, ascStopY, ascStopZ, PW, PH);
+    this._lineTorches(ascStartY, hallSouthZ, ascStopY, ascStopZ, 8);
     this.nodes.ascending = new THREE.Vector3(AXIS_X, junctionY + 8, junctionZ + 16);
     // The granite plugs that sealed this passage, shown where they were let
     // down: al-Ma'mun's men tunnelled in precisely to get around them.
     granite.push(box(PW * 0.96, PH * 0.92, 3.4, AXIS_X, junctionY + 0.7, junctionZ - 1.4));
 
+    /**
+     * The head of the Ascending Passage is the second knot: the Grand Gallery
+     * and the horizontal passage to the Queen's Chamber both begin here, at
+     * the same floor height, in a corridor a metre wide.  Whichever the
+     * collision world's step-up reached first won, and the Queen's Chamber
+     * could not be reached on foot at all.
+     *
+     * Same answer as the junction below: make the meeting a room.  The way to
+     * the Queen's Chamber leaves the south wall on the west side at floor
+     * level; the gallery's foot is two metres up, reached by a flight against
+     * the east side.  The gallery itself does not move, because the King's
+     * Chamber is surveyed from it.
+     */
+    const topRun = 4.2;
+    const topFloorY = ascEndY - topRun * Math.tan(SLOPE);
+    const topHallZ = ascEndZ - topRun / 2;
+    const topNorthZ = ascEndZ - topRun;
+    const topHallCx = AXIS_X + 0.4;
+    const qcX = AXIS_X + 1.9;
+
+    buildRoom(
+      dressed, colliders, topHallCx, topFloorY, topHallZ, 7.2, topRun, 3.4,
+      [
+        { wall: 'n', offset: AXIS_X - topHallCx, width: PW, height: PH + 0.6, sill: 0 },
+        { wall: 's', offset: qcX - topHallCx, width: PW, height: PH + 0.6, sill: 0 },
+        { wall: 's', offset: AXIS_X - topHallCx, width: gg.bottomWidth + 0.3, height: 2.6, sill: ascEndY - topFloorY },
+      ],
+      { uvUnit: 1.8 }
+    );
+    // The flight up into the gallery, against the east side so the way west to
+    // the Queen's Chamber stays clear.  Four treads inside the 0.55 m limit.
+    for (let i = 0; i < 4; i++) {
+      const top = topFloorY + ((ascEndY - topFloorY) / 4) * (i + 1);
+      dressed.push(box(1.5, 0.53, topRun - 0.5 - i * 0.8, AXIS_X - 0.95, top - 0.265, topHallZ + 0.25 + i * 0.4));
+      colliders.push({
+        minX: AXIS_X - 1.7, maxX: AXIS_X - 0.2,
+        minY: top - 0.7, maxY: top,
+        minZ: topNorthZ + 0.4 + i * 0.8, maxZ: ascEndZ,
+        tag: 'gallery-step',
+      });
+    }
+    // Bedrock under this knot too, stopping dead at the hall's north wall: the
+    // Ascending Passage climbs to meet it there, and a slab carried any
+    // further north would sit above that floor and wall the passage off.
+    // Two slabs rather than one: west of the Ascending Passage the rock can run
+    // north past the hall, but under the passage itself it must stop at the
+    // hall's wall, or it would sit above the climbing floor and wall it off.
+    colliders.push({
+      minX: AXIS_X - 2.2, maxX: topHallCx + 5.0,
+      minY: topFloorY - 2.4, maxY: topFloorY - 0.02,
+      minZ: topNorthZ, maxZ: ascEndZ + 1.5, tag: 'bedrock',
+    });
+    // West of the Ascending Passage and the gallery there is nothing but rock,
+    // and nothing should ever stand there - but a seam between two shells is
+    // easy to miss and the consequence underground is a fall with no bottom.
+    // One slab covers the whole band. It clears the lower Descending Passage,
+    // which runs thirty metres below it and a little further east.
+    colliders.push({
+      minX: AXIS_X - 10, maxX: AXIS_X - 2.2,
+      minY: topFloorY - 2.4, maxY: topFloorY - 0.02,
+      minZ: topNorthZ - 6, maxZ: ascEndZ + 14, tag: 'bedrock',
+    });
+    this.nodes.topHall = new THREE.Vector3(topHallCx, topFloorY, topHallZ);
+    this.viewpoints.topHall = { position: this.nodes.topHall.clone(), yaw: Math.PI };
+    this.torchSites.push({ x: topHallCx + 2.6, y: topFloorY + 2.0, z: topHallZ, scale: 0.8 });
+
     // ------------------------------------------------------ queen's chamber
     const qc = K.queensChamber;
-    const horizY = ascEndY;
     const qcNorthWallZ = -qc.d / 2;
-    buildPassage(lime, colliders, horizY, ascEndZ, horizY, qcNorthWallZ - 5.6, PW, PH);
-    // The last stretch steps down to the chamber floor.
-    buildPassage(lime, colliders, horizY, qcNorthWallZ - 5.6, qc.floorY, qcNorthWallZ - 4.6, PW, PH + 0.6);
-    buildPassage(lime, colliders, qc.floorY, qcNorthWallZ - 4.6, qc.floorY, qcNorthWallZ, PW, PH + 0.6);
+    // Up out of the hall, then level all the way to the chamber.
+    buildPassage(lime, colliders, topFloorY, ascEndZ, qc.floorY, ascEndZ + 6.0, PW, PH + 0.6, { x: qcX });
+    buildPassage(lime, colliders, qc.floorY, ascEndZ + 6.0, qc.floorY, qcNorthWallZ, PW, PH + 0.6, { x: qcX });
+    this._lineTorches(qc.floorY, ascEndZ + 6.0, qc.floorY, qcNorthWallZ, 9, qcX);
 
     buildRoom(
       dressed, colliders, AXIS_X, qc.floorY, 0, qc.w, qc.d, qc.wallH,
-      [{ wall: 'n', offset: 0, width: PW, height: PH + 0.6, sill: 0 }],
+      [{ wall: 'n', offset: qcX - AXIS_X, width: PW, height: PH + 0.6, sill: 0 }],
       { ceiling: false, uvUnit: 1.6 }
     );
     const gable = gableRoof(qc.w + WALL * 2, qc.d + WALL * 2, qc.apexH - qc.wallH, 0.9);
@@ -63508,7 +63591,7 @@ class InteriorSystem {
       const inset = i * 0.26;
       dressed.push(box(0.5, 0.62, 1.55 - inset * 2, AXIS_X + qc.w / 2 - 0.25, qc.floorY + 0.31 + i * 0.62, 0.9));
     }
-    this.nodes.horizontal = new THREE.Vector3(AXIS_X, horizY, ascEndZ + 12);
+    this.nodes.horizontal = new THREE.Vector3(qcX, qc.floorY, ascEndZ + 12);
     this.nodes.queensChamber = new THREE.Vector3(AXIS_X, qc.floorY, 0);
     this.viewpoints.queensChamber = {
       position: new THREE.Vector3(AXIS_X - 1.2, qc.floorY, -1.4),
@@ -63522,7 +63605,6 @@ class InteriorSystem {
     this._addShaft(lime, AXIS_X, qc.floorY + 2.3, qc.d / 2, 1, 39, 8.6);
 
     // ------------------------------------------------------ grand gallery
-    const gg = K.grandGallery;
     const ggStartY = ascEndY;
     const ggStartZ = ascEndZ;
     const ggEndY = ggStartY + gg.length * Math.sin(SLOPE);
@@ -63625,7 +63707,6 @@ class InteriorSystem {
     // Torches every 9 m along the main descending and ascending runs.
     this._lineTorches(entryY, entryZ + 3, descEndY, descEndZ, 9);
     this._lineTorches(junctionY, junctionZ, ascEndY, ascEndZ, 8);
-    this._lineTorches(horizY, ascEndZ, horizY, qcNorthWallZ - 6, 9);
     this._lineTorches(ggStartY, ggStartZ, ggEndY, ggEndZ, 7);
 
     // Daylight spilling in at the two entrances.
@@ -63715,7 +63796,7 @@ class InteriorSystem {
 
     // ---- Queen's Chamber: the niche, and the goods the ka would draw on ----
     if (qc) {
-      R.kaStatue(AXIS_X + K.queensChamber.w / 2 - 0.75, qc.y, qc.z + 0.9, -Math.PI * 0.5, {
+      R.kaStatue(AXIS_X + K.queensChamber.w / 2 - 0.75, qc.y, qc.z + 1.7, -Math.PI * 0.5, {
         site: 'khufu',
         scale: 0.62,
         id: 'relic-khufu-ka',
@@ -63725,8 +63806,8 @@ class InteriorSystem {
           'The usual reading is a serdab: a sealed cell holding a ka-statue, with a slot for the incense ' +
           'to reach it. What actually stood here, if anything, nobody knows.',
       });
-      R.offeringTable(AXIS_X - K.queensChamber.w / 2 + 1.1, qc.y, qc.z - 1.3, Math.PI * 0.5, { site: 'khufu' });
-      R.canopicChest(AXIS_X - K.queensChamber.w / 2 + 1.2, qc.y, qc.z + 1.2, Math.PI * 0.5, { site: 'khufu' });
+      R.offeringTable(AXIS_X - K.queensChamber.w / 2 + 1.2, qc.y, qc.z + 0.2, Math.PI * 0.5, { site: 'khufu' });
+      R.canopicChest(AXIS_X - K.queensChamber.w / 2 + 1.2, qc.y, qc.z + 1.9, Math.PI * 0.5, { site: 'khufu' });
       R.jarCluster(AXIS_X + 0.4, qc.y, qc.z + K.queensChamber.d / 2 - 0.6, Math.PI, 4, rng);
       R.modelBoat(AXIS_X - 0.6, qc.y, qc.z - K.queensChamber.d / 2 + 1.0, 0, { site: 'khufu' });
     }
@@ -63879,7 +63960,12 @@ class InteriorSystem {
         colliders.push({
           minX: side < 0 ? cx - gg.bottomWidth / 2 - 1.6 : cx + gg.bottomWidth / 2,
           maxX: side < 0 ? cx - gg.bottomWidth / 2 : cx + gg.bottomWidth / 2 + 1.6,
-          minY: Math.min(yA, yB) - 0.6, maxY: Math.max(yA, yB) + gg.height + 1.5,
+          // Only the west wall reaches down: the hall at the gallery's foot
+          // sits a metre below it and left open air underneath. The east wall
+          // must not, because the passage to the Queen's Chamber runs past it
+          // at that depth.
+          minY: Math.min(yA, yB) - (side < 0 ? 3.0 : 0.6),
+          maxY: Math.max(yA, yB) + gg.height + 1.5,
           minZ: Math.min(zA, zB), maxZ: Math.max(zA, zB), tag: 'gallery-wall',
         });
       }
@@ -72293,6 +72379,7 @@ window.__giza = {
     const holes = [];
     let nudge = 0;
     let nudgeSide = 1;
+    let nudges = 0;
     let best = Infinity;
     let lastSolid = start.clone();
     let lowest = Infinity;
@@ -72310,7 +72397,7 @@ window.__giza = {
         // person slides along the wall rather than grinding into it; without
         // that the route walker reports a passage blocked when it is merely
         // bent.
-        const bias = nudge > 0 ? (nudgeSide * Math.PI) / 3 : 0;
+        const bias = nudge > 0 ? (nudgeSide * Math.PI) / 4 : 0;
         walker.yaw = Math.atan2(-dx, -dz) + bias;
         if (nudge > 0) nudge -= 1;
         walker.update(dt, collision);
@@ -72350,10 +72437,14 @@ window.__giza = {
         if (distance < best - 0.05) {
           best = distance;
           sinceProgress = 0;
-        } else if (++sinceProgress % 90 === 0 && sinceProgress < 60 * 12) {
-          nudge = 45;
+        } else if (++sinceProgress % 75 === 0 && nudges < 90) {
+          // A person edges along a wall to get round a corner; they do not
+          // spin on the spot. Too much of this and the walker works its way
+          // into seams no player would ever find.
+          nudge = 30;
+          nudges += 1;
           nudgeSide = -nudgeSide;
-        } else if (sinceProgress > 60 * 12) {
+        } else if (sinceProgress > 60 * 30) {
           stuckAt = {
             heading: waypoints[index],
             distance: Number(distance.toFixed(2)),
@@ -72370,6 +72461,7 @@ window.__giza = {
           index += 1;
           best = Infinity;
           sinceProgress = 0;
+          nudges = 0;
         }
       }
     } finally {

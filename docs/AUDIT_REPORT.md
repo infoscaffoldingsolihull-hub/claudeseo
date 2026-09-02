@@ -119,6 +119,8 @@ is recorded because the class of bug is more interesting than the instance.
 | 40 | The Sphinx enclosure sealed the whole quarry | Collision | Same whole-mesh AABB: the bounding box of three walls is the enclosure, so the Sphinx, its temple and the valley temple were inside one solid block | Each wall registered separately |
 | 41 | Hieroglyphs were built and never used | Dead code | `materials.glyphs` was constructed in `interior.js` and referenced nowhere | A relic kit that actually applies them, in the places they are attested |
 | 42 | Menkaure's burial passage cut through the main chamber | Geometry | The descent started inside the room rather than at its wall, and the room had no opening for it | Passages start at the wall face, and the room carries a doorway for each |
+| 53 | The Queen's Chamber could not be reached on foot | Topology | The Grand Gallery and the horizontal passage to it begin at the same floor height in a corridor a metre wide, so the step-up picked the branch | A room at the head of the Ascending Passage: the way to the Queen's Chamber leaves the south wall at floor level, the gallery's foot is two metres up a flight against the west side |
+| 54 | Seams between shells dropped the player into rock | Collision | Three passages and a room meeting in one place leave corners no shell covers, and under a tomb there is nothing to land on | Bedrock under both junction rooms, and the gallery's west wall carried down to meet the floor at its foot |
 | 44 | **The player fell out of the world on entering a tomb** | Collision | A 1.72 m player spawned in a 1.20 m passage; the X pass saw the ceiling slab overlapping their head, treated it as a wall and ejected them sideways out of the corridor — and an interior has no terrain, so the fall never ended | The horizontal passes ignore a box the player already overlapped on that axis, and any box whose underside is above the ground they stand on: a ceiling is not a wall |
 | 45 | Sloping passages were impassable half way down | Collision | The ceiling is approximated as a staircase whose treads drop 0.45 m, while a crouched player has 0.15 m of headroom, so the ceiling's riser always blocked before the floor let them descend | Same rule as above: the Y pass pushes the head down instead of stopping the body |
 | 46 | Stacked passages filled each other in | Collision | Floor slabs were 3 m thick and ceiling slabs 2 m; the Ascending Passage's floor filled the Descending Passage below it, and the Descending Passage's west wall — one slab spanning the whole run — swallowed al-Ma'mun's tunnel entirely | Thin slabs, and side walls stepped with the slope instead of one block per run |
@@ -144,8 +146,9 @@ entrances      : 5      ground profile walked; worst riser 0.42 m against a 0.72
                          step height, every one leads inside and back out again
 temples        : 6      gate axis walked at head height; every gate clear
 relics         : 29     discoverable, across three tombs and the temples
-tomb routes    : 6      walked end to end under the real physics, from the entrance to
-                        the burial chamber, with no fall and nothing impassable
+tomb routes    : 6      asserted end to end under the real physics, from the entrance
+                        to the burial chamber, with nothing impassable
+               : 2      navigation-limited (see below); zero falls on any of the eight
 touch controls : stick axes, four action buttons, hold / tap / latch semantics
 walker checks  : 8 exterior points, drift 0.00 m at every one
 project run    : full 7 241-day simulation to completion
@@ -188,6 +191,7 @@ realistic overrun that leaves the player something to improve on.
 | SSAO fades beyond 240 m | Depth precision, not a design choice. Distant block work loses its contact shadows; nothing is incorrect, and the alternative is horizon speckle. |
 | Monte Carlo still on the main thread | Now chunked across frames, so it no longer stalls the renderer, but it competes with it. A Web Worker would be cleaner. |
 | Saves are browser-local | `localStorage` is per-origin and per-device. Export/import as text covers moving a session between machines, but there is no server and never will be. |
+| The Subterranean Chamber is not verified walkable | The route walker holds one direction and edges along walls when it stalls, which carries a corridor but cannot choose between two ways on at a junction. It reaches the hall and the head of the lower passage and then loses the lane. The chamber is reachable from the Codex, and the geometry has no hole in it — the route comes back with zero falls — but "a player can walk there" is unproven, and it is listed here rather than quietly asserted. |
 | Queen's pyramid G1-b overlaps Khufu's mortuary temple | A pre-existing overlap in the plateau layout data, surfaced once the temples became walkable: the gate and court are open, but a corner of G1-b intrudes about 5 m in. Untangling it means moving the queens' row, the causeway and the temple together, which is a layout change rather than a fix. The harness reports it on every run so it cannot be forgotten. |
 | Causeway embankments block on their long sides | They are raised roads 3 m high with parapets, so they are walked along, not across. Correct behaviour, but worth knowing when crossing the plateau on foot. |
 | Model idealisations | Six, all enumerated in `docs/PROJECT_MANAGEMENT.md` §12. |

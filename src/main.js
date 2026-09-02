@@ -652,6 +652,7 @@ window.__giza = {
     const holes = [];
     let nudge = 0;
     let nudgeSide = 1;
+    let nudges = 0;
     let best = Infinity;
     let lastSolid = start.clone();
     let lowest = Infinity;
@@ -669,7 +670,7 @@ window.__giza = {
         // person slides along the wall rather than grinding into it; without
         // that the route walker reports a passage blocked when it is merely
         // bent.
-        const bias = nudge > 0 ? (nudgeSide * Math.PI) / 3 : 0;
+        const bias = nudge > 0 ? (nudgeSide * Math.PI) / 4 : 0;
         walker.yaw = Math.atan2(-dx, -dz) + bias;
         if (nudge > 0) nudge -= 1;
         walker.update(dt, collision);
@@ -709,10 +710,14 @@ window.__giza = {
         if (distance < best - 0.05) {
           best = distance;
           sinceProgress = 0;
-        } else if (++sinceProgress % 90 === 0 && sinceProgress < 60 * 12) {
-          nudge = 45;
+        } else if (++sinceProgress % 75 === 0 && nudges < 90) {
+          // A person edges along a wall to get round a corner; they do not
+          // spin on the spot. Too much of this and the walker works its way
+          // into seams no player would ever find.
+          nudge = 30;
+          nudges += 1;
           nudgeSide = -nudgeSide;
-        } else if (sinceProgress > 60 * 12) {
+        } else if (sinceProgress > 60 * 30) {
           stuckAt = {
             heading: waypoints[index],
             distance: Number(distance.toFixed(2)),
@@ -729,6 +734,7 @@ window.__giza = {
           index += 1;
           best = Infinity;
           sinceProgress = 0;
+          nudges = 0;
         }
       }
     } finally {
