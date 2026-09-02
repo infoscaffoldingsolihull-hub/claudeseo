@@ -433,8 +433,8 @@ export class TextureFactory {
     const canvas = paint(size, (u, v, x, y) => {
       const brush = n1.fbm(u * 4, v * 220, 3);
       const patina = n2.fbm(u * 7, v * 7, 4);
-      let c = mix(hexRGB(0x6e4f2a), hexRGB(0xb18a4d), brush * 0.5 + patina * 0.5);
-      c = shade(c, 0.9 + brush * 0.2);
+      let c = mix(hexRGB(0xa8813f), hexRGB(0xe0bb78), brush * 0.5 + patina * 0.5);
+      c = shade(c, 0.92 + brush * 0.18);
       h[y * size + x] = brush;
       return c;
     });

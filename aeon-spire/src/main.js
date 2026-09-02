@@ -10,6 +10,9 @@ import * as THREE from 'three';
 import { Engine } from './core/Engine.js';
 import { MaterialLibrary, globalUniforms } from './core/Materials.js';
 import { Sky } from './scene/Sky.js';
+import { EnvironmentProbe } from './scene/Environment.js';
+import { SceneManager } from './scene/SceneManager.js';
+import { START_VIEW, ZONE_PRESETS } from './world/SitePlan.js';
 import { clamp } from './core/MathUtil.js';
 
 const BOOT = window.AEON_BOOT || { progress() {}, done() {}, fail() {} };
@@ -39,8 +42,15 @@ class AeonSpire {
     const stars = this.materials.tex.get('starfield').map;
     this.sky = new Sky(this.scene, stars);
 
+    BOOT.progress(0.30, 'Filtering the environment…');
+    this.envProbe = new EnvironmentProbe(this.renderer);
+    this.refreshEnvironment();
+
     BOOT.progress(0.34, 'Laying the ground…');
-    this.buildGround();
+    this.world = new SceneManager(this.scene, this.materials, {
+      tier: this.engine.tier,
+      onProgress: (f, m) => BOOT.progress(f, m)
+    }).build();
 
     // Provisional lighting; the full time-of-day rig replaces this in Phase 5.
     this.hemi = new THREE.HemisphereLight(0xbcd4e8, 0x4a4336, 1.1);
@@ -50,8 +60,8 @@ class AeonSpire {
     this.scene.add(this.sun);
     this.scene.fog = new THREE.Fog(0xbcd4e8, 420, 3400);
 
-    this.camera.position.set(280, 120, 340);
-    this.camera.lookAt(0, 160, 0);
+    this.camera.position.set(START_VIEW.position[0], START_VIEW.position[1], START_VIEW.position[2]);
+    this.camera.lookAt(START_VIEW.look[0], START_VIEW.look[1], START_VIEW.look[2]);
 
     this.engine.onUpdate((dt, t) => this.update(dt, t));
     this.engine.start(this.scene);
@@ -62,23 +72,35 @@ class AeonSpire {
     return this;
   }
 
-  buildGround() {
-    const mat = this.materials.surface('groundPlaza', 'paving', {
-      repeat: 160, roughness: 0.72, exterior: true
-    });
-    const geo = new THREE.PlaneGeometry(6000, 6000, 1, 1);
-    const ground = new THREE.Mesh(geo, mat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.02;
-    ground.receiveShadow = true;
-    ground.name = 'GroundPlane';
-    this.scene.add(ground);
-    this.ground = ground;
+  /**
+   * Repaint and re-filter the environment map from the current sky, then
+   * push it onto every material. Called on boot and whenever the time of
+   * day changes.
+   */
+  refreshEnvironment() {
+    const u = this.sky.uniforms;
+    const preset = {
+      zenith: u.uZenith.value, horizon: u.uHorizon.value, ground: u.uGround.value,
+      sunColor: u.uSunColor.value, sunDiscIntensity: u.uSunIntensity.value
+    };
+    const env = this.envProbe.update(preset, u.uSunDir.value);
+    this.scene.environment = env;
+    this.scene.environmentIntensity = 1.0;
+    if (this.materials) this.materials.setEnvMap(null);   // let scene.environment drive it
+    return env;
+  }
+
+  /** Automation hook used by the screenshot and QA tools. */
+  setCamera(pos, look) {
+    this.camera.position.set(pos[0], pos[1], pos[2]);
+    this.camera.lookAt(look[0], look[1], look[2]);
+    this.camera.updateMatrixWorld(true);
   }
 
   update(dt, t) {
     globalUniforms.uTime.value = t;
     this.sky.update(dt, this.camera, globalUniforms.uWind.value);
+    this.world.update(dt, t, this.camera.position);
   }
 }
 

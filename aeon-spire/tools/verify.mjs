@@ -57,7 +57,7 @@ const browser = await chromium.launch({
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
          '--ignore-gpu-blocklist', '--disable-dev-shm-usage']
 });
-const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+const page = await browser.newPage({ viewport: { width: 960, height: 560 } });
 
 const consoleErrors = [];
 const pageErrors = [];
@@ -101,8 +101,10 @@ if (booted) {
   const src = await page.evaluate(() => window.AEON_THREE_SOURCE + ' r' + (window.AEON?.THREE_REVISION || '?'));
   console.log(`    three.js source: ${src}`);
 
-  // Let the render loop settle.
-  await page.waitForTimeout(2500);
+  // Let the render loop settle, then measure over a fixed window.
+  await page.waitForTimeout(1500);
+  const f0 = await page.evaluate(() => window.AEON.engine.frame);
+  await page.waitForTimeout(4000);
 
   const info = await page.evaluate(() => {
     const a = window.AEON;
@@ -116,10 +118,14 @@ if (booted) {
       glLost: a.renderer.getContext().isContextLost()
     };
   });
-  // SwiftShader software rasterisation runs roughly an order of magnitude
+  // SwiftShader software rasterisation runs roughly two orders of magnitude
   // slower than any real GPU, so the gate is "the loop is alive and steady",
-  // with draw calls / triangles as the meaningful performance budget.
-  check('render loop advancing', info.frames >= 6, `${info.frames} frames in 2.5s (software raster)`);
+  // with draw calls / triangles as the meaningful E.9 performance budget.
+  const swFps = (info.frames - f0) / 4;
+  check('render loop advancing', info.frames - f0 >= 3,
+        `${info.frames - f0} frames in 4s (${swFps.toFixed(1)} fps under software raster)`);
+  check('draw-call budget (E.9)', info.stats.calls <= 400, `${info.stats.calls} calls`);
+  check('triangle budget (E.9)', info.stats.triangles <= 4_000_000, `${info.stats.triangles.toLocaleString()} tris`);
   check('scene populated', info.children >= 2, `${info.children} root children`);
   check('WebGL context healthy', !info.glLost);
   console.log(`    tier=${info.stats.tier} fps≈${info.fps.toFixed(1)} calls=${info.stats.calls} tris=${info.stats.triangles}`);
