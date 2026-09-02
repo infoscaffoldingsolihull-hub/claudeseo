@@ -1,0 +1,13 @@
+{
+  "name": "aeon-spire",
+  "version": "1.0.0",
+  "description": "AEON SPIRE, City of Wonders — a browser-playable 3D architectural marvel and construction-management simulation built with Three.js.",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "serve": "node tools/serve.mjs",
+    "build": "node tools/build.mjs",
+    "verify": "node tools/verify.mjs"
+  }
+}
