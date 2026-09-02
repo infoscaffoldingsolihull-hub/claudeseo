@@ -81,6 +81,10 @@ export class TombBuilder {
    */
   passage(bucket, lx, y0, z0, y1, z1, width, height, opts = {}) {
     const thickness = opts.thickness || this.wall;
+    // Thin slabs: see the note in interior.js. Stacked passages otherwise
+    // fill each other's corridors.
+    const floorSlab = opts.floorSlab || 0.9;
+    const ceilingSlab = opts.ceilingSlab || 0.6;
     const dz = z1 - z0;
     const dy = y1 - y0;
     const len = Math.hypot(dz, dy);
@@ -106,25 +110,31 @@ export class TombBuilder {
       const yCeil = Math.max(yA, yB) + height;
       this.colliders.push({
         minX: cx - width / 2, maxX: cx + width / 2,
-        minY: yFloor - 3.0, maxY: yFloor,
+        minY: yFloor - floorSlab, maxY: yFloor,
         minZ: Math.min(zA, zB), maxZ: Math.max(zA, zB), tag: 'passage-floor',
       });
       this.colliders.push({
         minX: cx - width / 2, maxX: cx + width / 2,
-        minY: yCeil, maxY: yCeil + 2.0,
+        minY: yCeil, maxY: yCeil + ceilingSlab,
         minZ: Math.min(zA, zB), maxZ: Math.max(zA, zB), tag: 'passage-ceiling',
       });
     }
-    const yLo = this.oy + Math.min(y0, y1) - 1;
-    const yHi = this.oy + Math.max(y0, y1) + height + 1;
-    for (const side of [-1, 1]) {
-      this.colliders.push({
-        minX: side < 0 ? cx - width / 2 - thickness : cx + width / 2,
-        maxX: side < 0 ? cx - width / 2 : cx + width / 2 + thickness,
-        minY: yLo, maxY: yHi,
-        minZ: this.oz + Math.min(z0, z1), maxZ: this.oz + Math.max(z0, z1),
-        tag: 'passage-wall',
-      });
+    // Stepped side walls: see the note in interior.js.
+    for (let i = 0; i < steps; i++) {
+      const zA = this.oz + z0 + dz * (i / steps);
+      const zB = this.oz + z0 + dz * ((i + 1) / steps);
+      const yA = this.oy + y0 + dy * (i / steps);
+      const yB = this.oy + y0 + dy * ((i + 1) / steps);
+      for (const side of [-1, 1]) {
+        this.colliders.push({
+          minX: side < 0 ? cx - width / 2 - thickness : cx + width / 2,
+          maxX: side < 0 ? cx - width / 2 : cx + width / 2 + thickness,
+          minY: Math.min(yA, yB) - 0.4,
+          maxY: Math.max(yA, yB) + height + 0.4,
+          minZ: Math.min(zA, zB), maxZ: Math.max(zA, zB),
+          tag: 'passage-wall',
+        });
+      }
     }
     return this;
   }
@@ -259,8 +269,8 @@ export function buildKhafre(ctx) {
   const entryY = K.upperEntrance.y;
   const entryZ = b.faceZ(entryY);
   b.passage('granite', axis, entryY, entryZ - 2.6, entryY, entryZ + 1.8, PW, PH);
-  b.node('entrance', axis, entryY, entryZ + 2.4);
-  b.viewpoint('entrance', axis, entryY, entryZ + 2.4, Math.PI);
+  b.node('entrance', axis, entryY, entryZ - 0.9);
+  b.viewpoint('entrance', axis, entryY, entryZ - 0.9, Math.PI);
 
   // ---- descending passage down to the horizontal run ----
   const horizY = K.horizontalY;
@@ -364,28 +374,33 @@ export function buildKhafre(ctx) {
   const lowDescEndZ = lowZ + 1.4 + lowDescLen * Math.cos(slope);
   b.passage('rough', axis, lowY, lowZ - 1.6, lowY, lowZ + 1.4, PW, PH);
   b.passage('rough', axis, lowY, lowZ + 1.4, lowFloorY, lowDescEndZ, PW, PH);
-  b.node('lowerEntrance', axis, lowY, lowZ + 2.0);
-  b.viewpoint('lowerEntrance', axis, lowY, lowZ + 2.0, Math.PI);
+  b.node('lowerEntrance', axis, lowY, lowZ - 0.6);
+  b.viewpoint('lowerEntrance', axis, lowY, lowZ - 0.6, Math.PI);
 
   // Horizontal run south, past the subsidiary chamber, then up to the main passage.
   const sub = K.subsidiaryChamber;
   const subCenterZ = lowDescEndZ + 12;
-  b.passage('rough', axis, lowFloorY, lowDescEndZ, lowFloorY, subCenterZ + sub.d / 2 + 6, PW, PH);
-  b.room('rough', axis - sub.w / 2 - PW / 2 - 0.6, lowFloorY, subCenterZ, sub.w, sub.d, sub.h,
-    [{ wall: 'e', offset: 0, width: PW, height: PH, sill: 0 }], { uvUnit: 2.2 });
-  b.passage('rough', axis, lowFloorY, subCenterZ - PW / 2, lowFloorY, subCenterZ + PW / 2, PW, PH);
-  b.node('subsidiary', axis - sub.w / 2 - 1.2, lowFloorY, subCenterZ);
-  b.viewpoint('subsidiary', axis - sub.w / 2 - PW / 2 - 0.6 + sub.w / 2 - 1.4, lowFloorY, subCenterZ, Math.PI * 0.5);
-  b.torch(axis - sub.w - 1.0, lowFloorY + 1.7, subCenterZ - 1.0, 0.75);
-  b.torch(axis - 2.0, lowFloorY + 1.7, subCenterZ + 1.0, 0.75);
-  b.lineTorches(axis, lowFloorY, lowDescEndZ, lowFloorY, subCenterZ + sub.d / 2 + 6, 9);
+  // The passage runs through the chamber rather than past it. It used to sit
+  // to one side with its doorway in a wall the passage never reached, so there
+  // was no way into it at all.
+  b.passage('rough', axis, lowFloorY, lowDescEndZ, lowFloorY, subCenterZ - sub.d / 2, PW, PH);
+  b.room('rough', axis, lowFloorY, subCenterZ, sub.w, sub.d, sub.h, [
+    { wall: 'n', offset: 0, width: PW, height: PH, sill: 0 },
+    { wall: 's', offset: 0, width: PW, height: PH, sill: 0 },
+  ], { uvUnit: 2.2 });
+  b.passage('rough', axis, lowFloorY, subCenterZ + sub.d / 2, lowFloorY, subCenterZ + sub.d / 2 + 6, PW, PH);
+  b.node('subsidiary', axis, lowFloorY, subCenterZ);
+  b.viewpoint('subsidiary', axis + sub.w / 2 - 1.6, lowFloorY, subCenterZ, Math.PI * 0.5);
+  b.torch(axis - sub.w / 2 + 0.8, lowFloorY + 1.7, subCenterZ - 1.0, 0.75);
+  b.torch(axis + sub.w / 2 - 0.8, lowFloorY + 1.7, subCenterZ + 1.0, 0.75);
+  b.lineTorches(axis, lowFloorY, lowDescEndZ, lowFloorY, subCenterZ - sub.d / 2, 9);
 
   // The ascending link that joins the lower system to the main horizontal passage.
   const joinZ = subCenterZ + sub.d / 2 + 6;
   const riseLen = (horizY - lowFloorY) / Math.sin(slope);
   b.passage('rough', axis, lowFloorY, joinZ, horizY, joinZ + riseLen * Math.cos(slope), PW, PH);
 
-  relics.toolCache(b.ox + axis - sub.w / 2 - 1.6, b.oy + lowFloorY, b.oz + subCenterZ + 0.6, 0.3, {
+  relics.toolCache(b.ox + axis - sub.w / 2 + 1.6, b.oy + lowFloorY, b.oz + subCenterZ + 0.6, 0.3, {
     site: 'khafre',
     id: 'relic-khafre-tools',
   });
@@ -423,8 +438,8 @@ export function buildMenkaure(ctx) {
   const entryZ = b.faceZ(entryY);
   const pan = M.panelledChamber;
   b.passage('granite', axis, entryY, entryZ - 2.4, entryY, entryZ + 1.6, PW, PH);
-  b.node('entrance', axis, entryY, entryZ + 2.2);
-  b.viewpoint('entrance', axis, entryY, entryZ + 2.2, Math.PI);
+  b.node('entrance', axis, entryY, entryZ - 0.9);
+  b.viewpoint('entrance', axis, entryY, entryZ - 0.9, Math.PI);
 
   const descLen = (entryY - pan.floorY) / Math.sin(slope);
   const descEndZ = entryZ + 1.6 + descLen * Math.cos(slope);

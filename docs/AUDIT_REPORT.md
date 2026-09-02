@@ -65,6 +65,7 @@ Four further passes closed the gaps this audit had itself recorded as residual r
 | **10 — Persistence** | Session save/load, four slots, export/import; Monte Carlo chunked across frames | A taught session can be paused, moved to another machine and resumed on the same random stream |
 | **11 — Motion and feel** | Haul ropes, footfall and sledge dust, slope-limited walking, bird flocks, temple standards | The plateau reads as inhabited rather than dressed |
 | **12 — Touch and mobile** | Drawn virtual stick, per-mode action pad, pinch zoom, four responsive breakpoints | Fully playable on a phone; the dashboard is genuinely usable on a tablet |
+| **14 — Walkable in practice** | Collision resolution, tomb topology, ramp collision, the cemeteries and the site plan, synthesised audio | Every tomb walked end to end by the harness; the plateau carries its cemeteries; the game has a soundtrack |
 | **13 — Getting inside** | Approach stairs to every entrance, Khafre and Menkaure interiors, hieroglyphs and grave goods, walkable temples, plateau bird flocks | Five ways in, three tombs, six open temples, twenty-nine relics; every one of them asserted in the harness |
 
 ---
@@ -118,6 +119,15 @@ is recorded because the class of bug is more interesting than the instance.
 | 40 | The Sphinx enclosure sealed the whole quarry | Collision | Same whole-mesh AABB: the bounding box of three walls is the enclosure, so the Sphinx, its temple and the valley temple were inside one solid block | Each wall registered separately |
 | 41 | Hieroglyphs were built and never used | Dead code | `materials.glyphs` was constructed in `interior.js` and referenced nowhere | A relic kit that actually applies them, in the places they are attested |
 | 42 | Menkaure's burial passage cut through the main chamber | Geometry | The descent started inside the room rather than at its wall, and the room had no opening for it | Passages start at the wall face, and the room carries a doorway for each |
+| 44 | **The player fell out of the world on entering a tomb** | Collision | A 1.72 m player spawned in a 1.20 m passage; the X pass saw the ceiling slab overlapping their head, treated it as a wall and ejected them sideways out of the corridor — and an interior has no terrain, so the fall never ended | The horizontal passes ignore a box the player already overlapped on that axis, and any box whose underside is above the ground they stand on: a ceiling is not a wall |
+| 45 | Sloping passages were impassable half way down | Collision | The ceiling is approximated as a staircase whose treads drop 0.45 m, while a crouched player has 0.15 m of headroom, so the ceiling's riser always blocked before the floor let them descend | Same rule as above: the Y pass pushes the head down instead of stopping the body |
+| 46 | Stacked passages filled each other in | Collision | Floor slabs were 3 m thick and ceiling slabs 2 m; the Ascending Passage's floor filled the Descending Passage below it, and the Descending Passage's west wall — one slab spanning the whole run — swallowed al-Ma'mun's tunnel entirely | Thin slabs, and side walls stepped with the slope instead of one block per run |
+| 47 | The Subterranean Chamber was unreachable | Topology | The Descending and Ascending Passages share a floor height at their junction, so the step-up carried every visitor upward whatever they intended | The junction is built as a room: the way down leaves by the west side, the Ascending Passage's mouth is a metre up and reached by a ledge on the east |
+| 48 | The Great Step could not be climbed | Collision | 1.35 m from the gallery floor to the antechamber, against a 0.55 m step height | Three treads, and they start north of the antechamber's floor slab, which is what the player actually walked into |
+| 49 | Khafre's subsidiary chamber had no way in | Geometry | It sat beside the passage with its doorway in a wall the passage never reached | The passage runs through it |
+| 50 | **The construction ramp had no collision at all** | Wiring | `ramp.update()` was called with `null` for the collision world on every frame, so the whole embankment was scenery: you walked through it and it passed overhead | The ramp registers colliders, disables the previous set when it is rebuilt, and takes its collision with it when hidden |
+| 51 | Crouch appeared to do nothing | Input | `Ctrl`/`C` were momentary, and in a passage auto-crouch already had the player down, so the key changed nothing visible | `C` latches, `Ctrl` holds, and standing up now checks for headroom first |
+| 52 | A mastaba sealed a temple gate | Layout | The new Eastern Cemetery was laid on a grid that ignored what was already on the ground | Plots clashing with a temple, causeway, queen's pyramid or boat pit lose their plot |
 | 43 | New chambers were blown out and viewpoints stood in walls | Art direction | King's-Chamber fill intensities applied to 3 m rooms, and viewpoints placed against the nearest surface | Fill lights sized to the room; viewpoints stand at one end and look down the long axis |
 
 ---
@@ -134,6 +144,8 @@ entrances      : 5      ground profile walked; worst riser 0.42 m against a 0.72
                          step height, every one leads inside and back out again
 temples        : 6      gate axis walked at head height; every gate clear
 relics         : 29     discoverable, across three tombs and the temples
+tomb routes    : 6      walked end to end under the real physics, from the entrance to
+                        the burial chamber, with no fall and nothing impassable
 touch controls : stick axes, four action buttons, hold / tap / latch semantics
 walker checks  : 8 exterior points, drift 0.00 m at every one
 project run    : full 7 241-day simulation to completion

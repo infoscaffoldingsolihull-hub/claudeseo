@@ -26,10 +26,25 @@ export class CollisionWorld {
     return cx * 73856093 ^ cz * 19349663;
   }
 
+  /**
+   * Turn a registered solid on or off.
+   *
+   * Boxes are never removed - the broad-phase grid holds indices into a dense
+   * array - so anything that comes and goes (the construction ramp, which is
+   * rebuilt as the pyramid rises and can be hidden entirely) is disabled
+   * instead, and the query paths skip it.
+   */
+  setDisabled(indices, disabled) {
+    for (const i of indices) {
+      const b = this.boxes[i];
+      if (b) b.disabled = disabled;
+    }
+  }
+
   /** Register a solid. Bounds are world-space min/max. */
   addBox(minX, minY, minZ, maxX, maxY, maxZ, tag = '') {
     const index = this.boxes.length;
-    this.boxes.push({ minX, minY, minZ, maxX, maxY, maxZ, tag });
+    this.boxes.push({ minX, minY, minZ, maxX, maxY, maxZ, tag, disabled: false });
     const cx0 = Math.floor(minX / CELL);
     const cx1 = Math.floor(maxX / CELL);
     const cz0 = Math.floor(minZ / CELL);
@@ -90,6 +105,7 @@ export class CollisionWorld {
     const cands = this._candidates(x, z, x, z, this._scratch || (this._scratch = []));
     for (const i of cands) {
       const b = this.boxes[i];
+      if (b.disabled) continue;
       if (x < b.minX || x > b.maxX || z < b.minZ || z > b.maxZ) continue;
       if (b.maxY > best && b.maxY <= fromY + 0.001) best = b.maxY;
     }
@@ -101,6 +117,7 @@ export class CollisionWorld {
     const cands = this._candidates(x, z, x, z, this._scratch2 || (this._scratch2 = []));
     for (const i of cands) {
       const b = this.boxes[i];
+      if (b.disabled) continue;
       if (x >= b.minX && x <= b.maxX && y >= b.minY && y <= b.maxY && z >= b.minZ && z <= b.maxZ) return true;
     }
     return false;
@@ -117,6 +134,7 @@ export class CollisionWorld {
     out.length = 0;
     for (const i of cands) {
       const b = this.boxes[i];
+      if (b.disabled) continue;
       if (maxX <= b.minX || minX >= b.maxX) continue;
       if (maxZ <= b.minZ || minZ >= b.maxZ) continue;
       if (maxY <= b.minY || minY >= b.maxY) continue;
@@ -141,10 +159,33 @@ export class CollisionWorld {
     let hitWall = false;
     let hitCeiling = false;
 
+    // The X and Z passes resolve a box only if this step is what brought the
+    // player into its span on that axis.  A box they were already inside
+    // horizontally is not a wall they are walking into, and ejecting them from
+    // it sideways is arbitrary: for the ceiling slab of a 1.20 m passage - which
+    // overlaps a standing player's head - it throws them clean out of the
+    // corridor, and an interior has no terrain to land on, so they fall for
+    // ever.  Vertical overlap is resolved properly by the Y pass below.
+    const prevX = position.x;
+    const prevZ = position.z;
+    const prevFeet = position.y - height;
+
+    // An overhang is not a wall.  A box whose underside is above the ground
+    // the player is standing on cannot be walked into: either they fit under
+    // it, or they meet it with their head, and the Y pass below handles that
+    // by pushing them down rather than stopping them dead.  This matters most
+    // in the sloping passages, where the ceiling is approximated as a
+    // staircase: each tread drops 0.45 m while a crouched player has 0.15 m of
+    // headroom, so the ceiling's riser would always block them before the
+    // floor let them descend, and the tomb became impassable half way down.
+    const overhead = (b) => b.minY > prevFeet + 0.05;
+
     // ---- X ----
     position.x += delta.x;
     this._overlapping(position.x, position.y, position.z, radius, height, hits);
     for (const b of hits) {
+      if (overhead(b)) continue;
+      if (prevX + radius > b.minX && prevX - radius < b.maxX) continue;
       const feet = position.y - height;
       if (b.maxY - feet > 0 && b.maxY - feet <= this.stepHeight && b.maxY < position.y - 0.1) {
         position.y = b.maxY + height;   // step up onto a course
@@ -159,6 +200,8 @@ export class CollisionWorld {
     position.z += delta.z;
     this._overlapping(position.x, position.y, position.z, radius, height, hits);
     for (const b of hits) {
+      if (overhead(b)) continue;
+      if (prevZ + radius > b.minZ && prevZ - radius < b.maxZ) continue;
       const feet = position.y - height;
       if (b.maxY - feet > 0 && b.maxY - feet <= this.stepHeight && b.maxY < position.y - 0.1) {
         position.y = b.maxY + height;

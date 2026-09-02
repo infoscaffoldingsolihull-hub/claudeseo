@@ -39,7 +39,9 @@ never has to re-tier mid-demonstration.
 | `W` `A` `S` `D` | Move |
 | Mouse | Look (click the canvas first to capture the pointer) |
 | `Shift` | Sprint / boost |
-| `Ctrl` or `C` | Crouch |
+| `C` | Crouch — toggles, so you can stay down without holding a key |
+| `Ctrl` | Crouch — hold |
+| `K` | Sound on/off |
 | `Space` | Jump (walking) / ascend (drone) |
 | `Q` | Descend (drone) |
 | `Alt` | Slow, precise flight (drone) |
@@ -123,6 +125,12 @@ There are five ways in:
 | Pyramid of Khafre — Upper Entrance | north face, 11.5 m up |
 | Pyramid of Khafre — Lower Entrance | in the pavement, 30 m north of the face |
 | Pyramid of Menkaure | north face, 4 m up |
+
+**Sound.** Wind, footsteps that change with what you are standing on, torch crackle, kites
+overhead, the works in the distance, and the dead air of a sealed chamber. All of it is
+synthesised — there are no audio files — so it costs nothing to download. `K` or the ♪ button in
+the top bar turns it off; the setting is remembered. Browsers will not let a page make a sound
+before you have clicked or pressed a key, so the first noise arrives a moment after you start.
 
 **Inside.** Passages are 1.05 m wide and 1.20 m high; you crouch automatically and stand up again
 when the ceiling allows. The Great Pyramid gives you the Descending Passage to the Subterranean

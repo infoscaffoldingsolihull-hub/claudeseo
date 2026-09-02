@@ -8,6 +8,7 @@ import { SiteSystem } from './site.js';
 import { WorkerSystem } from './workers.js';
 import { InteriorSystem } from './interior.js';
 import { EntranceSystem } from './entrances.js';
+import { CemeterySystem } from './cemeteries.js';
 import {
   RockField, Vegetation, Footprints, ParticleField, TorchSystem, buildTorchPosts, DustPuffs, BirdFlock,
   Pennants,
@@ -42,6 +43,7 @@ export class World {
       ['Surveying the Giza plateau', () => this._buildTerrain()],
       ['Quarrying limestone and setting the courses', () => this._buildPyramids()],
       ['Carving Hor-em-akhet and the temples', () => this._buildMonuments()],
+      ['Laying out the cemeteries and the workmen’s galleries', () => this._buildCemeteries()],
       ['Opening the quarry, the harbour and the workers’ town', () => this._buildSite()],
       ['Scattering boulders, scrub and palms', () => this._buildProps()],
       ['Building the approaches to the entrances', () => this._buildEntrances()],
@@ -100,6 +102,10 @@ export class World {
 
   _buildMonuments() {
     this.monuments = new MonumentSystem(this.scene, this.textures, this.quality, this.collision);
+  }
+
+  _buildCemeteries() {
+    this.cemeteries = new CemeterySystem(this.scene, this.textures, this.quality, this.collision);
   }
 
   _buildSite() {
@@ -171,7 +177,10 @@ export class World {
 
   _buildTorches() {
     this.torches = new TorchSystem(this.scene, this.textures, this.quality, { capacity: 260 });
-    const sites = [...this.monuments.torchSites, ...this.site.torchSites, ...this.entrances.torchSites];
+    const sites = [
+      ...this.monuments.torchSites, ...this.site.torchSites,
+      ...this.entrances.torchSites, ...this.cemeteries.torchSites,
+    ];
     for (const t of sites) this.torches.add(t.x, t.y, t.z, { scale: t.scale, interior: false });
     const posts = buildTorchPosts(sites, this.site.materials.timber);
     if (posts) this.scene.add(posts);
@@ -188,6 +197,7 @@ export class World {
       this._poiCache = [
         ...POINTS_OF_INTEREST,
         ...(this.monuments ? this.monuments.relicPoints : []),
+        ...(this.cemeteries ? this.cemeteries.points : []),
         ...(this.interior ? this.interior.relicPoints : []),
       ];
     }

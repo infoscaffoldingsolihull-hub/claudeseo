@@ -88,6 +88,15 @@ export class HUD {
           el('span', { class: 'wide-only', text: 'Hemiunu' }),
         ]),
         el('button', { class: 'mode-btn', title: 'Renderer statistics (F)', onclick: () => this.toggleStats() }, [icon('stats', 15)]),
+        (this.soundButton = el('button', {
+          class: 'mode-btn',
+          title: 'Sound on/off (K)',
+          onclick: () => {
+            this.sim.audio.resume();
+            this.sim.audio.toggleMute();
+            this.refreshSound();
+          },
+        }, [el('span', { text: '♪' })])),
         el('button', { class: 'mode-btn', title: 'Help & controls (?)', onclick: () => this.toggleHelp() }, [icon('help', 15)]),
       ]),
       metrics,
@@ -315,6 +324,15 @@ export class HUD {
   }
 
   /* --------------------------------------------------------------- toggles */
+
+  /** Show whether sound is on: the button is the only indication there is. */
+  refreshSound() {
+    if (!this.soundButton) return;
+    const off = this.sim.audio.muted;
+    this.soundButton.classList.toggle('muted', off);
+    this.soundButton.title = off ? 'Sound is off (K)' : 'Sound is on (K)';
+    this.soundButton.firstChild.textContent = off ? '♪̸' : '♪';
+  }
 
   toggleStats(force) {
     const on = force === undefined ? !this.statsHud.classList.contains('show') : force;

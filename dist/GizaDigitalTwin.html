@@ -1192,6 +1192,10 @@ body.touch-mode .rail button .tip { display: none; }
   .touch-btn { width: 56px; height: 56px; }
 }
 
+/* The sound toggle in the top bar reads as off when it is off. */
+.mode-btn.muted { opacity: 0.45; }
+.mode-btn.muted span { text-decoration: line-through; }
+
 </style>
 </head>
 <body>
@@ -55572,6 +55576,7 @@ class FirstPersonController {
     this.grounded = false;
     this.crouching = false;
     this.forcedCrouch = false;
+    this.crouchLatch = false;
     this.height = 1.72;
     this.sensitivity = 0.0021;
     this.bobPhase = 0;
@@ -55625,16 +55630,24 @@ class FirstPersonController {
 
     const axes = this.input.axes();
     const sprint = this.input.isDown('ShiftLeft', 'ShiftRight');
-    const wantsCrouch = this.input.isDown('ControlLeft', 'ControlRight', 'KeyC');
+    // Ctrl holds a crouch; C toggles one. Ctrl alone is awkward to hold while
+    // walking, and a C that only works where the ceiling is already low reads
+    // as a broken key.
+    if (this.input.pressed('KeyC')) this.crouchLatch = !this.crouchLatch;
+    const wantsCrouch = this.crouchLatch || this.input.isDown('ControlLeft', 'ControlRight');
 
     // Auto-crouch: the pyramid's passages are 1.20 m high, so a standing
     // visitor simply cannot pass. Duck automatically when there is no headroom,
     // and stand up again the moment there is.
     const feet = this.position.y - this.height;
-    this.forcedCrouch =
-      !wantsCrouch && !!collision && collision.isSolid(this.position.x, feet + this.eyeHeight + 0.06, this.position.z);
+    const headroom =
+      !collision || !collision.isSolid(this.position.x, feet + this.eyeHeight + 0.06, this.position.z);
+    this.forcedCrouch = !wantsCrouch && !headroom;
     this.crouching = wantsCrouch || this.forcedCrouch;
-    const targetHeight = this.crouching ? this.crouchHeight : this.eyeHeight;
+    // Never stand up into a ceiling: raising the head into solid rock is what
+    // used to hand the collision resolver an overlap it could only escape
+    // sideways, out of the corridor and into the void.
+    const targetHeight = this.crouching || !headroom ? this.crouchHeight : this.eyeHeight;
     if (targetHeight !== this.height) {
       this.height = targetHeight;
       this.position.y = feet + this.height;
@@ -56818,6 +56831,366 @@ class TextureLibrary {
   }
 }
 
+/* ================= src/engine/audio.js ================= */
+/**
+ * The soundtrack of the plateau, synthesised.
+ *
+ * There are no audio files: the deliverable is a single HTML document, and a
+ * few minutes of ambience as base64 would be larger than the whole rest of the
+ * build.  Everything here is made from noise buffers and oscillators through
+ * the Web Audio graph, which costs a few kilobytes of code and no download at
+ * all.
+ *
+ * The mix is built as a handful of always-running beds whose gains are driven
+ * by the world state - wind outside, room tone inside, water near the harbour,
+ * the works when the site is busy - plus one-shot voices for footsteps, torch
+ * crackle and bird calls.  Browsers will not start an AudioContext until the
+ * user has interacted with the page, so nothing is created until `resume()` is
+ * called from a real gesture.
+ */
+
+const STORAGE_KEY = 'giza.audio';
+
+/** Two seconds of white noise, reused by every noise voice. */
+function noiseBuffer(ctx, seconds = 2) {
+  const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * seconds), ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  return buffer;
+}
+
+/**
+ * Brown-ish noise, which is what wind and rumble actually sound like: white
+ * noise integrated, so energy falls with frequency instead of being flat.
+ */
+function brownBuffer(ctx, seconds = 4) {
+  const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * seconds), ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < data.length; i++) {
+    const white = Math.random() * 2 - 1;
+    last = (last + 0.02 * white) / 1.02;
+    data[i] = last * 3.2;
+  }
+  return buffer;
+}
+
+class AudioEngine {
+  constructor() {
+    this.ctx = null;
+    this.ready = false;
+    this.muted = false;
+    this.volume = 0.7;
+    this.beds = {};
+    this._time = 0;
+    this._nextCrackle = 0;
+    this._nextBird = 4;
+    this._nextWork = 6;
+    this._restore();
+  }
+
+  _restore() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (typeof saved.volume === 'number') this.volume = Math.min(1, Math.max(0, saved.volume));
+      if (typeof saved.muted === 'boolean') this.muted = saved.muted;
+    } catch {
+      /* localStorage can throw on file:// - the defaults are fine */
+    }
+  }
+
+  _persist() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ volume: this.volume, muted: this.muted }));
+    } catch {
+      /* not important enough to care */
+    }
+  }
+
+  /**
+   * Build the graph.  Safe to call repeatedly; the first call that happens
+   * inside a user gesture is the one that sticks.
+   */
+  resume() {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return false;
+    if (!this.ctx) {
+      try {
+        this.ctx = new Ctx();
+      } catch {
+        return false;
+      }
+      this._build();
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    this.ready = this.ctx.state === 'running';
+    return this.ready;
+  }
+
+  _build() {
+    const ctx = this.ctx;
+    this.master = ctx.createGain();
+    this.master.gain.value = this.muted ? 0 : this.volume;
+    this.master.connect(ctx.destination);
+
+    // A short feedback delay stands in for the reflections of a stone chamber.
+    // Two taps is enough to hear a room; a convolver would need an impulse
+    // response, which is an asset file again.
+    this.reverbIn = ctx.createGain();
+    this.reverbIn.gain.value = 0;
+    const delay = ctx.createDelay(0.5);
+    delay.delayTime.value = 0.09;
+    const feedback = ctx.createGain();
+    feedback.gain.value = 0.42;
+    const damp = ctx.createBiquadFilter();
+    damp.type = 'lowpass';
+    damp.frequency.value = 1600;
+    this.reverbIn.connect(delay);
+    delay.connect(damp);
+    damp.connect(feedback);
+    feedback.connect(delay);
+    damp.connect(this.master);
+
+    this.noise = noiseBuffer(ctx);
+    this.brown = brownBuffer(ctx);
+
+    // ---- wind: brown noise through a slowly swept bandpass ----
+    this.beds.wind = this._bed(this.brown, { type: 'bandpass', freq: 420, q: 0.7 }, 0);
+    this.windFilter = this.beds.wind.filter;
+
+    // ---- the hiss of sand moving over sand, only outdoors ----
+    this.beds.sand = this._bed(this.noise, { type: 'highpass', freq: 2600, q: 0.5 }, 0);
+
+    // ---- room tone: the pressure of a sealed stone chamber ----
+    this.beds.room = this._bed(this.brown, { type: 'lowpass', freq: 180, q: 0.9 }, 0);
+
+    // ---- water at the harbour and the canal ----
+    this.beds.water = this._bed(this.noise, { type: 'bandpass', freq: 900, q: 0.8 }, 0);
+  }
+
+  /** One looping noise source through a filter into its own gain. */
+  _bed(buffer, filterSpec, gainValue) {
+    const ctx = this.ctx;
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = filterSpec.type;
+    filter.frequency.value = filterSpec.freq;
+    filter.Q.value = filterSpec.q;
+    const gain = ctx.createGain();
+    gain.gain.value = gainValue;
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.master);
+    source.start();
+    return { source, filter, gain };
+  }
+
+  setVolume(v) {
+    this.volume = Math.min(1, Math.max(0, v));
+    this.muted = false;
+    if (this.master) this.master.gain.setTargetAtTime(this.volume, this.ctx.currentTime, 0.05);
+    this._persist();
+    return this.volume;
+  }
+
+  toggleMute(force) {
+    this.muted = force === undefined ? !this.muted : !!force;
+    if (this.master) {
+      this.master.gain.setTargetAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime, 0.05);
+    }
+    this._persist();
+    return this.muted;
+  }
+
+  _ramp(param, value, time = 0.4) {
+    param.setTargetAtTime(value, this.ctx.currentTime, time);
+  }
+
+  /**
+   * Drive the mix from the world.
+   *
+   * `state` carries only what the mix needs: whether we are underground, how
+   * high the sun is, how hard the crews are working, and how far the listener
+   * is from the water.
+   */
+  update(dt, state) {
+    if (!this.ready || !this.ctx) return;
+    this._time += dt;
+    const inside = state.interior ? 1 : 0;
+    const day = state.day === undefined ? 1 : state.day;
+
+    // Wind gusts on two incommensurate cycles so the pattern never settles.
+    const gust = 0.5 + 0.3 * Math.sin(this._time * 0.13) + 0.2 * Math.sin(this._time * 0.37 + 1.1);
+    this._ramp(this.beds.wind.gain.gain, (1 - inside) * (0.05 + gust * 0.09), 0.8);
+    this._ramp(this.windFilter.frequency, 300 + gust * 380, 1.2);
+    this._ramp(this.beds.sand.gain.gain, (1 - inside) * gust * 0.012, 1.0);
+
+    // Underground: a low pressure bed, and the delay opens up into a room.
+    this._ramp(this.beds.room.gain.gain, inside * 0.16, 0.9);
+    this._ramp(this.reverbIn.gain, inside * 0.5, 0.9);
+
+    // Water carries a long way across flat ground at night.
+    const water = state.waterDistance === undefined ? 9999 : state.waterDistance;
+    const near = Math.max(0, 1 - water / 420);
+    this._ramp(this.beds.water.gain.gain, (1 - inside) * near * near * 0.06, 1.0);
+
+    // ---- one-shots ----
+    if (state.torchGlow > 0.02 && this._time > this._nextCrackle) {
+      this._nextCrackle = this._time + 0.12 + Math.random() * (inside ? 0.5 : 1.6);
+      this._crackle(Math.min(1, state.torchGlow) * (inside ? 0.9 : 0.5));
+    }
+    if (!inside && day > 0.25 && this._time > this._nextBird) {
+      this._nextBird = this._time + 9 + Math.random() * 22;
+      this._kite();
+    }
+    if (!inside && day > 0.2 && state.work > 0.05 && this._time > this._nextWork) {
+      this._nextWork = this._time + 1.4 + Math.random() * 4.5 / Math.max(0.15, state.work);
+      this._chisel(state.work);
+    }
+  }
+
+  /** A noise burst with a fast decay: the generic percussive voice. */
+  _burst({ gain = 0.2, freq = 1200, q = 1, type = 'bandpass', attack = 0.002, decay = 0.12, buffer = null, send = 0 }) {
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = buffer || this.noise;
+    src.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = type;
+    filter.frequency.value = freq;
+    filter.Q.value = q;
+    const amp = ctx.createGain();
+    const now = ctx.currentTime;
+    amp.gain.setValueAtTime(0, now);
+    amp.gain.linearRampToValueAtTime(gain, now + attack);
+    amp.gain.exponentialRampToValueAtTime(0.0001, now + attack + decay);
+    src.connect(filter);
+    filter.connect(amp);
+    amp.connect(this.master);
+    if (send > 0) {
+      const sendGain = ctx.createGain();
+      sendGain.gain.value = send;
+      amp.connect(sendGain);
+      sendGain.connect(this.reverbIn);
+    }
+    src.start(now);
+    src.stop(now + attack + decay + 0.05);
+  }
+
+  /**
+   * A footfall.  Sand is a soft, dark thud with no transient; stone is
+   * brighter and has a click on the front, which is most of what tells you
+   * which one you are walking on.
+   */
+  footstep(surface = 'sand', sprinting = false, interior = false) {
+    if (!this.ready) return;
+    const loud = sprinting ? 1.5 : 1;
+    if (surface === 'stone') {
+      this._burst({ gain: 0.05 * loud, freq: 2400, q: 0.8, decay: 0.05, send: interior ? 0.5 : 0.06 });
+      this._burst({ gain: 0.035 * loud, freq: 380, q: 1.2, decay: 0.13, send: interior ? 0.35 : 0.04 });
+    } else {
+      this._burst({ gain: 0.045 * loud, freq: 780, q: 0.6, type: 'lowpass', decay: 0.1 });
+    }
+  }
+
+  /** Resin spitting in a torch. */
+  _crackle(strength) {
+    this._burst({
+      gain: 0.012 + Math.random() * 0.03 * strength,
+      freq: 1400 + Math.random() * 2600,
+      q: 2.5,
+      decay: 0.03 + Math.random() * 0.05,
+      send: 0.35,
+    });
+  }
+
+  /** A black kite's descending whistle, the sound of every Egyptian sky. */
+  _kite() {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    const amp = ctx.createGain();
+    const now = ctx.currentTime;
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1750 + Math.random() * 350, now);
+    osc.frequency.exponentialRampToValueAtTime(760, now + 0.9);
+    amp.gain.setValueAtTime(0, now);
+    amp.gain.linearRampToValueAtTime(0.028, now + 0.08);
+    amp.gain.setTargetAtTime(0.0001, now + 0.35, 0.22);
+    // A little vibrato, or it sounds like a test tone.
+    const lfo = ctx.createOscillator();
+    const lfoGain = ctx.createGain();
+    lfo.frequency.value = 11;
+    lfoGain.gain.value = 42;
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+    osc.connect(amp);
+    amp.connect(this.master);
+    osc.start(now);
+    lfo.start(now);
+    osc.stop(now + 1.3);
+    lfo.stop(now + 1.3);
+  }
+
+  /** A copper chisel on limestone, somewhere out on the site. */
+  _chisel(work) {
+    const taps = 2 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < taps; i++) {
+      const when = i * (0.14 + Math.random() * 0.05);
+      setTimeout(() => {
+        if (!this.ready) return;
+        this._burst({
+          gain: 0.006 + 0.012 * work,
+          freq: 2600 + Math.random() * 1800,
+          q: 6,
+          decay: 0.05,
+        });
+      }, when * 1000);
+    }
+  }
+
+  /** Stepping through a doorway: a low boom with the room's tail on it. */
+  threshold(entering) {
+    if (!this.ready) return;
+    this._burst({
+      gain: 0.09,
+      freq: entering ? 150 : 220,
+      q: 1.4,
+      type: 'lowpass',
+      decay: 0.55,
+      buffer: this.brown,
+      send: entering ? 0.7 : 0.2,
+    });
+  }
+
+  /** Finding something: a short struck-stone note, not a UI beep. */
+  discovery() {
+    if (!this.ready) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    for (const [f, g, d] of [[523.25, 0.05, 0.9], [784, 0.03, 1.1]]) {
+      const osc = ctx.createOscillator();
+      const amp = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = f;
+      amp.gain.setValueAtTime(0, now);
+      amp.gain.linearRampToValueAtTime(g, now + 0.01);
+      amp.gain.exponentialRampToValueAtTime(0.0001, now + d);
+      osc.connect(amp);
+      amp.connect(this.master);
+      const send = ctx.createGain();
+      send.gain.value = 0.3;
+      amp.connect(send);
+      send.connect(this.reverbIn);
+      osc.start(now);
+      osc.stop(now + d + 0.05);
+    }
+  }
+}
+
 /* ================= src/world/collision.js ================= */
 /**
  * Axis-aligned collision world.
@@ -56847,10 +57220,25 @@ class CollisionWorld {
     return cx * 73856093 ^ cz * 19349663;
   }
 
+  /**
+   * Turn a registered solid on or off.
+   *
+   * Boxes are never removed - the broad-phase grid holds indices into a dense
+   * array - so anything that comes and goes (the construction ramp, which is
+   * rebuilt as the pyramid rises and can be hidden entirely) is disabled
+   * instead, and the query paths skip it.
+   */
+  setDisabled(indices, disabled) {
+    for (const i of indices) {
+      const b = this.boxes[i];
+      if (b) b.disabled = disabled;
+    }
+  }
+
   /** Register a solid. Bounds are world-space min/max. */
   addBox(minX, minY, minZ, maxX, maxY, maxZ, tag = '') {
     const index = this.boxes.length;
-    this.boxes.push({ minX, minY, minZ, maxX, maxY, maxZ, tag });
+    this.boxes.push({ minX, minY, minZ, maxX, maxY, maxZ, tag, disabled: false });
     const cx0 = Math.floor(minX / CELL);
     const cx1 = Math.floor(maxX / CELL);
     const cz0 = Math.floor(minZ / CELL);
@@ -56911,6 +57299,7 @@ class CollisionWorld {
     const cands = this._candidates(x, z, x, z, this._scratch || (this._scratch = []));
     for (const i of cands) {
       const b = this.boxes[i];
+      if (b.disabled) continue;
       if (x < b.minX || x > b.maxX || z < b.minZ || z > b.maxZ) continue;
       if (b.maxY > best && b.maxY <= fromY + 0.001) best = b.maxY;
     }
@@ -56922,6 +57311,7 @@ class CollisionWorld {
     const cands = this._candidates(x, z, x, z, this._scratch2 || (this._scratch2 = []));
     for (const i of cands) {
       const b = this.boxes[i];
+      if (b.disabled) continue;
       if (x >= b.minX && x <= b.maxX && y >= b.minY && y <= b.maxY && z >= b.minZ && z <= b.maxZ) return true;
     }
     return false;
@@ -56938,6 +57328,7 @@ class CollisionWorld {
     out.length = 0;
     for (const i of cands) {
       const b = this.boxes[i];
+      if (b.disabled) continue;
       if (maxX <= b.minX || minX >= b.maxX) continue;
       if (maxZ <= b.minZ || minZ >= b.maxZ) continue;
       if (maxY <= b.minY || minY >= b.maxY) continue;
@@ -56962,10 +57353,33 @@ class CollisionWorld {
     let hitWall = false;
     let hitCeiling = false;
 
+    // The X and Z passes resolve a box only if this step is what brought the
+    // player into its span on that axis.  A box they were already inside
+    // horizontally is not a wall they are walking into, and ejecting them from
+    // it sideways is arbitrary: for the ceiling slab of a 1.20 m passage - which
+    // overlaps a standing player's head - it throws them clean out of the
+    // corridor, and an interior has no terrain to land on, so they fall for
+    // ever.  Vertical overlap is resolved properly by the Y pass below.
+    const prevX = position.x;
+    const prevZ = position.z;
+    const prevFeet = position.y - height;
+
+    // An overhang is not a wall.  A box whose underside is above the ground
+    // the player is standing on cannot be walked into: either they fit under
+    // it, or they meet it with their head, and the Y pass below handles that
+    // by pushing them down rather than stopping them dead.  This matters most
+    // in the sloping passages, where the ceiling is approximated as a
+    // staircase: each tread drops 0.45 m while a crouched player has 0.15 m of
+    // headroom, so the ceiling's riser would always block them before the
+    // floor let them descend, and the tomb became impassable half way down.
+    const overhead = (b) => b.minY > prevFeet + 0.05;
+
     // ---- X ----
     position.x += delta.x;
     this._overlapping(position.x, position.y, position.z, radius, height, hits);
     for (const b of hits) {
+      if (overhead(b)) continue;
+      if (prevX + radius > b.minX && prevX - radius < b.maxX) continue;
       const feet = position.y - height;
       if (b.maxY - feet > 0 && b.maxY - feet <= this.stepHeight && b.maxY < position.y - 0.1) {
         position.y = b.maxY + height;   // step up onto a course
@@ -56980,6 +57394,8 @@ class CollisionWorld {
     position.z += delta.z;
     this._overlapping(position.x, position.y, position.z, radius, height, hits);
     for (const b of hits) {
+      if (overhead(b)) continue;
+      if (prevZ + radius > b.minZ && prevZ - radius < b.maxZ) continue;
       const feet = position.y - height;
       if (b.maxY - feet > 0 && b.maxY - feet <= this.stepHeight && b.maxY < position.y - 0.1) {
         position.y = b.maxY + height;
@@ -57725,12 +58141,89 @@ const TEMPLES = {
   khafreValley: { id: 'khafreValley', name: 'Valley Temple of Khafre', x: 404, z: 596, w: 44.6, d: 44.5, y: -9.0 },
   sphinxTemple: { id: 'sphinxTemple', name: 'Sphinx Temple', x: 404, z: 520, w: 46, d: 40, y: -8.8 },
   menkaureMortuary: { id: 'menkaureMortuary', name: 'Mortuary Temple of Menkaure', x: -520, z: 862, w: 45, d: 45, y: 14.2 },
+  menkaureValley: { id: 'menkaureValley', name: 'Valley Temple of Menkaure', x: -110, z: 934, w: 48, d: 42, y: 2.0 },
 };
+
+/**
+ * The two great cemeteries of private tombs that fill the plateau either side
+ * of Khufu, laid out on the grid Hemiunu's surveyors set: the Western Cemetery
+ * for officials and craftsmen, the Eastern for the royal family.
+ */
+const CEMETERIES = [
+  {
+    id: 'western',
+    name: 'Western Cemetery',
+    x: -330, z: -30, w: 330, d: 430,
+    rows: 7, cols: 11,
+    note: 'Mastabas of viziers, priests and master craftsmen, set out in streets on a survey grid.',
+  },
+  {
+    id: 'eastern',
+    name: 'Eastern Cemetery',
+    x: 300, z: 40, w: 130, d: 380,
+    rows: 6, cols: 4,
+    note: 'The royal family: Khufu’s sons, daughters and their households.',
+  },
+];
+
+/** Individually named tombs that carry their own codex entry. */
+const NAMED_TOMBS = [
+  {
+    id: 'hemiunu',
+    name: 'Mastaba of Hemiunu',
+    x: -232, z: -96, w: 26.5, d: 51.5, h: 8.4,
+    chapel: true,
+    text:
+      'G 4000, the largest mastaba in the Western Cemetery. Hemiunu was Khufu’s cousin, vizier and ' +
+      '“overseer of all the king’s works” — the project manager of the Great Pyramid. His seated ' +
+      'statue, found in the serdab here, is one of the few Old Kingdom portraits that reads as a ' +
+      'specific, heavy-set man rather than an ideal.',
+    pm: 'The role this whole simulation puts you in. He held it for about twenty years.',
+  },
+  {
+    id: 'hetepheres',
+    name: 'Shaft of Queen Hetepheres I',
+    x: 122, z: -104, w: 12, d: 12, h: 2.2,
+    shaft: true,
+    text:
+      'A 27 m shaft found by accident in 1925, sealed and unmarked. At the bottom: a walled-up chamber ' +
+      'with gilded furniture, a canopy frame, a carrying chair and an alabaster sarcophagus — which was ' +
+      'empty. Khufu’s mother was reburied here, and nobody knows what happened to the body.',
+    pm: 'A change of scope handled quietly, at speed, and documented nowhere.',
+  },
+  {
+    id: 'khentkawes',
+    name: 'Tomb of Queen Khentkawes I',
+    x: 150, z: 706, w: 45.8, d: 45.5, h: 17.5,
+    stepped: true,
+    text:
+      'A giant two-stepped tomb cut from a knoll of rock left in the quarry and cased in Tura limestone. ' +
+      'Her titles are ambiguous enough to read either as “mother of two kings” or “king herself”, which ' +
+      'is why she closes the 4th Dynasty and opens the 5th depending on who is writing.',
+    pm: 'Built from quarry spoil, like the Sphinx: the plateau wasted very little.',
+  },
+];
+
+/** The workmen's compound west of Khafre, behind the great enclosure wall. */
+const BUILDERS_QUARTERS = {
+  id: 'buildersQuarters',
+  name: 'Builders’ Quarters',
+  x: -560, z: 300, w: 130, d: 300,
+  galleries: 14,
+  note: 'Long galleries for the rotating crews working the Khafre enclosure, inside the western wall.',
+};
+
+/** Rock-cut tomb façades in the quarry escarpment east of the Central Field. */
+const ROCK_TOMBS = [
+  { id: 'rockE', x: 452, z: 300, count: 9, spacing: 26, axis: 'z', face: -1 },
+  { id: 'rockS', x: 120, z: 640, count: 7, spacing: 28, axis: 'x', face: 1 },
+];
 
 /** Processional causeways: raised, walled roads from valley temple to plateau. */
 const CAUSEWAYS = [
   { id: 'khufuCauseway', name: 'Causeway of Khufu', from: [1050, 118], to: [186, 8], width: 18.5 },
   { id: 'khafreCauseway', name: 'Causeway of Khafre', from: [388, 574], to: [-72, 436], width: 15.0 },
+  { id: 'menkaureCauseway', name: 'Causeway of Menkaure', from: [-134, 928], to: [-494, 872], width: 13.0 },
 ];
 
 const QUARRY = {
@@ -59342,6 +59835,13 @@ class ConstructionRamp {
     this.mesh = null;
     this.lastHeight = -999;
     this.visible = true;
+    this.collision = null;
+    this.colliderIds = [];
+  }
+
+  /** Enable or disable every collider the ramp currently owns. */
+  setCollisionEnabled(on) {
+    if (this.collision) this.collision.setDisabled(this.colliderIds, !on);
   }
 
   update(builtHeight, collision) {
@@ -59377,6 +59877,7 @@ class ConstructionRamp {
     }
 
     // ---- wrapping side ramps for the upper courses ----
+    const bands = [];
     if (builtHeight > straightTop + 2) {
       const rise = builtHeight - straightTop;
       const wraps = Math.max(1, Math.round(rise / 26));
@@ -59397,10 +59898,19 @@ class ConstructionRamp {
         const u1 = lerp(-hw, hw, a1 <= a0 ? 1 : a1);
         const mid = (u0 + u1) / 2;
         const len = Math.abs(u1 - u0) + 1.6;
-        if (side === 0) parts.push(box(len, bandH, bandW, mid, y, hw));
-        else if (side === 1) parts.push(box(bandW, bandH, len, hw, y, -mid));
-        else if (side === 2) parts.push(box(len, bandH, bandW, -mid, y, -hw));
-        else parts.push(box(bandW, bandH, len, -hw, y, mid));
+        if (side === 0) {
+          parts.push(box(len, bandH, bandW, mid, y, hw));
+          bands.push([mid, y, hw, len, bandH, bandW]);
+        } else if (side === 1) {
+          parts.push(box(bandW, bandH, len, hw, y, -mid));
+          bands.push([hw, y, -mid, bandW, bandH, len]);
+        } else if (side === 2) {
+          parts.push(box(len, bandH, bandW, -mid, y, -hw));
+          bands.push([-mid, y, -hw, len, bandH, bandW]);
+        } else {
+          parts.push(box(bandW, bandH, len, -hw, y, mid));
+          bands.push([-hw, y, mid, bandW, bandH, len]);
+        }
       }
     }
 
@@ -59411,23 +59921,34 @@ class ConstructionRamp {
     this.mesh.receiveShadow = true;
     this.group.add(this.mesh);
 
-    if (collision) {
+    // Collision.  The ramp is rebuilt every time the pyramid rises 2 m, so the
+    // previous set is disabled rather than removed, and a fresh set added.
+    // Without this the whole embankment was scenery: you walked straight
+    // through it and it passed overhead.
+    if (collision) this.collision = collision;
+    if (this.collision) {
+      this.collision.setDisabled(this.colliderIds, true);
+      this.colliderIds = [];
+      const add = (cx, cy, cz, sx, sy, sz) => {
+        this.colliderIds.push(
+          this.collision.addCenteredBox(
+            p.spec.x + cx, p.spec.baseY + cy, p.spec.z + cz, sx, sy, sz, 'ramp'
+          )
+        );
+      };
       for (let i = 0; i < segs; i++) {
         const t0 = i / segs;
         const t1 = (i + 1) / segs;
         const y1 = straightTop * t1;
         const z0 = zAt(t0);
         const z1 = zAt(t1);
-        collision.addCenteredBox(
-          p.spec.x,
-          p.spec.baseY + Math.max(1.2, y1) / 2 - 0.4,
-          p.spec.z + (z0 + z1) / 2,
-          lerp(RAMP.baseWidth, RAMP.topWidth, t1),
-          Math.max(1.2, y1),
-          Math.abs(z0 - z1) + 0.8,
-          'ramp'
-        );
+        const height = Math.max(1.2, y1);
+        // Matches the geometry above, which is drawn at height/2 - 0.4.
+        add(0, height / 2 - 0.4, (z0 + z1) / 2,
+            lerp(RAMP.baseWidth, RAMP.topWidth, t1), height, Math.abs(z0 - z1) + 0.8);
       }
+      for (const b of bands) add(b[0], b[1], b[2], b[3], b[4], b[5]);
+      if (!this.visible) this.setCollisionEnabled(false);
     }
   }
 
@@ -59641,7 +60162,7 @@ class PyramidSystem {
   setKhufuProgress(coreFraction, casingFraction) {
     this.khufu.setProgress(coreFraction, casingFraction);
     const built = this.khufu.designHeight * this.khufu.progress;
-    this.ramp.update(built, null);
+    this.ramp.update(built, this.collision);
     this.scaffolding.update(built);
   }
 
@@ -59651,6 +60172,10 @@ class PyramidSystem {
 
   setRampVisible(visible) {
     this.ramp.group.visible = visible;
+    this.ramp.visible = visible;
+    // Hiding the ramp has to take its collision with it, or the player walks
+    // into an embankment that is no longer there.
+    this.ramp.setCollisionEnabled(visible);
     this.scaffolding.group.visible = visible;
   }
 
@@ -61987,6 +62512,10 @@ class TombBuilder {
    */
   passage(bucket, lx, y0, z0, y1, z1, width, height, opts = {}) {
     const thickness = opts.thickness || this.wall;
+    // Thin slabs: see the note in interior.js. Stacked passages otherwise
+    // fill each other's corridors.
+    const floorSlab = opts.floorSlab || 0.9;
+    const ceilingSlab = opts.ceilingSlab || 0.6;
     const dz = z1 - z0;
     const dy = y1 - y0;
     const len = Math.hypot(dz, dy);
@@ -62012,25 +62541,31 @@ class TombBuilder {
       const yCeil = Math.max(yA, yB) + height;
       this.colliders.push({
         minX: cx - width / 2, maxX: cx + width / 2,
-        minY: yFloor - 3.0, maxY: yFloor,
+        minY: yFloor - floorSlab, maxY: yFloor,
         minZ: Math.min(zA, zB), maxZ: Math.max(zA, zB), tag: 'passage-floor',
       });
       this.colliders.push({
         minX: cx - width / 2, maxX: cx + width / 2,
-        minY: yCeil, maxY: yCeil + 2.0,
+        minY: yCeil, maxY: yCeil + ceilingSlab,
         minZ: Math.min(zA, zB), maxZ: Math.max(zA, zB), tag: 'passage-ceiling',
       });
     }
-    const yLo = this.oy + Math.min(y0, y1) - 1;
-    const yHi = this.oy + Math.max(y0, y1) + height + 1;
-    for (const side of [-1, 1]) {
-      this.colliders.push({
-        minX: side < 0 ? cx - width / 2 - thickness : cx + width / 2,
-        maxX: side < 0 ? cx - width / 2 : cx + width / 2 + thickness,
-        minY: yLo, maxY: yHi,
-        minZ: this.oz + Math.min(z0, z1), maxZ: this.oz + Math.max(z0, z1),
-        tag: 'passage-wall',
-      });
+    // Stepped side walls: see the note in interior.js.
+    for (let i = 0; i < steps; i++) {
+      const zA = this.oz + z0 + dz * (i / steps);
+      const zB = this.oz + z0 + dz * ((i + 1) / steps);
+      const yA = this.oy + y0 + dy * (i / steps);
+      const yB = this.oy + y0 + dy * ((i + 1) / steps);
+      for (const side of [-1, 1]) {
+        this.colliders.push({
+          minX: side < 0 ? cx - width / 2 - thickness : cx + width / 2,
+          maxX: side < 0 ? cx - width / 2 : cx + width / 2 + thickness,
+          minY: Math.min(yA, yB) - 0.4,
+          maxY: Math.max(yA, yB) + height + 0.4,
+          minZ: Math.min(zA, zB), maxZ: Math.max(zA, zB),
+          tag: 'passage-wall',
+        });
+      }
     }
     return this;
   }
@@ -62165,8 +62700,8 @@ function buildKhafre(ctx) {
   const entryY = K.upperEntrance.y;
   const entryZ = b.faceZ(entryY);
   b.passage('granite', axis, entryY, entryZ - 2.6, entryY, entryZ + 1.8, PW, PH);
-  b.node('entrance', axis, entryY, entryZ + 2.4);
-  b.viewpoint('entrance', axis, entryY, entryZ + 2.4, Math.PI);
+  b.node('entrance', axis, entryY, entryZ - 0.9);
+  b.viewpoint('entrance', axis, entryY, entryZ - 0.9, Math.PI);
 
   // ---- descending passage down to the horizontal run ----
   const horizY = K.horizontalY;
@@ -62270,28 +62805,33 @@ function buildKhafre(ctx) {
   const lowDescEndZ = lowZ + 1.4 + lowDescLen * Math.cos(slope);
   b.passage('rough', axis, lowY, lowZ - 1.6, lowY, lowZ + 1.4, PW, PH);
   b.passage('rough', axis, lowY, lowZ + 1.4, lowFloorY, lowDescEndZ, PW, PH);
-  b.node('lowerEntrance', axis, lowY, lowZ + 2.0);
-  b.viewpoint('lowerEntrance', axis, lowY, lowZ + 2.0, Math.PI);
+  b.node('lowerEntrance', axis, lowY, lowZ - 0.6);
+  b.viewpoint('lowerEntrance', axis, lowY, lowZ - 0.6, Math.PI);
 
   // Horizontal run south, past the subsidiary chamber, then up to the main passage.
   const sub = K.subsidiaryChamber;
   const subCenterZ = lowDescEndZ + 12;
-  b.passage('rough', axis, lowFloorY, lowDescEndZ, lowFloorY, subCenterZ + sub.d / 2 + 6, PW, PH);
-  b.room('rough', axis - sub.w / 2 - PW / 2 - 0.6, lowFloorY, subCenterZ, sub.w, sub.d, sub.h,
-    [{ wall: 'e', offset: 0, width: PW, height: PH, sill: 0 }], { uvUnit: 2.2 });
-  b.passage('rough', axis, lowFloorY, subCenterZ - PW / 2, lowFloorY, subCenterZ + PW / 2, PW, PH);
-  b.node('subsidiary', axis - sub.w / 2 - 1.2, lowFloorY, subCenterZ);
-  b.viewpoint('subsidiary', axis - sub.w / 2 - PW / 2 - 0.6 + sub.w / 2 - 1.4, lowFloorY, subCenterZ, Math.PI * 0.5);
-  b.torch(axis - sub.w - 1.0, lowFloorY + 1.7, subCenterZ - 1.0, 0.75);
-  b.torch(axis - 2.0, lowFloorY + 1.7, subCenterZ + 1.0, 0.75);
-  b.lineTorches(axis, lowFloorY, lowDescEndZ, lowFloorY, subCenterZ + sub.d / 2 + 6, 9);
+  // The passage runs through the chamber rather than past it. It used to sit
+  // to one side with its doorway in a wall the passage never reached, so there
+  // was no way into it at all.
+  b.passage('rough', axis, lowFloorY, lowDescEndZ, lowFloorY, subCenterZ - sub.d / 2, PW, PH);
+  b.room('rough', axis, lowFloorY, subCenterZ, sub.w, sub.d, sub.h, [
+    { wall: 'n', offset: 0, width: PW, height: PH, sill: 0 },
+    { wall: 's', offset: 0, width: PW, height: PH, sill: 0 },
+  ], { uvUnit: 2.2 });
+  b.passage('rough', axis, lowFloorY, subCenterZ + sub.d / 2, lowFloorY, subCenterZ + sub.d / 2 + 6, PW, PH);
+  b.node('subsidiary', axis, lowFloorY, subCenterZ);
+  b.viewpoint('subsidiary', axis + sub.w / 2 - 1.6, lowFloorY, subCenterZ, Math.PI * 0.5);
+  b.torch(axis - sub.w / 2 + 0.8, lowFloorY + 1.7, subCenterZ - 1.0, 0.75);
+  b.torch(axis + sub.w / 2 - 0.8, lowFloorY + 1.7, subCenterZ + 1.0, 0.75);
+  b.lineTorches(axis, lowFloorY, lowDescEndZ, lowFloorY, subCenterZ - sub.d / 2, 9);
 
   // The ascending link that joins the lower system to the main horizontal passage.
   const joinZ = subCenterZ + sub.d / 2 + 6;
   const riseLen = (horizY - lowFloorY) / Math.sin(slope);
   b.passage('rough', axis, lowFloorY, joinZ, horizY, joinZ + riseLen * Math.cos(slope), PW, PH);
 
-  relics.toolCache(b.ox + axis - sub.w / 2 - 1.6, b.oy + lowFloorY, b.oz + subCenterZ + 0.6, 0.3, {
+  relics.toolCache(b.ox + axis - sub.w / 2 + 1.6, b.oy + lowFloorY, b.oz + subCenterZ + 0.6, 0.3, {
     site: 'khafre',
     id: 'relic-khafre-tools',
   });
@@ -62329,8 +62869,8 @@ function buildMenkaure(ctx) {
   const entryZ = b.faceZ(entryY);
   const pan = M.panelledChamber;
   b.passage('granite', axis, entryY, entryZ - 2.4, entryY, entryZ + 1.6, PW, PH);
-  b.node('entrance', axis, entryY, entryZ + 2.2);
-  b.viewpoint('entrance', axis, entryY, entryZ + 2.2, Math.PI);
+  b.node('entrance', axis, entryY, entryZ - 0.9);
+  b.viewpoint('entrance', axis, entryY, entryZ - 0.9, Math.PI);
 
   const descLen = (entryY - pan.floorY) / Math.sin(slope);
   const descEndZ = entryZ + 1.6 + descLen * Math.cos(slope);
@@ -62576,7 +63116,15 @@ function tiltedPart(w, h, d, lx, ly, lz, rx, cx, cy, cz) {
  * the player can actually walk the 26.5-degree slope.
  */
 function buildPassage(parts, colliders, y0, z0, y1, z1, width, height, opts = {}) {
-  const { thickness = WALL, x = AXIS_X, rail = 0 } = opts;
+  const {
+    thickness = WALL, x = AXIS_X, rail = 0, ceilingCollision = true,
+    // Collision slabs are kept thin.  A 3 m floor slab is a safe backstop
+    // against a fast faller tunnelling through it, but the Ascending Passage
+    // runs directly above the Descending Passage, and a slab that thick fills
+    // the corridor underneath: the junction became impassable in both
+    // directions.  The void catch in the simulator covers the rare fall.
+    floorSlab = 0.9, ceilingSlab = 0.6, collide = true,
+  } = opts;
   const dz = z1 - z0;
   const dy = y1 - y0;
   const len = Math.hypot(dz, dy);
@@ -62595,6 +63143,7 @@ function buildPassage(parts, colliders, y0, z0, y1, z1, width, height, opts = {}
   }
 
   // ---- collision: floor steps plus the two vertical side walls ----
+  if (!collide) return { len, rx };
   const steps = Math.max(2, Math.ceil(Math.abs(dz) / 0.9));
   for (let i = 0; i < steps; i++) {
     const t0 = i / steps;
@@ -62605,35 +63154,45 @@ function buildPassage(parts, colliders, y0, z0, y1, z1, width, height, opts = {}
     colliders.push({
       minX: x - width / 2,
       maxX: x + width / 2,
-      minY: yFloor - 3.0,
+      minY: yFloor - floorSlab,
       maxY: yFloor,
       minZ: Math.min(zA, zB),
       maxZ: Math.max(zA, zB),
       tag: 'passage-floor',
     });
     const yCeil = Math.max(y0 + dy * t0, y0 + dy * t1) + height;
-    colliders.push({
+    if (ceilingCollision) colliders.push({
       minX: x - width / 2,
       maxX: x + width / 2,
       minY: yCeil,
-      maxY: yCeil + 2.0,
+      maxY: yCeil + ceilingSlab,
       minZ: Math.min(zA, zB),
       maxZ: Math.max(zA, zB),
       tag: 'passage-ceiling',
     });
   }
-  const yLo = Math.min(y0, y1) - 1;
-  const yHi = Math.max(y0, y1) + height + 1;
-  for (const side of [-1, 1]) {
-    colliders.push({
-      minX: side < 0 ? x - width / 2 - thickness : x + width / 2,
-      maxX: side < 0 ? x - width / 2 : x + width / 2 + thickness,
-      minY: yLo,
-      maxY: yHi,
-      minZ: Math.min(z0, z1),
-      maxZ: Math.max(z0, z1),
-      tag: 'passage-wall',
-    });
+  // Side walls follow the slope in the same steps as the floor.  A single slab
+  // spanning the whole run is 1.1 m thick and tens of metres tall, and it
+  // swallows anything cut alongside - al-Ma'mun's tunnel ran inside the
+  // Descending Passage's west wall and could not be walked at all.
+  for (let i = 0; i < steps; i++) {
+    const t0 = i / steps;
+    const t1 = (i + 1) / steps;
+    const zA = z0 + dz * t0;
+    const zB = z0 + dz * t1;
+    const yA = y0 + dy * t0;
+    const yB = y0 + dy * t1;
+    for (const side of [-1, 1]) {
+      colliders.push({
+        minX: side < 0 ? x - width / 2 - thickness : x + width / 2,
+        maxX: side < 0 ? x - width / 2 : x + width / 2 + thickness,
+        minY: Math.min(yA, yB) - 0.4,
+        maxY: Math.max(yA, yB) + height + 0.4,
+        minZ: Math.min(zA, zB),
+        maxZ: Math.max(zA, zB),
+        tag: 'passage-wall',
+      });
+    }
   }
   return { len, rx };
 }
@@ -62804,7 +63363,10 @@ class InteriorSystem {
     // ---------------------------------------------------------- entrance
     const entryY = K.entrance.y;
     const entryZ = faceZ(entryY);
-    this.entrancePoint = new THREE.Vector3(AXIS_X, entryY, entryZ + 2.2);
+    // In the level vestibule behind the face.  Two metres further in the
+    // floor has already dropped a metre down the 26.5-degree slope, so an
+    // arrival point there leaves the player hanging above it.
+    this.entrancePoint = new THREE.Vector3(AXIS_X, entryY, entryZ - 0.9);
     this.nodes.entrance = this.entrancePoint.clone();
 
     // A short level vestibule behind the face, then the descending passage.
@@ -62814,45 +63376,109 @@ class InteriorSystem {
     const descLen = K.descendingLength;
     const descEndY = entryY - descLen * Math.sin(SLOPE);
     const descEndZ = entryZ + 1.6 + descLen * Math.cos(SLOPE);
-    buildPassage(lime, colliders, entryY, entryZ + 1.6, descEndY, descEndZ, PW, PH);
-    this.nodes.descending = new THREE.Vector3(AXIS_X, entryY - 12, entryZ + 1.6 + 24);
-    this.viewpoints.descending = { position: this.nodes.descending.clone(), yaw: Math.PI };
-    this.viewpoints.entrance = { position: this.entrancePoint.clone(), yaw: Math.PI };
-
     // Junction with the ascending passage, 28.2 m down the slope.
     const jT = 28.2 / descLen;
     const junctionY = lerp(entryY, descEndY, jT);
     const junctionZ = lerp(entryZ + 1.6, descEndZ, jT);
 
+    /**
+     * The junction is a knot: the Descending Passage, the Ascending Passage
+     * and al-Ma'mun's tunnel all meet inside a corridor 1.05 m wide, and the
+     * first two share a floor height there.  Left as three overlapping
+     * passages, the collision world's step-up carried every visitor up the
+     * Ascending Passage the moment they reached it, and the Subterranean
+     * Chamber could not be reached at all.
+     *
+     * So the meeting is built as a room.  Its floor sits a metre below the
+     * Ascending Passage's mouth, the way on down leaves through the south wall
+     * on the west side, and the mouth is reached by a two-tread ledge against
+     * the east side.  Both ways are open, and which one the visitor takes is
+     * their choice rather than an accident of collision order.
+     */
+    const hallD = 4.2;
+    const hallW = 4.6;
+    const hallZ = junctionZ + 2.2;
+    const hallNorthZ = hallZ - hallD / 2;
+    const hallSouthZ = hallZ + hallD / 2;
+    const descAt = (z) => lerp(entryY, descEndY, (z - (entryZ + 1.6)) / (descEndZ - (entryZ + 1.6)));
+    const hallFloorY = junctionY - 1.05;
+    // Far enough west to leave a real rib of rock between this passage and the
+    // Ascending Passage above it.  At 1.15 m the rib was 10 cm wide and the
+    // player could slip into the gap between the two, where neither floor is.
+    const lowerX = AXIS_X - 1.9;
+
+    // Upper run: the entrance down to the hall's north wall.
+    buildPassage(lime, colliders, entryY, entryZ + 1.6, descAt(hallNorthZ), hallNorthZ, PW, PH);
+    this.nodes.descending = new THREE.Vector3(AXIS_X, entryY - 12, entryZ + 1.6 + 24);
+    this.viewpoints.descending = { position: this.nodes.descending.clone(), yaw: Math.PI };
+    this.viewpoints.entrance = { position: this.entrancePoint.clone(), yaw: Math.PI };
+
+    buildRoom(
+      rough, colliders, AXIS_X, hallFloorY, hallZ, hallW, hallD, 2.8,
+      [
+        { wall: 'n', offset: 0, width: PW, height: PH + 1.2, sill: 0 },
+        { wall: 'n', offset: -1.3, width: 1.5, height: 2.0, sill: 0 },
+        { wall: 's', offset: lowerX - AXIS_X, width: PW, height: PH + 0.6, sill: 0 },
+        { wall: 's', offset: 0, width: PW, height: PH, sill: 1.05 },
+      ],
+      { uvUnit: 2.0 }
+    );
+    // The ledge up to the Ascending Passage, against the east side so the way
+    // down the west side stays clear. Two 0.53 m treads, inside the 0.55 m
+    // the collision world will step a player up.
+    for (let i = 0; i < 2; i++) {
+      const top = hallFloorY + 0.53 * (i + 1);
+      rough.push(box(1.5, 0.53, hallD - 0.6 - i * 1.1, AXIS_X + 0.95, top - 0.265, hallZ + 0.3 + i * 0.55));
+      colliders.push({
+        minX: AXIS_X + 0.2, maxX: AXIS_X + 1.7,
+        minY: top - 0.6, maxY: top,
+        minZ: hallZ - hallD / 2 + 0.3 + i * 1.1, maxZ: hallSouthZ,
+        tag: 'junction-ledge',
+      });
+    }
+    this.nodes.junction = new THREE.Vector3(AXIS_X, hallFloorY, hallZ);
+    this.nodes.lowerPassage = new THREE.Vector3(lowerX, hallFloorY, hallSouthZ + 3.0);
+    this.nodes.lowerMid = new THREE.Vector3(lowerX, lerp(hallFloorY, descEndY - 1.05, 0.55), lerp(hallSouthZ, descEndZ, 0.55));
+    this.viewpoints.junction = { position: this.nodes.junction.clone(), yaw: Math.PI };
+    this.torchSites.push({ x: AXIS_X - hallW / 2 + 0.5, y: hallFloorY + 1.9, z: hallZ, scale: 0.8 });
+
     // ---------------------------------------------- subterranean chamber
     const sub = K.subterranean;
+    // The run below the hall keeps the surveyed slope but leaves on the west
+    // side of it, a metre lower, so it never shares a floor with the mouth of
+    // the Ascending Passage.
+    const lowerEndY = descEndY - 1.05;
+    buildPassage(lime, colliders, hallFloorY, hallSouthZ, lowerEndY, descEndZ, PW, PH, { x: lowerX });
+    this._lineTorches(hallFloorY, hallSouthZ, lowerEndY, descEndZ, 9, lowerX);
     const subLevelZ = descEndZ + 8.84;
-    buildPassage(rough, colliders, descEndY, descEndZ, descEndY, subLevelZ, PW, PH);
+    buildPassage(rough, colliders, lowerEndY, descEndZ, lowerEndY, subLevelZ, PW, PH, { x: lowerX });
     const subCenterZ = subLevelZ + sub.d / 2 + 0.4;
     buildRoom(
-      rough, colliders, AXIS_X, descEndY - 0.9, subCenterZ, sub.w, sub.d, sub.h,
+      rough, colliders, lowerX, lowerEndY - 0.9, subCenterZ, sub.w, sub.d, sub.h,
       [{ wall: 'n', offset: 0, width: PW, height: PH, sill: 0.9 }],
       { uvUnit: 2.4 }
     );
-    this.nodes.subterranean = new THREE.Vector3(AXIS_X, descEndY - 0.9, subCenterZ);
+    this.nodes.subterranean = new THREE.Vector3(lowerX, lowerEndY - 0.9, subCenterZ);
     this.viewpoints.subterranean = {
-      position: new THREE.Vector3(AXIS_X - 4.5, descEndY - 0.9, subCenterZ - 2.0),
+      position: new THREE.Vector3(lowerX - 4.5, lowerEndY - 0.9, subCenterZ - 2.0),
       yaw: Math.PI * 0.75,
     };
     // The unfinished pit and the dead-end southern shaft Petrie recorded.
-    rough.push(box(2.2, 3.0, 2.4, AXIS_X + 2.4, descEndY - 2.4, subCenterZ + 0.6));
-    buildPassage(rough, colliders, descEndY - 0.9, subCenterZ + sub.d / 2, descEndY - 0.9, subCenterZ + sub.d / 2 + 16, 0.75, 0.85);
-    this.torchSites.push({ x: AXIS_X - sub.w / 2 + 1.2, y: descEndY + 0.6, z: subCenterZ - 1.5, scale: 0.85 });
-    this.torchSites.push({ x: AXIS_X + sub.w / 2 - 1.2, y: descEndY + 0.6, z: subCenterZ + 1.5, scale: 0.85 });
+    rough.push(box(2.2, 3.0, 2.4, lowerX + 2.4, lowerEndY - 2.4, subCenterZ + 0.6));
+    buildPassage(rough, colliders, lowerEndY - 0.9, subCenterZ + sub.d / 2, lowerEndY - 0.9, subCenterZ + sub.d / 2 + 16, 0.75, 0.85, { x: lowerX });
+    this.torchSites.push({ x: lowerX - sub.w / 2 + 1.2, y: lowerEndY + 0.6, z: subCenterZ - 1.5, scale: 0.85 });
+    this.torchSites.push({ x: lowerX + sub.w / 2 - 1.2, y: lowerEndY + 0.6, z: subCenterZ + 1.5, scale: 0.85 });
 
     // -------------------------------------------------- ascending passage
     const ascLen = K.ascendingLength;
     const ascEndY = junctionY + ascLen * Math.sin(SLOPE);
     const ascEndZ = junctionZ + ascLen * Math.cos(SLOPE);
-    buildPassage(lime, colliders, junctionY, junctionZ, ascEndY, ascEndZ, PW, PH);
+    const ascStartY = hallFloorY + 1.05;
+    buildPassage(lime, colliders, ascStartY, hallSouthZ, ascEndY, ascEndZ, PW, PH);
     this.nodes.ascending = new THREE.Vector3(AXIS_X, junctionY + 8, junctionZ + 16);
-    // The granite plugs that sealed it, still in place at the lower end.
-    granite.push(box(PW * 0.96, PH * 0.92, 3.4, AXIS_X, junctionY + 0.62, junctionZ + 1.9));
+    // The granite plugs that sealed this passage, shown where they were let
+    // down: al-Ma'mun's men tunnelled in precisely to get around them.
+    granite.push(box(PW * 0.96, PH * 0.92, 3.4, AXIS_X, junctionY + 0.7, junctionZ - 1.4));
 
     // ------------------------------------------------------ queen's chamber
     const qc = K.queensChamber;
@@ -62882,6 +63508,7 @@ class InteriorSystem {
       const inset = i * 0.26;
       dressed.push(box(0.5, 0.62, 1.55 - inset * 2, AXIS_X + qc.w / 2 - 0.25, qc.floorY + 0.31 + i * 0.62, 0.9));
     }
+    this.nodes.horizontal = new THREE.Vector3(AXIS_X, horizY, ascEndZ + 12);
     this.nodes.queensChamber = new THREE.Vector3(AXIS_X, qc.floorY, 0);
     this.viewpoints.queensChamber = {
       position: new THREE.Vector3(AXIS_X - 1.2, qc.floorY, -1.4),
@@ -62916,6 +63543,17 @@ class InteriorSystem {
     const stepY = ggEndY + 0.9;
     const anteZ = ggEndZ + 1.5;
     dressed.push(box(gg.bottomWidth + 2.2, 0.9, 1.8, AXIS_X, ggEndY + 0.45, ggEndZ + 0.6));
+    // The gallery's floor colliders take the lower end of each tread, so the
+    // top of the gallery stands 0.45 m below ggEndY; the treads start there.
+    for (let i = 0; i < 3; i++) {
+      const top = ggEndY + 0.45 * i;
+      colliders.push({
+        minX: AXIS_X - 1.1, maxX: AXIS_X + 1.1,
+        minY: top - 0.9, maxY: top,
+        minZ: ggEndZ - 1.7 + i * 0.55, maxZ: ggEndZ + 2.2,
+        tag: 'great-step',
+      });
+    }
     buildRoom(
       granite, colliders, AXIS_X, stepY, anteZ, K.antechamber.w, K.antechamber.d, K.antechamber.h,
       [
@@ -62973,9 +63611,16 @@ class InteriorSystem {
     // --------------------------------------------- al-Ma'mun's forced tunnel
     const mamunY = 7.0;
     const mamunZ = faceZ(mamunY);
-    buildPassage(rough, colliders, mamunY, mamunZ, junctionY - 0.1, junctionZ - 1.2, 1.5, 2.0, { thickness: 1.4 });
-    this.nodes.mamun = new THREE.Vector3(AXIS_X, mamunY, mamunZ + 4);
-    this.torchSites.push({ x: AXIS_X, y: mamunY + 1.5, z: mamunZ + 6, scale: 0.8 });
+    // No ceiling collider: at 2 m the tunnel needs no auto-crouch, and the
+    // slab it used to register rose through the floor of the Descending
+    // Passage that crosses above it, leaving a lump the player climbed onto.
+    buildPassage(rough, colliders, mamunY, mamunZ, hallFloorY, hallNorthZ, 1.5, 2.0, {
+      thickness: 1.4,
+      ceilingCollision: false,
+      x: AXIS_X - 1.3,
+    });
+    this.nodes.mamun = new THREE.Vector3(AXIS_X - 1.3, mamunY, mamunZ + 0.6);
+    this.torchSites.push({ x: AXIS_X - 1.3, y: mamunY + 1.5, z: mamunZ + 6, scale: 0.8 });
 
     // Torches every 9 m along the main descending and ascending runs.
     this._lineTorches(entryY, entryZ + 3, descEndY, descEndZ, 9);
@@ -63225,13 +63870,19 @@ class InteriorSystem {
         });
       }
     }
-    for (const side of [-1, 1]) {
-      colliders.push({
-        minX: side < 0 ? cx - gg.bottomWidth / 2 - 1.6 : cx + gg.bottomWidth / 2,
-        maxX: side < 0 ? cx - gg.bottomWidth / 2 : cx + gg.bottomWidth / 2 + 1.6,
-        minY: Math.min(y0, y1) - 1, maxY: Math.max(y0, y1) + gg.height + 2,
-        minZ: Math.min(z0, z1), maxZ: Math.max(z0, z1), tag: 'gallery-wall',
-      });
+    for (let i = 0; i < steps; i++) {
+      const zA = z0 + dz * (i / steps);
+      const zB = z0 + dz * ((i + 1) / steps);
+      const yA = y0 + dy * (i / steps);
+      const yB = y0 + dy * ((i + 1) / steps);
+      for (const side of [-1, 1]) {
+        colliders.push({
+          minX: side < 0 ? cx - gg.bottomWidth / 2 - 1.6 : cx + gg.bottomWidth / 2,
+          maxX: side < 0 ? cx - gg.bottomWidth / 2 : cx + gg.bottomWidth / 2 + 1.6,
+          minY: Math.min(yA, yB) - 0.6, maxY: Math.max(yA, yB) + gg.height + 1.5,
+          minZ: Math.min(zA, zB), maxZ: Math.max(zA, zB), tag: 'gallery-wall',
+        });
+      }
     }
   }
 
@@ -63283,13 +63934,13 @@ class InteriorSystem {
     this.torchSites.push({ x: AXIS_X, y: davisonY + 0.5, z: kcCenterZ, scale: 0.6 });
   }
 
-  _lineTorches(y0, z0, y1, z1, spacing) {
+  _lineTorches(y0, z0, y1, z1, spacing, x = AXIS_X) {
     const len = Math.hypot(z1 - z0, y1 - y0);
     const n = Math.max(1, Math.floor(len / spacing));
     for (let i = 1; i <= n; i++) {
       const t = i / (n + 1);
       this.torchSites.push({
-        x: AXIS_X + (i % 2 === 0 ? 0.42 : -0.42),
+        x: x + (i % 2 === 0 ? 0.42 : -0.42),
         y: lerp(y0, y1, t) + 0.78,
         z: lerp(z0, z1, t),
         scale: 0.55,
@@ -63730,6 +64381,314 @@ class EntranceSystem {
 
   byId(id) {
     return this.entrances.find((e) => e.id === id) || null;
+  }
+
+  dispose() {
+    this.group.traverse((o) => {
+      if (o.geometry) o.geometry.dispose();
+    });
+    for (const m of Object.values(this.materials)) m.dispose();
+  }
+}
+
+/* ================= src/world/cemeteries.js ================= */
+
+
+
+
+
+
+
+
+
+/**
+ * The private necropolis: everything on the site plan that is not a pyramid,
+ * a temple or the Sphinx.
+ *
+ * Giza is mostly *this* - two great fields of mastabas laid out in streets on
+ * the survey grid, the rock-cut tombs in the quarry faces, the workmen's
+ * galleries, and the handful of individually famous tombs.  Without them the
+ * plateau reads as three pyramids in an empty desert, which is the one thing
+ * the real place has never been.
+ *
+ * Everything merges into one mesh per material.  Colliders are registered per
+ * building rather than per field, so the streets between them are walkable.
+ */
+
+/** A mastaba: a battered rectangular block with a recessed false door east. */
+function mastabaGeometry(w, d, h, rng) {
+  const parts = [];
+  const batter = 0.82;
+  parts.push(batteredBox(w, w * batter, d, d * batter, h, 0, 0, 0));
+  // The offering niches in the east face, which is where the cult happened.
+  const niches = Math.max(1, Math.round(d / 14));
+  for (let i = 0; i < niches; i++) {
+    const nz = ((i + 0.5) / niches - 0.5) * d * 0.72;
+    parts.push(box(0.9, h * 0.62, 2.0, w / 2 - 0.2, h * 0.31, nz));
+    parts.push(box(0.5, h * 0.44, 1.1, w / 2 + 0.1, h * 0.22, nz));
+  }
+  // A rubble-and-plaster cap, weathered off along one edge.
+  if (rng() < 0.45) parts.push(box(w * 0.7, 0.5, d * 0.8, (rng() - 0.5) * w * 0.2, h + 0.2, 0));
+  return mergeGeometries(parts);
+}
+
+class CemeterySystem {
+  constructor(scene, textures, quality, collision) {
+    this.group = new THREE.Group();
+    this.group.name = 'cemeteries';
+    scene.add(this.group);
+    this.collision = collision;
+    this.rng = makeRng(5501);
+    this.points = [];
+    this.torchSites = [];
+
+    const lime = textures.limestone();
+    const mud = textures.mudbrick();
+    const aniso = Math.min(quality.settings.anisotropy, quality.maxAnisotropy);
+    for (const set of [lime, mud]) for (const t of Object.values(set)) t.anisotropy = aniso;
+
+    this.materials = {
+      mastaba: new THREE.MeshStandardMaterial({
+        map: lime.map, normalMap: lime.normalMap, roughnessMap: lime.roughnessMap,
+        color: 0xbdb096, roughness: 1, metalness: 0,
+      }),
+      dressed: new THREE.MeshStandardMaterial({
+        map: lime.map, normalMap: lime.normalMap, roughnessMap: lime.roughnessMap,
+        color: 0xd2c8ae, roughness: 0.88, metalness: 0,
+      }),
+      mud: new THREE.MeshStandardMaterial({
+        map: mud.map, normalMap: mud.normalMap, roughnessMap: mud.roughnessMap,
+        color: 0xa8917a, roughness: 1, metalness: 0,
+      }),
+      dark: new THREE.MeshBasicMaterial({ color: 0x0a0806, fog: true }),
+    };
+
+    this.buckets = { mastaba: [], dressed: [], mud: [], dark: [] };
+    this._buildFields();
+    this._buildNamedTombs();
+    this._buildBuildersQuarters();
+    this._buildRockTombs();
+
+    for (const [key, parts] of Object.entries(this.buckets)) {
+      if (!parts.length) continue;
+      const geo = mergeGeometries(parts);
+      if (key !== 'dark') scaleUvByWorldSize(geo, 2.8);
+      const mesh = new THREE.Mesh(geo, this.materials[key]);
+      mesh.name = `cemetery-${key}`;
+      mesh.castShadow = key !== 'dark';
+      mesh.receiveShadow = key !== 'dark';
+      this.group.add(mesh);
+    }
+  }
+
+  /**
+   * Is this plot already spoken for?
+   *
+   * The cemeteries are laid out on a grid over ground that already carries
+   * temples, causeways, queens' pyramids and boat pits.  A mastaba dropped on
+   * top of one of those does not just look wrong: one of them landed squarely
+   * in the gateway of Khufu's mortuary temple and sealed it.  Anything that
+   * clashes simply loses its plot, which is also what happened on the real
+   * plateau.
+   */
+  _occupied(cx, cz, w, d) {
+    const clash = (ox, oz, ow, od, margin) =>
+      Math.abs(cx - ox) < (w + ow) / 2 + margin && Math.abs(cz - oz) < (d + od) / 2 + margin;
+    for (const t of Object.values(TEMPLES)) {
+      // A generous margin on the east, which is where every temple gate is.
+      if (clash(t.x + 8, t.z, t.w + 30, t.d + 14, 2)) return true;
+    }
+    for (const q of QUEENS_PYRAMIDS) {
+      if (clash(q.x, q.z, q.baseLength, q.baseLength, 8)) return true;
+    }
+    for (const b of BOAT_PITS) {
+      if (clash(b.x, b.z, b.w, b.d, 8)) return true;
+    }
+    for (const c of CAUSEWAYS) {
+      // Distance from the plot centre to the causeway's line segment.
+      const [x0, z0] = c.from;
+      const [x1, z1] = c.to;
+      const vx = x1 - x0;
+      const vz = z1 - z0;
+      const len2 = vx * vx + vz * vz;
+      const t = Math.max(0, Math.min(1, ((cx - x0) * vx + (cz - z0) * vz) / len2));
+      const dist = Math.hypot(cx - (x0 + vx * t), cz - (z0 + vz * t));
+      if (dist < c.width / 2 + Math.max(w, d) / 2 + 6) return true;
+    }
+    return false;
+  }
+
+  /** Register a building as solid, sunk into whatever the ground is doing. */
+  _solid(x, y, z, w, h, d, tag) {
+    this.collision.addCenteredBox(x, y + h / 2 - 0.6, z, w, h + 1.2, d, tag);
+  }
+
+  /**
+   * The two mastaba fields, set out in streets.  The grid is deliberately
+   * regular - that is the striking thing about the Western Cemetery on the
+   * plan - but every tomb varies in size, and the streets stay clear so the
+   * whole field can be walked.
+   */
+  _buildFields() {
+    const rng = this.rng;
+    for (const field of CEMETERIES) {
+      const cellW = field.w / field.cols;
+      const cellD = field.d / field.rows;
+      for (let r = 0; r < field.rows; r++) {
+        for (let c = 0; c < field.cols; c++) {
+          if (rng() < 0.12) continue;                 // gaps and unfinished plots
+          const cx = field.x - field.w / 2 + cellW * (c + 0.5);
+          const cz = field.z - field.d / 2 + cellD * (r + 0.5);
+          // Streets: the tomb takes about two thirds of its plot.
+          const w = cellW * (0.44 + rng() * 0.18);
+          const d = cellD * (0.5 + rng() * 0.2);
+          const h = 3.6 + rng() * 3.4;
+          if (this._occupied(cx, cz, w, d)) continue;
+          const y = terrainHeight(cx, cz);
+          const geo = mastabaGeometry(w, d, h, rng);
+          geo.translate(cx, y, cz);
+          this.buckets.mastaba.push(geo);
+          this._solid(cx, y, cz, w, h, d, `mastaba-${field.id}`);
+        }
+      }
+      this.points.push({
+        id: `poi-${field.id}-cemetery`,
+        name: field.name,
+        position: [field.x, terrainHeight(field.x, field.z - field.d / 2 - 24) + 3, field.z - field.d / 2 - 24],
+        look: [field.x, 4, field.z],
+        category: 'monument',
+        text:
+          `${field.note} Every plot was allocated, surveyed and built to a standard: the streets run ` +
+          'true to the pyramid’s own north, and the tombs are graded by rank as you move away from ' +
+          'the king. It is a cemetery laid out like a housing scheme, because that is what it was.',
+        pm: 'Work package 8.1 — the private cemeteries were a deliverable of the same programme.',
+      });
+    }
+  }
+
+  /** The tombs that get their own name on the plan. */
+  _buildNamedTombs() {
+    for (const t of NAMED_TOMBS) {
+      const y = terrainHeight(t.x, t.z);
+      if (t.stepped) {
+        // Khentkawes: a rock knoll cased as a two-stepped block.
+        this.buckets.dressed.push(
+          (() => { const g = batteredBox(t.w, t.w * 0.9, t.d, t.d * 0.9, t.h * 0.62, 0, 0, 0); g.translate(t.x, y, t.z); return g; })(),
+          (() => { const g = batteredBox(t.w * 0.62, t.w * 0.56, t.d * 0.62, t.d * 0.56, t.h * 0.38, 0, 0, 0); g.translate(t.x, y + t.h * 0.62, t.z); return g; })()
+        );
+        this._solid(t.x, y, t.z, t.w, t.h * 0.62, t.d, t.id);
+        this._solid(t.x, y + t.h * 0.62, t.z, t.w * 0.62, t.h * 0.38, t.d * 0.62, t.id);
+      } else if (t.shaft) {
+        // Hetepheres: a low kerb round the mouth of a 27 m shaft.
+        for (const [ox, oz, sw, sd] of [
+          [-t.w / 2, 0, 1.2, t.d], [t.w / 2, 0, 1.2, t.d],
+          [0, -t.d / 2, t.w, 1.2], [0, t.d / 2, t.w, 1.2],
+        ]) {
+          this.buckets.dressed.push(box(sw, t.h, sd, t.x + ox, y + t.h / 2, t.z + oz));
+          this._solid(t.x + ox, y, t.z + oz, sw, t.h, sd, t.id);
+        }
+        this.buckets.dark.push(box(t.w - 2.4, 0.4, t.d - 2.4, t.x, y + 0.2, t.z));
+      } else {
+        const geo = mastabaGeometry(t.w, t.d, t.h, this.rng);
+        geo.translate(t.x, y, t.z);
+        this.buckets.mastaba.push(geo);
+        // The offering chapel: a real room, with a way in from the east.
+        if (t.chapel) {
+          const cw = 4.6;
+          const cd = 9.0;
+          const ch = 3.0;
+          const cx = t.x + t.w / 2 + cw / 2 - 0.4;
+          this.buckets.dressed.push(
+            box(cw + 1.6, 0.5, cd + 1.6, cx, y + ch + 0.25, t.z),
+            box(0.8, ch, cd + 1.6, cx - cw / 2 - 0.4, y + ch / 2, t.z),
+            box(cw + 1.6, ch, 0.8, cx, y + ch / 2, t.z - cd / 2 - 0.4),
+            box(cw + 1.6, ch, 0.8, cx, y + ch / 2, t.z + cd / 2 + 0.4),
+            box(0.8, ch, (cd + 1.6 - 1.6) / 2, cx + cw / 2 + 0.4, y + ch / 2, t.z - cd / 4 - 0.6),
+            box(0.8, ch, (cd + 1.6 - 1.6) / 2, cx + cw / 2 + 0.4, y + ch / 2, t.z + cd / 4 + 0.6)
+          );
+          for (const [bx, bz, bw, bd] of [
+            [cx - cw / 2 - 0.4, t.z, 0.8, cd + 1.6],
+            [cx, t.z - cd / 2 - 0.4, cw + 1.6, 0.8],
+            [cx, t.z + cd / 2 + 0.4, cw + 1.6, 0.8],
+            [cx + cw / 2 + 0.4, t.z - cd / 4 - 0.6, 0.8, cd / 2],
+            [cx + cw / 2 + 0.4, t.z + cd / 4 + 0.6, 0.8, cd / 2],
+          ]) this._solid(bx, y, bz, bw, ch, bd, `${t.id}-chapel`);
+          this.collision.addCenteredBox(cx, y + ch + 0.5, t.z, cw + 1.6, 0.6, cd + 1.6, `${t.id}-roof`);
+          this.torchSites.push({ x: cx + cw / 2 + 1.8, y: y + 0.2, z: t.z - 2.0, scale: 0.9 });
+          this.torchSites.push({ x: cx + cw / 2 + 1.8, y: y + 0.2, z: t.z + 2.0, scale: 0.9 });
+          this.chapel = { x: cx, y, z: t.z, w: cw, d: cd, h: ch };
+        }
+        this._solid(t.x, y, t.z, t.w, t.h, t.d, t.id);
+      }
+      this.points.push({
+        id: `poi-${t.id}`,
+        name: t.name,
+        position: [t.x + t.w / 2 + 10, y + 3, t.z],
+        look: [t.x, y + t.h / 2, t.z],
+        category: 'monument',
+        text: t.text,
+        pm: t.pm,
+      });
+    }
+  }
+
+  /** Long galleries for the rotating crews, behind the western wall. */
+  _buildBuildersQuarters() {
+    const q = BUILDERS_QUARTERS;
+    const pitch = q.d / q.galleries;
+    for (let i = 0; i < q.galleries; i++) {
+      const gz = q.z - q.d / 2 + pitch * (i + 0.5);
+      const y = terrainHeight(q.x, gz);
+      // Two mud-brick walls and a light roof: a gallery, open at the east end.
+      for (const side of [-1, 1]) {
+        this.buckets.mud.push(box(q.w, 2.6, 0.9, q.x, y + 1.3, gz + side * (pitch / 2 - 0.5)));
+        this._solid(q.x, y, gz + side * (pitch / 2 - 0.5), q.w, 2.6, 0.9, 'gallery');
+      }
+      this.buckets.mud.push(box(q.w * 0.72, 0.4, pitch - 1.0, q.x - q.w * 0.14, y + 2.8, gz));
+      this.collision.addCenteredBox(q.x - q.w * 0.14, y + 3.0, gz, q.w * 0.72, 0.5, pitch - 1.0, 'gallery-roof');
+    }
+    const wy = terrainHeight(q.x - q.w / 2 - 8, q.z);
+    this.buckets.mud.push(box(1.8, 4.2, q.d + 16, q.x - q.w / 2 - 8, wy + 2.1, q.z));
+    this._solid(q.x - q.w / 2 - 8, wy, q.z, 1.8, 4.2, q.d + 16, 'quarters-wall');
+    this.points.push({
+      id: 'poi-builders-quarters',
+      name: BUILDERS_QUARTERS.name,
+      position: [q.x + q.w / 2 + 14, terrainHeight(q.x + q.w / 2 + 14, q.z) + 3, q.z],
+      look: [q.x, 4, q.z],
+      category: 'logistics',
+      text:
+        'Barrack galleries for the crews on rotation: sleeping platforms down each side, an open end, ' +
+        'a roof of poles and matting. Each gallery held perhaps forty men — a phyle, the unit the whole ' +
+        'workforce was organised in, and the unit the gang names in the relieving chambers belong to.',
+      pm: 'Work packages 4.1–4.4 — accommodation is a hard constraint on how many people you can field.',
+    });
+  }
+
+  /** Tomb façades cut into the quarry escarpments. */
+  _buildRockTombs() {
+    const rng = this.rng;
+    for (const row of ROCK_TOMBS) {
+      for (let i = 0; i < row.count; i++) {
+        const off = (i - (row.count - 1) / 2) * row.spacing;
+        const x = row.axis === 'z' ? row.x : row.x + off;
+        const z = row.axis === 'z' ? row.z + off : row.z;
+        const y = terrainHeight(x, z);
+        const w = 4.2 + rng() * 2.4;
+        const h = 3.0 + rng() * 1.4;
+        const face = row.face;
+        // A dressed façade set into the rock, with a dark doorway.
+        const nx = row.axis === 'z' ? face * 1.2 : 0;
+        const nz = row.axis === 'z' ? 0 : face * 1.2;
+        this.buckets.dressed.push(
+          box(row.axis === 'z' ? 2.4 : w, h + 1.4, row.axis === 'z' ? w : 2.4, x + nx, y + (h + 1.4) / 2, z + nz)
+        );
+        this.buckets.dark.push(
+          box(row.axis === 'z' ? 0.5 : 1.3, h * 0.62, row.axis === 'z' ? 1.3 : 0.5,
+            x + nx * 1.6, y + h * 0.31, z + nz * 1.6)
+        );
+        this._solid(x + nx, y, z + nz, row.axis === 'z' ? 2.4 : w, h + 1.4, row.axis === 'z' ? w : 2.4, 'rock-tomb');
+      }
+    }
   }
 
   dispose() {
@@ -64881,6 +65840,7 @@ class Pennants {
 
 
 
+
 /**
  * The world: everything that exists in 3D, assembled and kept in step with the
  * project simulation.
@@ -64909,6 +65869,7 @@ class World {
       ['Surveying the Giza plateau', () => this._buildTerrain()],
       ['Quarrying limestone and setting the courses', () => this._buildPyramids()],
       ['Carving Hor-em-akhet and the temples', () => this._buildMonuments()],
+      ['Laying out the cemeteries and the workmen’s galleries', () => this._buildCemeteries()],
       ['Opening the quarry, the harbour and the workers’ town', () => this._buildSite()],
       ['Scattering boulders, scrub and palms', () => this._buildProps()],
       ['Building the approaches to the entrances', () => this._buildEntrances()],
@@ -64967,6 +65928,10 @@ class World {
 
   _buildMonuments() {
     this.monuments = new MonumentSystem(this.scene, this.textures, this.quality, this.collision);
+  }
+
+  _buildCemeteries() {
+    this.cemeteries = new CemeterySystem(this.scene, this.textures, this.quality, this.collision);
   }
 
   _buildSite() {
@@ -65038,7 +66003,10 @@ class World {
 
   _buildTorches() {
     this.torches = new TorchSystem(this.scene, this.textures, this.quality, { capacity: 260 });
-    const sites = [...this.monuments.torchSites, ...this.site.torchSites, ...this.entrances.torchSites];
+    const sites = [
+      ...this.monuments.torchSites, ...this.site.torchSites,
+      ...this.entrances.torchSites, ...this.cemeteries.torchSites,
+    ];
     for (const t of sites) this.torches.add(t.x, t.y, t.z, { scale: t.scale, interior: false });
     const posts = buildTorchPosts(sites, this.site.materials.timber);
     if (posts) this.scene.add(posts);
@@ -65055,6 +66023,7 @@ class World {
       this._poiCache = [
         ...POINTS_OF_INTEREST,
         ...(this.monuments ? this.monuments.relicPoints : []),
+        ...(this.cemeteries ? this.cemeteries.points : []),
         ...(this.interior ? this.interior.relicPoints : []),
       ];
     }
@@ -69783,6 +70752,15 @@ class HUD {
           el('span', { class: 'wide-only', text: 'Hemiunu' }),
         ]),
         el('button', { class: 'mode-btn', title: 'Renderer statistics (F)', onclick: () => this.toggleStats() }, [icon('stats', 15)]),
+        (this.soundButton = el('button', {
+          class: 'mode-btn',
+          title: 'Sound on/off (K)',
+          onclick: () => {
+            this.sim.audio.resume();
+            this.sim.audio.toggleMute();
+            this.refreshSound();
+          },
+        }, [el('span', { text: '♪' })])),
         el('button', { class: 'mode-btn', title: 'Help & controls (?)', onclick: () => this.toggleHelp() }, [icon('help', 15)]),
       ]),
       metrics,
@@ -70010,6 +70988,15 @@ class HUD {
   }
 
   /* --------------------------------------------------------------- toggles */
+
+  /** Show whether sound is on: the button is the only indication there is. */
+  refreshSound() {
+    if (!this.soundButton) return;
+    const off = this.sim.audio.muted;
+    this.soundButton.classList.toggle('muted', off);
+    this.soundButton.title = off ? 'Sound is off (K)' : 'Sound is on (K)';
+    this.soundButton.firstChild.textContent = off ? '♪̸' : '♪';
+  }
 
   toggleStats(force) {
     const on = force === undefined ? !this.statsHud.classList.contains('show') : force;
@@ -70670,6 +71657,7 @@ class TouchControls {
 
 
 
+
 /**
  * Digital Giza — Project Management Simulator.
  *
@@ -70721,6 +71709,7 @@ class Simulator {
     await nextFrame();
     this.engine = new Engine(this.canvas);
     this.input = new InputManager(this.canvas);
+    this.audio = new AudioEngine();
     this.textures = new TextureLibrary(this.engine.quality);
 
     boot.set(0.07, 'Chartering the project…');
@@ -70761,6 +71750,12 @@ class Simulator {
       // A puff of dust behind the trailing foot, drifting the way you came.
       const feet = position.y - this.walker.height;
       const strength = sprinting ? 1.0 : this.walker.crouching ? 0.45 : 0.7;
+      // Underground is always stone; on the plateau it is stone only when
+      // something built is holding the player up above the sand.
+      const onStone = this.world.inInterior ||
+        this.world.collision.groundAt(position.x, position.z, position.y) >
+          terrainHeight(position.x, position.z) + 0.2;
+      this.audio.footstep(onStone ? 'stone' : 'sand', sprinting, this.world.inInterior);
       this.world.kickDust(
         position.x + Math.sin(yaw) * 0.28,
         feet + 0.1,
@@ -70776,6 +71771,7 @@ class Simulator {
     this.tour = new TourDirector(this);
     this.touch = new TouchControls(this.uiRoot, this);
     this.hud.applySpeed();
+    this.hud.refreshSound();
 
     this.orbit.frame(new THREE.Vector3(-40, 50, 240), 820, Math.PI * 0.30, Math.PI * 0.83);
     this.orbit.snap();
@@ -70824,6 +71820,10 @@ class Simulator {
           this.hud.toast(this.touch.toggle() ? 'Touch controls on' : 'Touch controls off');
           break;
         case 'f': case 'F': this.hud.toggleStats(); break;
+        case 'k': case 'K':
+          this.hud.toast(this.audio.toggleMute() ? 'Sound muted' : 'Sound on');
+          this.hud.refreshSound();
+          break;
         case 'm': case 'M': this.dashboard.toggle('missions'); break;
         case '?': this.hud.toggleHelp(); break;
         case 'p': case 'P': this.hud.setSpeedIndex(this.simulationSpeed === 0 ? 2 : 0); break;
@@ -70853,6 +71853,16 @@ class Simulator {
     this.canvas.addEventListener('click', () => {
       if (this.mode === 'archaeologist' || this.mode === 'drone') this.input.requestPointerLock();
     });
+    // An AudioContext cannot be started until the user has interacted with the
+    // page, so the graph is built on the first gesture of any kind.
+    const wake = () => {
+      if (this.audio.resume()) {
+        window.removeEventListener('pointerdown', wake);
+        window.removeEventListener('keydown', wake);
+      }
+    };
+    window.addEventListener('pointerdown', wake);
+    window.addEventListener('keydown', wake);
   }
 
   setMode(mode) {
@@ -70923,6 +71933,7 @@ class Simulator {
   syncWorld(force = false) {
     this.previewing = false;
     const state = this.project.worldState();
+    this._workLevel = state.workforceRatio;
     this.world.applyProjectState(state);
     if (force) this._lastSyncDay = this.project.day;
   }
@@ -70942,10 +71953,18 @@ class Simulator {
       ? this.world.exitInterior()
       : this.world.enterInterior(entranceId);
     const p = target.position;
-    this.walker.teleport(p.x, p.y + 1.72, p.z, target.yaw);
+    // Put the arrival on the actual floor rather than on the nominal height of
+    // the node: a passage on a 26.5-degree slope drops half a metre in the
+    // length of the vestibule.
+    const collision = this.world.activeCollision;
+    const floor = collision.groundAt(p.x, p.z, p.y + 1.2);
+    this.walker.teleport(p.x, (floor > -1e5 ? floor : p.y) + this.walker.eyeHeight, p.z, target.yaw);
+    this._lastSafe = null;
+    this._voidWarned = false;
     this.engine.postfx.applyLook(PostFX.LOOKS[this.world.inInterior ? 'interior' : 'exterior']);
     this._poiPromptSite = this.world.interiorSite;
     if (!silent) {
+      this.audio.threshold(this.world.inInterior);
       this.hud.toast(this.world.inInterior ? `Entering ${target.name}` : 'Back on the plateau');
       if (this.mode !== 'archaeologist') this.setMode('archaeologist');
     }
@@ -70959,12 +71978,55 @@ class Simulator {
       if (!this.visitedPoi.has(this.nearbyPoi.id)) {
         this.visitedPoi.add(this.nearbyPoi.id);
         const total = this.world.pointsOfInterest.length;
+        this.audio.discovery();
         this.hud.toast(`Discovered: ${this.nearbyPoi.name} (${this.visitedPoi.size}/${total})`, 'good');
       }
       return;
     }
     const entrance = this.world.entranceAt(this.engine.camera.position);
     if (entrance) this.toggleInterior(false, entrance.id);
+  }
+
+  /**
+   * Catch a fall into the void.
+   *
+   * A tomb's collision world has no ground plane, so any hole in the floor is
+   * unrecoverable: the player falls until the session is reloaded.  The holes
+   * themselves are bugs and are fixed as they are found, but the cost of
+   * missing one is the whole session, so the last place the player stood is
+   * kept and they are put back on it.  `voidCatches` stays at zero on a
+   * healthy build and the harness asserts that.
+   */
+  _guardVoid() {
+    if (!this.world.inInterior || this.mode !== 'archaeologist') return;
+    const p = this.walker.position;
+    if (this.walker.grounded) {
+      this._lastSafe = p.clone();
+      return;
+    }
+    if (!this._lastSafe || p.y > this._lastSafe.y - 30) return;
+    this.voidCatches = (this.voidCatches || 0) + 1;
+    this.walker.teleport(this._lastSafe.x, this._lastSafe.y, this._lastSafe.z, this.walker.yaw);
+    if (!this._voidWarned) {
+      this._voidWarned = true;
+      this.hud.toast('The floor gave way — put back on solid ground', 'warn');
+    }
+  }
+
+  /** Feed the mix the handful of things it needs to know about the world. */
+  _updateAudio(dt) {
+    if (!this.audio.ready) return;
+    const p = this.engine.camera.position;
+    const sky = this.world.sky.state;
+    this.audio.update(dt, {
+      interior: this.world.inInterior,
+      day: Math.max(0, Math.sin(this.world.sky.sunElevation)),
+      // Torches are lit at dusk outside, and are always lit underground.
+      torchGlow: this.world.inInterior ? 1 : sky.torchFactor,
+      // How busy the site is - which is what you hear from a distance.
+      work: this.world.inInterior || this.project.finished ? 0 : this._workLevel || 0,
+      waterDistance: this.world.inInterior ? 9999 : Math.hypot(p.x - HARBOUR.x, p.z - HARBOUR.z),
+    });
   }
 
   _updateProximity() {
@@ -71010,12 +72072,15 @@ class Simulator {
 
     // --- camera ---
     const collision = this.world.activeCollision;
-    if (this.mode === 'archaeologist') this.walker.update(dt, collision);
-    else if (this.mode === 'drone') this.drone.update(dt);
+    if (this.mode === 'archaeologist') {
+      this.walker.update(dt, collision);
+      this._guardVoid();
+    } else if (this.mode === 'drone') this.drone.update(dt);
     else if (this.mode === 'tour') {
       this.tour.update(dt);
       this.cinematic.update(dt);
     } else this.orbit.update(dt, this.world.inInterior ? null : collision);
+    this._updateAudio(dt);
 
     this.world.update(dt, this.engine.camera, this.engine.elapsed);
     this.engine.updateSunScreenPosition(
@@ -71173,6 +72238,192 @@ window.__giza = {
       });
     }
     return out;
+  },
+
+  /**
+   * Walk the player from waypoint to waypoint under the real physics.
+   *
+   * This is the test that matters for an interior: not "does the chamber
+   * exist" but "can someone actually walk to it".  The walker is driven by
+   * the same update() the game runs, at a fixed step, with the input stubbed
+   * to hold forward while the yaw is aimed at the next waypoint - so wall
+   * sliding, stair stepping, gravity and auto-crouch all behave exactly as
+   * they do for a player.
+   *
+   * A tomb's collision world has no ground plane (there is no terrain
+   * underground), so a hole in the floor is not a stumble: the player falls
+   * for ever.  That is what `fell` reports.
+   */
+  autoWalk(spec) {
+    const { site = 'khufu', waypoints = [], seconds = 400, tolerance = 2.6, trace = 0 } = spec;
+    if (sim.world.inInterior) sim.toggleInterior(true);
+    sim.toggleInterior(true, site);
+
+    const interior = sim.world.interior;
+    const resolve = (name) => {
+      const key = name.includes('.') ? name : `${site}.${name}`;
+      const vp = interior.viewpoints[key] || interior.viewpoints[name];
+      return interior.nodes[key] || interior.nodes[name] || (vp && vp.position) || null;
+    };
+    const points = waypoints.map(resolve);
+    const missing = waypoints.filter((n, i) => !points[i]);
+    if (missing.length) return { site, error: `unknown waypoints: ${missing.join(', ')}` };
+
+    const walker = sim.walker;
+    const collision = sim.world.interiorCollision;
+    const input = sim.input;
+    const saved = { axes: input.axes, look: input.consumeLook, isDown: input.isDown };
+    input.axes = () => ({ x: 0, y: -1 });
+    input.consumeLook = () => ({ x: 0, y: 0 });
+    input.isDown = () => false;
+
+    const start = points[0];
+    walker.teleport(start.x, start.y + walker.eyeHeight, start.z, walker.yaw);
+
+    const dt = 1 / 60;
+    const steps = Math.round(seconds / dt);
+    const floorOf = (p) => collision.groundAt(p.x, p.z, p.y + 0.5);
+    let index = 1;
+    let fell = false;
+    let fellAt = null;
+    let stuckAt = null;
+    let sinceProgress = 0;
+    let safe = null;
+    let caught = 0;
+    const holes = [];
+    let nudge = 0;
+    let nudgeSide = 1;
+    let best = Infinity;
+    let lastSolid = start.clone();
+    let lowest = Infinity;
+    const reached = [waypoints[0]];
+    const path = [];
+
+    try {
+      for (let i = 0; i < steps && index < points.length; i++) {
+        const target = points[index];
+        const dx = target.x - walker.position.x;
+        const dz = target.z - walker.position.z;
+        // Aim on the horizontal only - gravity and the stairs deal with height
+        // - and when progress stalls, swing the aim sideways for a moment.
+        // A corridor rarely points at the thing you are walking to, and a
+        // person slides along the wall rather than grinding into it; without
+        // that the route walker reports a passage blocked when it is merely
+        // bent.
+        const bias = nudge > 0 ? (nudgeSide * Math.PI) / 3 : 0;
+        walker.yaw = Math.atan2(-dx, -dz) + bias;
+        if (nudge > 0) nudge -= 1;
+        walker.update(dt, collision);
+
+        const p = walker.position;
+        lowest = Math.min(lowest, p.y);
+        if (trace && i % trace === 0 && path.length < 200) {
+          path.push([
+            Number(p.x.toFixed(2)), Number(p.y.toFixed(2)), Number(p.z.toFixed(2)),
+            walker.grounded ? 'G' : '-', walker.crouching ? 'C' : '-',
+            Number(collision.groundAt(p.x, p.z, p.y).toFixed(2)),
+          ]);
+        }
+        // Mirror the simulator's void catch, so the route walker measures the
+        // experience a player actually has rather than one without the net.
+        if (walker.grounded) safe = p.clone();
+        else if (safe && p.y < safe.y - 30) {
+          caught += 1;
+          holes.push({ x: Number(safe.x.toFixed(1)), y: Number(safe.y.toFixed(1)), z: Number(safe.z.toFixed(1)) });
+          walker.teleport(safe.x, safe.y, safe.z, walker.yaw);
+        }
+        // Past even the net: this is a fall the net could not see.
+        if (p.y < -400) {
+          fell = true;
+          fellAt = {
+            after: reached[reached.length - 1],
+            heading: waypoints[index],
+            x: Number(lastSolid.x.toFixed(2)),
+            y: Number(lastSolid.y.toFixed(2)),
+            z: Number(lastSolid.z.toFixed(2)),
+          };
+          break;
+        }
+        if (floorOf(p) > -1e5) lastSolid = p.clone();
+
+        const distance = Math.hypot(dx, dz);
+        if (distance < best - 0.05) {
+          best = distance;
+          sinceProgress = 0;
+        } else if (++sinceProgress % 90 === 0 && sinceProgress < 60 * 12) {
+          nudge = 45;
+          nudgeSide = -nudgeSide;
+        } else if (sinceProgress > 60 * 12) {
+          stuckAt = {
+            heading: waypoints[index],
+            distance: Number(distance.toFixed(2)),
+            x: Number(p.x.toFixed(2)), y: Number(p.y.toFixed(2)), z: Number(p.z.toFixed(2)),
+            grounded: walker.grounded,
+            crouching: walker.crouching,
+          };
+          break;
+        }
+        // Arrival is horizontal: a node in a sloping passage is above or below
+        // the floor the player is standing on.
+        if (distance < tolerance && Math.abs(target.y - (p.y - walker.height)) < 6) {
+          reached.push(waypoints[index]);
+          index += 1;
+          best = Infinity;
+          sinceProgress = 0;
+        }
+      }
+    } finally {
+      input.axes = saved.axes;
+      input.consumeLook = saved.look;
+      input.isDown = saved.isDown;
+    }
+
+    return {
+      site,
+      reached,
+      of: waypoints.length,
+      complete: reached.length === waypoints.length,
+      fell,
+      fellAt,
+      stuckAt,
+      lowestY: Number(lowest.toFixed(1)),
+      caught,
+      holes: holes.slice(0, 4),
+      path,
+    };
+  },
+
+  /**
+   * Why is the player stuck here?
+   *
+   * Lists the boxes actually overlapping the collider at a point, then tries a
+   * small step along each axis and reports how far it got.  Reasoning about
+   * AABB resolution from the geometry alone is guesswork; this asks the
+   * collision world.
+   */
+  probeStuck(x, y, z, height = 1.05, radius = 0.42) {
+    const collision = sim.world.activeCollision;
+    const hits = [];
+    collision._overlapping(x, y, z, radius, height, hits);
+    const tries = {};
+    for (const [name, d] of [
+      ['+z', [0, 0, 0.06]], ['-z', [0, 0, -0.06]],
+      ['+x', [0.06, 0, 0]], ['-x', [-0.06, 0, 0]],
+    ]) {
+      const p = new THREE.Vector3(x, y, z);
+      collision.move(p, new THREE.Vector3(d[0], d[1], d[2]), radius, height, true);
+      tries[name] = [Number((p.x - x).toFixed(3)), Number((p.y - y).toFixed(3)), Number((p.z - z).toFixed(3))];
+    }
+    return {
+      feet: Number((y - height).toFixed(2)),
+      overlapping: hits.map((b) => ({
+        tag: b.tag,
+        x: [Number(b.minX.toFixed(2)), Number(b.maxX.toFixed(2))],
+        y: [Number(b.minY.toFixed(2)), Number(b.maxY.toFixed(2))],
+        z: [Number(b.minZ.toFixed(2)), Number(b.maxZ.toFixed(2))],
+      })),
+      tries,
+    };
   },
 
   /** Relics registered by the interiors, grouped by tomb. */

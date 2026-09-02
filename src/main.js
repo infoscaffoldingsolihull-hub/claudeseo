@@ -4,9 +4,10 @@ import { PostFX } from './engine/postfx.js';
 import { InputManager } from './engine/input.js';
 import { FirstPersonController, OrbitController, DroneController, CinematicPlayer } from './engine/controls.js';
 import { TextureLibrary } from './engine/textures.js';
+import { AudioEngine } from './engine/audio.js';
 import { World } from './world/world.js';
 import { terrainHeight } from './world/terrain.js';
-import { TEMPLES } from './world/layout.js';
+import { TEMPLES, HARBOUR } from './world/layout.js';
 import { Project } from './pm/project.js';
 import { Advisor } from './pm/advisor.js';
 import { runMonteCarlo } from './pm/montecarlo.js';
@@ -67,6 +68,7 @@ class Simulator {
     await nextFrame();
     this.engine = new Engine(this.canvas);
     this.input = new InputManager(this.canvas);
+    this.audio = new AudioEngine();
     this.textures = new TextureLibrary(this.engine.quality);
 
     boot.set(0.07, 'Chartering the project…');
@@ -107,6 +109,12 @@ class Simulator {
       // A puff of dust behind the trailing foot, drifting the way you came.
       const feet = position.y - this.walker.height;
       const strength = sprinting ? 1.0 : this.walker.crouching ? 0.45 : 0.7;
+      // Underground is always stone; on the plateau it is stone only when
+      // something built is holding the player up above the sand.
+      const onStone = this.world.inInterior ||
+        this.world.collision.groundAt(position.x, position.z, position.y) >
+          terrainHeight(position.x, position.z) + 0.2;
+      this.audio.footstep(onStone ? 'stone' : 'sand', sprinting, this.world.inInterior);
       this.world.kickDust(
         position.x + Math.sin(yaw) * 0.28,
         feet + 0.1,
@@ -122,6 +130,7 @@ class Simulator {
     this.tour = new TourDirector(this);
     this.touch = new TouchControls(this.uiRoot, this);
     this.hud.applySpeed();
+    this.hud.refreshSound();
 
     this.orbit.frame(new THREE.Vector3(-40, 50, 240), 820, Math.PI * 0.30, Math.PI * 0.83);
     this.orbit.snap();
@@ -170,6 +179,10 @@ class Simulator {
           this.hud.toast(this.touch.toggle() ? 'Touch controls on' : 'Touch controls off');
           break;
         case 'f': case 'F': this.hud.toggleStats(); break;
+        case 'k': case 'K':
+          this.hud.toast(this.audio.toggleMute() ? 'Sound muted' : 'Sound on');
+          this.hud.refreshSound();
+          break;
         case 'm': case 'M': this.dashboard.toggle('missions'); break;
         case '?': this.hud.toggleHelp(); break;
         case 'p': case 'P': this.hud.setSpeedIndex(this.simulationSpeed === 0 ? 2 : 0); break;
@@ -199,6 +212,16 @@ class Simulator {
     this.canvas.addEventListener('click', () => {
       if (this.mode === 'archaeologist' || this.mode === 'drone') this.input.requestPointerLock();
     });
+    // An AudioContext cannot be started until the user has interacted with the
+    // page, so the graph is built on the first gesture of any kind.
+    const wake = () => {
+      if (this.audio.resume()) {
+        window.removeEventListener('pointerdown', wake);
+        window.removeEventListener('keydown', wake);
+      }
+    };
+    window.addEventListener('pointerdown', wake);
+    window.addEventListener('keydown', wake);
   }
 
   setMode(mode) {
@@ -269,6 +292,7 @@ class Simulator {
   syncWorld(force = false) {
     this.previewing = false;
     const state = this.project.worldState();
+    this._workLevel = state.workforceRatio;
     this.world.applyProjectState(state);
     if (force) this._lastSyncDay = this.project.day;
   }
@@ -288,10 +312,18 @@ class Simulator {
       ? this.world.exitInterior()
       : this.world.enterInterior(entranceId);
     const p = target.position;
-    this.walker.teleport(p.x, p.y + 1.72, p.z, target.yaw);
+    // Put the arrival on the actual floor rather than on the nominal height of
+    // the node: a passage on a 26.5-degree slope drops half a metre in the
+    // length of the vestibule.
+    const collision = this.world.activeCollision;
+    const floor = collision.groundAt(p.x, p.z, p.y + 1.2);
+    this.walker.teleport(p.x, (floor > -1e5 ? floor : p.y) + this.walker.eyeHeight, p.z, target.yaw);
+    this._lastSafe = null;
+    this._voidWarned = false;
     this.engine.postfx.applyLook(PostFX.LOOKS[this.world.inInterior ? 'interior' : 'exterior']);
     this._poiPromptSite = this.world.interiorSite;
     if (!silent) {
+      this.audio.threshold(this.world.inInterior);
       this.hud.toast(this.world.inInterior ? `Entering ${target.name}` : 'Back on the plateau');
       if (this.mode !== 'archaeologist') this.setMode('archaeologist');
     }
@@ -305,12 +337,55 @@ class Simulator {
       if (!this.visitedPoi.has(this.nearbyPoi.id)) {
         this.visitedPoi.add(this.nearbyPoi.id);
         const total = this.world.pointsOfInterest.length;
+        this.audio.discovery();
         this.hud.toast(`Discovered: ${this.nearbyPoi.name} (${this.visitedPoi.size}/${total})`, 'good');
       }
       return;
     }
     const entrance = this.world.entranceAt(this.engine.camera.position);
     if (entrance) this.toggleInterior(false, entrance.id);
+  }
+
+  /**
+   * Catch a fall into the void.
+   *
+   * A tomb's collision world has no ground plane, so any hole in the floor is
+   * unrecoverable: the player falls until the session is reloaded.  The holes
+   * themselves are bugs and are fixed as they are found, but the cost of
+   * missing one is the whole session, so the last place the player stood is
+   * kept and they are put back on it.  `voidCatches` stays at zero on a
+   * healthy build and the harness asserts that.
+   */
+  _guardVoid() {
+    if (!this.world.inInterior || this.mode !== 'archaeologist') return;
+    const p = this.walker.position;
+    if (this.walker.grounded) {
+      this._lastSafe = p.clone();
+      return;
+    }
+    if (!this._lastSafe || p.y > this._lastSafe.y - 30) return;
+    this.voidCatches = (this.voidCatches || 0) + 1;
+    this.walker.teleport(this._lastSafe.x, this._lastSafe.y, this._lastSafe.z, this.walker.yaw);
+    if (!this._voidWarned) {
+      this._voidWarned = true;
+      this.hud.toast('The floor gave way — put back on solid ground', 'warn');
+    }
+  }
+
+  /** Feed the mix the handful of things it needs to know about the world. */
+  _updateAudio(dt) {
+    if (!this.audio.ready) return;
+    const p = this.engine.camera.position;
+    const sky = this.world.sky.state;
+    this.audio.update(dt, {
+      interior: this.world.inInterior,
+      day: Math.max(0, Math.sin(this.world.sky.sunElevation)),
+      // Torches are lit at dusk outside, and are always lit underground.
+      torchGlow: this.world.inInterior ? 1 : sky.torchFactor,
+      // How busy the site is - which is what you hear from a distance.
+      work: this.world.inInterior || this.project.finished ? 0 : this._workLevel || 0,
+      waterDistance: this.world.inInterior ? 9999 : Math.hypot(p.x - HARBOUR.x, p.z - HARBOUR.z),
+    });
   }
 
   _updateProximity() {
@@ -356,12 +431,15 @@ class Simulator {
 
     // --- camera ---
     const collision = this.world.activeCollision;
-    if (this.mode === 'archaeologist') this.walker.update(dt, collision);
-    else if (this.mode === 'drone') this.drone.update(dt);
+    if (this.mode === 'archaeologist') {
+      this.walker.update(dt, collision);
+      this._guardVoid();
+    } else if (this.mode === 'drone') this.drone.update(dt);
     else if (this.mode === 'tour') {
       this.tour.update(dt);
       this.cinematic.update(dt);
     } else this.orbit.update(dt, this.world.inInterior ? null : collision);
+    this._updateAudio(dt);
 
     this.world.update(dt, this.engine.camera, this.engine.elapsed);
     this.engine.updateSunScreenPosition(
@@ -519,6 +597,192 @@ window.__giza = {
       });
     }
     return out;
+  },
+
+  /**
+   * Walk the player from waypoint to waypoint under the real physics.
+   *
+   * This is the test that matters for an interior: not "does the chamber
+   * exist" but "can someone actually walk to it".  The walker is driven by
+   * the same update() the game runs, at a fixed step, with the input stubbed
+   * to hold forward while the yaw is aimed at the next waypoint - so wall
+   * sliding, stair stepping, gravity and auto-crouch all behave exactly as
+   * they do for a player.
+   *
+   * A tomb's collision world has no ground plane (there is no terrain
+   * underground), so a hole in the floor is not a stumble: the player falls
+   * for ever.  That is what `fell` reports.
+   */
+  autoWalk(spec) {
+    const { site = 'khufu', waypoints = [], seconds = 400, tolerance = 2.6, trace = 0 } = spec;
+    if (sim.world.inInterior) sim.toggleInterior(true);
+    sim.toggleInterior(true, site);
+
+    const interior = sim.world.interior;
+    const resolve = (name) => {
+      const key = name.includes('.') ? name : `${site}.${name}`;
+      const vp = interior.viewpoints[key] || interior.viewpoints[name];
+      return interior.nodes[key] || interior.nodes[name] || (vp && vp.position) || null;
+    };
+    const points = waypoints.map(resolve);
+    const missing = waypoints.filter((n, i) => !points[i]);
+    if (missing.length) return { site, error: `unknown waypoints: ${missing.join(', ')}` };
+
+    const walker = sim.walker;
+    const collision = sim.world.interiorCollision;
+    const input = sim.input;
+    const saved = { axes: input.axes, look: input.consumeLook, isDown: input.isDown };
+    input.axes = () => ({ x: 0, y: -1 });
+    input.consumeLook = () => ({ x: 0, y: 0 });
+    input.isDown = () => false;
+
+    const start = points[0];
+    walker.teleport(start.x, start.y + walker.eyeHeight, start.z, walker.yaw);
+
+    const dt = 1 / 60;
+    const steps = Math.round(seconds / dt);
+    const floorOf = (p) => collision.groundAt(p.x, p.z, p.y + 0.5);
+    let index = 1;
+    let fell = false;
+    let fellAt = null;
+    let stuckAt = null;
+    let sinceProgress = 0;
+    let safe = null;
+    let caught = 0;
+    const holes = [];
+    let nudge = 0;
+    let nudgeSide = 1;
+    let best = Infinity;
+    let lastSolid = start.clone();
+    let lowest = Infinity;
+    const reached = [waypoints[0]];
+    const path = [];
+
+    try {
+      for (let i = 0; i < steps && index < points.length; i++) {
+        const target = points[index];
+        const dx = target.x - walker.position.x;
+        const dz = target.z - walker.position.z;
+        // Aim on the horizontal only - gravity and the stairs deal with height
+        // - and when progress stalls, swing the aim sideways for a moment.
+        // A corridor rarely points at the thing you are walking to, and a
+        // person slides along the wall rather than grinding into it; without
+        // that the route walker reports a passage blocked when it is merely
+        // bent.
+        const bias = nudge > 0 ? (nudgeSide * Math.PI) / 3 : 0;
+        walker.yaw = Math.atan2(-dx, -dz) + bias;
+        if (nudge > 0) nudge -= 1;
+        walker.update(dt, collision);
+
+        const p = walker.position;
+        lowest = Math.min(lowest, p.y);
+        if (trace && i % trace === 0 && path.length < 200) {
+          path.push([
+            Number(p.x.toFixed(2)), Number(p.y.toFixed(2)), Number(p.z.toFixed(2)),
+            walker.grounded ? 'G' : '-', walker.crouching ? 'C' : '-',
+            Number(collision.groundAt(p.x, p.z, p.y).toFixed(2)),
+          ]);
+        }
+        // Mirror the simulator's void catch, so the route walker measures the
+        // experience a player actually has rather than one without the net.
+        if (walker.grounded) safe = p.clone();
+        else if (safe && p.y < safe.y - 30) {
+          caught += 1;
+          holes.push({ x: Number(safe.x.toFixed(1)), y: Number(safe.y.toFixed(1)), z: Number(safe.z.toFixed(1)) });
+          walker.teleport(safe.x, safe.y, safe.z, walker.yaw);
+        }
+        // Past even the net: this is a fall the net could not see.
+        if (p.y < -400) {
+          fell = true;
+          fellAt = {
+            after: reached[reached.length - 1],
+            heading: waypoints[index],
+            x: Number(lastSolid.x.toFixed(2)),
+            y: Number(lastSolid.y.toFixed(2)),
+            z: Number(lastSolid.z.toFixed(2)),
+          };
+          break;
+        }
+        if (floorOf(p) > -1e5) lastSolid = p.clone();
+
+        const distance = Math.hypot(dx, dz);
+        if (distance < best - 0.05) {
+          best = distance;
+          sinceProgress = 0;
+        } else if (++sinceProgress % 90 === 0 && sinceProgress < 60 * 12) {
+          nudge = 45;
+          nudgeSide = -nudgeSide;
+        } else if (sinceProgress > 60 * 12) {
+          stuckAt = {
+            heading: waypoints[index],
+            distance: Number(distance.toFixed(2)),
+            x: Number(p.x.toFixed(2)), y: Number(p.y.toFixed(2)), z: Number(p.z.toFixed(2)),
+            grounded: walker.grounded,
+            crouching: walker.crouching,
+          };
+          break;
+        }
+        // Arrival is horizontal: a node in a sloping passage is above or below
+        // the floor the player is standing on.
+        if (distance < tolerance && Math.abs(target.y - (p.y - walker.height)) < 6) {
+          reached.push(waypoints[index]);
+          index += 1;
+          best = Infinity;
+          sinceProgress = 0;
+        }
+      }
+    } finally {
+      input.axes = saved.axes;
+      input.consumeLook = saved.look;
+      input.isDown = saved.isDown;
+    }
+
+    return {
+      site,
+      reached,
+      of: waypoints.length,
+      complete: reached.length === waypoints.length,
+      fell,
+      fellAt,
+      stuckAt,
+      lowestY: Number(lowest.toFixed(1)),
+      caught,
+      holes: holes.slice(0, 4),
+      path,
+    };
+  },
+
+  /**
+   * Why is the player stuck here?
+   *
+   * Lists the boxes actually overlapping the collider at a point, then tries a
+   * small step along each axis and reports how far it got.  Reasoning about
+   * AABB resolution from the geometry alone is guesswork; this asks the
+   * collision world.
+   */
+  probeStuck(x, y, z, height = 1.05, radius = 0.42) {
+    const collision = sim.world.activeCollision;
+    const hits = [];
+    collision._overlapping(x, y, z, radius, height, hits);
+    const tries = {};
+    for (const [name, d] of [
+      ['+z', [0, 0, 0.06]], ['-z', [0, 0, -0.06]],
+      ['+x', [0.06, 0, 0]], ['-x', [-0.06, 0, 0]],
+    ]) {
+      const p = new THREE.Vector3(x, y, z);
+      collision.move(p, new THREE.Vector3(d[0], d[1], d[2]), radius, height, true);
+      tries[name] = [Number((p.x - x).toFixed(3)), Number((p.y - y).toFixed(3)), Number((p.z - z).toFixed(3))];
+    }
+    return {
+      feet: Number((y - height).toFixed(2)),
+      overlapping: hits.map((b) => ({
+        tag: b.tag,
+        x: [Number(b.minX.toFixed(2)), Number(b.maxX.toFixed(2))],
+        y: [Number(b.minY.toFixed(2)), Number(b.maxY.toFixed(2))],
+        z: [Number(b.minZ.toFixed(2)), Number(b.maxZ.toFixed(2))],
+      })),
+      tries,
+    };
   },
 
   /** Relics registered by the interiors, grouped by tomb. */

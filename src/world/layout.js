@@ -120,12 +120,89 @@ export const TEMPLES = {
   khafreValley: { id: 'khafreValley', name: 'Valley Temple of Khafre', x: 404, z: 596, w: 44.6, d: 44.5, y: -9.0 },
   sphinxTemple: { id: 'sphinxTemple', name: 'Sphinx Temple', x: 404, z: 520, w: 46, d: 40, y: -8.8 },
   menkaureMortuary: { id: 'menkaureMortuary', name: 'Mortuary Temple of Menkaure', x: -520, z: 862, w: 45, d: 45, y: 14.2 },
+  menkaureValley: { id: 'menkaureValley', name: 'Valley Temple of Menkaure', x: -110, z: 934, w: 48, d: 42, y: 2.0 },
 };
+
+/**
+ * The two great cemeteries of private tombs that fill the plateau either side
+ * of Khufu, laid out on the grid Hemiunu's surveyors set: the Western Cemetery
+ * for officials and craftsmen, the Eastern for the royal family.
+ */
+export const CEMETERIES = [
+  {
+    id: 'western',
+    name: 'Western Cemetery',
+    x: -330, z: -30, w: 330, d: 430,
+    rows: 7, cols: 11,
+    note: 'Mastabas of viziers, priests and master craftsmen, set out in streets on a survey grid.',
+  },
+  {
+    id: 'eastern',
+    name: 'Eastern Cemetery',
+    x: 300, z: 40, w: 130, d: 380,
+    rows: 6, cols: 4,
+    note: 'The royal family: Khufu’s sons, daughters and their households.',
+  },
+];
+
+/** Individually named tombs that carry their own codex entry. */
+export const NAMED_TOMBS = [
+  {
+    id: 'hemiunu',
+    name: 'Mastaba of Hemiunu',
+    x: -232, z: -96, w: 26.5, d: 51.5, h: 8.4,
+    chapel: true,
+    text:
+      'G 4000, the largest mastaba in the Western Cemetery. Hemiunu was Khufu’s cousin, vizier and ' +
+      '“overseer of all the king’s works” — the project manager of the Great Pyramid. His seated ' +
+      'statue, found in the serdab here, is one of the few Old Kingdom portraits that reads as a ' +
+      'specific, heavy-set man rather than an ideal.',
+    pm: 'The role this whole simulation puts you in. He held it for about twenty years.',
+  },
+  {
+    id: 'hetepheres',
+    name: 'Shaft of Queen Hetepheres I',
+    x: 122, z: -104, w: 12, d: 12, h: 2.2,
+    shaft: true,
+    text:
+      'A 27 m shaft found by accident in 1925, sealed and unmarked. At the bottom: a walled-up chamber ' +
+      'with gilded furniture, a canopy frame, a carrying chair and an alabaster sarcophagus — which was ' +
+      'empty. Khufu’s mother was reburied here, and nobody knows what happened to the body.',
+    pm: 'A change of scope handled quietly, at speed, and documented nowhere.',
+  },
+  {
+    id: 'khentkawes',
+    name: 'Tomb of Queen Khentkawes I',
+    x: 150, z: 706, w: 45.8, d: 45.5, h: 17.5,
+    stepped: true,
+    text:
+      'A giant two-stepped tomb cut from a knoll of rock left in the quarry and cased in Tura limestone. ' +
+      'Her titles are ambiguous enough to read either as “mother of two kings” or “king herself”, which ' +
+      'is why she closes the 4th Dynasty and opens the 5th depending on who is writing.',
+    pm: 'Built from quarry spoil, like the Sphinx: the plateau wasted very little.',
+  },
+];
+
+/** The workmen's compound west of Khafre, behind the great enclosure wall. */
+export const BUILDERS_QUARTERS = {
+  id: 'buildersQuarters',
+  name: 'Builders’ Quarters',
+  x: -560, z: 300, w: 130, d: 300,
+  galleries: 14,
+  note: 'Long galleries for the rotating crews working the Khafre enclosure, inside the western wall.',
+};
+
+/** Rock-cut tomb façades in the quarry escarpment east of the Central Field. */
+export const ROCK_TOMBS = [
+  { id: 'rockE', x: 452, z: 300, count: 9, spacing: 26, axis: 'z', face: -1 },
+  { id: 'rockS', x: 120, z: 640, count: 7, spacing: 28, axis: 'x', face: 1 },
+];
 
 /** Processional causeways: raised, walled roads from valley temple to plateau. */
 export const CAUSEWAYS = [
   { id: 'khufuCauseway', name: 'Causeway of Khufu', from: [1050, 118], to: [186, 8], width: 18.5 },
   { id: 'khafreCauseway', name: 'Causeway of Khafre', from: [388, 574], to: [-72, 436], width: 15.0 },
+  { id: 'menkaureCauseway', name: 'Causeway of Menkaure', from: [-134, 928], to: [-494, 872], width: 13.0 },
 ];
 
 export const QUARRY = {

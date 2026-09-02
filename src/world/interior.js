@@ -51,7 +51,15 @@ function tiltedPart(w, h, d, lx, ly, lz, rx, cx, cy, cz) {
  * the player can actually walk the 26.5-degree slope.
  */
 function buildPassage(parts, colliders, y0, z0, y1, z1, width, height, opts = {}) {
-  const { thickness = WALL, x = AXIS_X, rail = 0 } = opts;
+  const {
+    thickness = WALL, x = AXIS_X, rail = 0, ceilingCollision = true,
+    // Collision slabs are kept thin.  A 3 m floor slab is a safe backstop
+    // against a fast faller tunnelling through it, but the Ascending Passage
+    // runs directly above the Descending Passage, and a slab that thick fills
+    // the corridor underneath: the junction became impassable in both
+    // directions.  The void catch in the simulator covers the rare fall.
+    floorSlab = 0.9, ceilingSlab = 0.6, collide = true,
+  } = opts;
   const dz = z1 - z0;
   const dy = y1 - y0;
   const len = Math.hypot(dz, dy);
@@ -70,6 +78,7 @@ function buildPassage(parts, colliders, y0, z0, y1, z1, width, height, opts = {}
   }
 
   // ---- collision: floor steps plus the two vertical side walls ----
+  if (!collide) return { len, rx };
   const steps = Math.max(2, Math.ceil(Math.abs(dz) / 0.9));
   for (let i = 0; i < steps; i++) {
     const t0 = i / steps;
@@ -80,35 +89,45 @@ function buildPassage(parts, colliders, y0, z0, y1, z1, width, height, opts = {}
     colliders.push({
       minX: x - width / 2,
       maxX: x + width / 2,
-      minY: yFloor - 3.0,
+      minY: yFloor - floorSlab,
       maxY: yFloor,
       minZ: Math.min(zA, zB),
       maxZ: Math.max(zA, zB),
       tag: 'passage-floor',
     });
     const yCeil = Math.max(y0 + dy * t0, y0 + dy * t1) + height;
-    colliders.push({
+    if (ceilingCollision) colliders.push({
       minX: x - width / 2,
       maxX: x + width / 2,
       minY: yCeil,
-      maxY: yCeil + 2.0,
+      maxY: yCeil + ceilingSlab,
       minZ: Math.min(zA, zB),
       maxZ: Math.max(zA, zB),
       tag: 'passage-ceiling',
     });
   }
-  const yLo = Math.min(y0, y1) - 1;
-  const yHi = Math.max(y0, y1) + height + 1;
-  for (const side of [-1, 1]) {
-    colliders.push({
-      minX: side < 0 ? x - width / 2 - thickness : x + width / 2,
-      maxX: side < 0 ? x - width / 2 : x + width / 2 + thickness,
-      minY: yLo,
-      maxY: yHi,
-      minZ: Math.min(z0, z1),
-      maxZ: Math.max(z0, z1),
-      tag: 'passage-wall',
-    });
+  // Side walls follow the slope in the same steps as the floor.  A single slab
+  // spanning the whole run is 1.1 m thick and tens of metres tall, and it
+  // swallows anything cut alongside - al-Ma'mun's tunnel ran inside the
+  // Descending Passage's west wall and could not be walked at all.
+  for (let i = 0; i < steps; i++) {
+    const t0 = i / steps;
+    const t1 = (i + 1) / steps;
+    const zA = z0 + dz * t0;
+    const zB = z0 + dz * t1;
+    const yA = y0 + dy * t0;
+    const yB = y0 + dy * t1;
+    for (const side of [-1, 1]) {
+      colliders.push({
+        minX: side < 0 ? x - width / 2 - thickness : x + width / 2,
+        maxX: side < 0 ? x - width / 2 : x + width / 2 + thickness,
+        minY: Math.min(yA, yB) - 0.4,
+        maxY: Math.max(yA, yB) + height + 0.4,
+        minZ: Math.min(zA, zB),
+        maxZ: Math.max(zA, zB),
+        tag: 'passage-wall',
+      });
+    }
   }
   return { len, rx };
 }
@@ -279,7 +298,10 @@ export class InteriorSystem {
     // ---------------------------------------------------------- entrance
     const entryY = K.entrance.y;
     const entryZ = faceZ(entryY);
-    this.entrancePoint = new THREE.Vector3(AXIS_X, entryY, entryZ + 2.2);
+    // In the level vestibule behind the face.  Two metres further in the
+    // floor has already dropped a metre down the 26.5-degree slope, so an
+    // arrival point there leaves the player hanging above it.
+    this.entrancePoint = new THREE.Vector3(AXIS_X, entryY, entryZ - 0.9);
     this.nodes.entrance = this.entrancePoint.clone();
 
     // A short level vestibule behind the face, then the descending passage.
@@ -289,45 +311,109 @@ export class InteriorSystem {
     const descLen = K.descendingLength;
     const descEndY = entryY - descLen * Math.sin(SLOPE);
     const descEndZ = entryZ + 1.6 + descLen * Math.cos(SLOPE);
-    buildPassage(lime, colliders, entryY, entryZ + 1.6, descEndY, descEndZ, PW, PH);
-    this.nodes.descending = new THREE.Vector3(AXIS_X, entryY - 12, entryZ + 1.6 + 24);
-    this.viewpoints.descending = { position: this.nodes.descending.clone(), yaw: Math.PI };
-    this.viewpoints.entrance = { position: this.entrancePoint.clone(), yaw: Math.PI };
-
     // Junction with the ascending passage, 28.2 m down the slope.
     const jT = 28.2 / descLen;
     const junctionY = lerp(entryY, descEndY, jT);
     const junctionZ = lerp(entryZ + 1.6, descEndZ, jT);
 
+    /**
+     * The junction is a knot: the Descending Passage, the Ascending Passage
+     * and al-Ma'mun's tunnel all meet inside a corridor 1.05 m wide, and the
+     * first two share a floor height there.  Left as three overlapping
+     * passages, the collision world's step-up carried every visitor up the
+     * Ascending Passage the moment they reached it, and the Subterranean
+     * Chamber could not be reached at all.
+     *
+     * So the meeting is built as a room.  Its floor sits a metre below the
+     * Ascending Passage's mouth, the way on down leaves through the south wall
+     * on the west side, and the mouth is reached by a two-tread ledge against
+     * the east side.  Both ways are open, and which one the visitor takes is
+     * their choice rather than an accident of collision order.
+     */
+    const hallD = 4.2;
+    const hallW = 4.6;
+    const hallZ = junctionZ + 2.2;
+    const hallNorthZ = hallZ - hallD / 2;
+    const hallSouthZ = hallZ + hallD / 2;
+    const descAt = (z) => lerp(entryY, descEndY, (z - (entryZ + 1.6)) / (descEndZ - (entryZ + 1.6)));
+    const hallFloorY = junctionY - 1.05;
+    // Far enough west to leave a real rib of rock between this passage and the
+    // Ascending Passage above it.  At 1.15 m the rib was 10 cm wide and the
+    // player could slip into the gap between the two, where neither floor is.
+    const lowerX = AXIS_X - 1.9;
+
+    // Upper run: the entrance down to the hall's north wall.
+    buildPassage(lime, colliders, entryY, entryZ + 1.6, descAt(hallNorthZ), hallNorthZ, PW, PH);
+    this.nodes.descending = new THREE.Vector3(AXIS_X, entryY - 12, entryZ + 1.6 + 24);
+    this.viewpoints.descending = { position: this.nodes.descending.clone(), yaw: Math.PI };
+    this.viewpoints.entrance = { position: this.entrancePoint.clone(), yaw: Math.PI };
+
+    buildRoom(
+      rough, colliders, AXIS_X, hallFloorY, hallZ, hallW, hallD, 2.8,
+      [
+        { wall: 'n', offset: 0, width: PW, height: PH + 1.2, sill: 0 },
+        { wall: 'n', offset: -1.3, width: 1.5, height: 2.0, sill: 0 },
+        { wall: 's', offset: lowerX - AXIS_X, width: PW, height: PH + 0.6, sill: 0 },
+        { wall: 's', offset: 0, width: PW, height: PH, sill: 1.05 },
+      ],
+      { uvUnit: 2.0 }
+    );
+    // The ledge up to the Ascending Passage, against the east side so the way
+    // down the west side stays clear. Two 0.53 m treads, inside the 0.55 m
+    // the collision world will step a player up.
+    for (let i = 0; i < 2; i++) {
+      const top = hallFloorY + 0.53 * (i + 1);
+      rough.push(box(1.5, 0.53, hallD - 0.6 - i * 1.1, AXIS_X + 0.95, top - 0.265, hallZ + 0.3 + i * 0.55));
+      colliders.push({
+        minX: AXIS_X + 0.2, maxX: AXIS_X + 1.7,
+        minY: top - 0.6, maxY: top,
+        minZ: hallZ - hallD / 2 + 0.3 + i * 1.1, maxZ: hallSouthZ,
+        tag: 'junction-ledge',
+      });
+    }
+    this.nodes.junction = new THREE.Vector3(AXIS_X, hallFloorY, hallZ);
+    this.nodes.lowerPassage = new THREE.Vector3(lowerX, hallFloorY, hallSouthZ + 3.0);
+    this.nodes.lowerMid = new THREE.Vector3(lowerX, lerp(hallFloorY, descEndY - 1.05, 0.55), lerp(hallSouthZ, descEndZ, 0.55));
+    this.viewpoints.junction = { position: this.nodes.junction.clone(), yaw: Math.PI };
+    this.torchSites.push({ x: AXIS_X - hallW / 2 + 0.5, y: hallFloorY + 1.9, z: hallZ, scale: 0.8 });
+
     // ---------------------------------------------- subterranean chamber
     const sub = K.subterranean;
+    // The run below the hall keeps the surveyed slope but leaves on the west
+    // side of it, a metre lower, so it never shares a floor with the mouth of
+    // the Ascending Passage.
+    const lowerEndY = descEndY - 1.05;
+    buildPassage(lime, colliders, hallFloorY, hallSouthZ, lowerEndY, descEndZ, PW, PH, { x: lowerX });
+    this._lineTorches(hallFloorY, hallSouthZ, lowerEndY, descEndZ, 9, lowerX);
     const subLevelZ = descEndZ + 8.84;
-    buildPassage(rough, colliders, descEndY, descEndZ, descEndY, subLevelZ, PW, PH);
+    buildPassage(rough, colliders, lowerEndY, descEndZ, lowerEndY, subLevelZ, PW, PH, { x: lowerX });
     const subCenterZ = subLevelZ + sub.d / 2 + 0.4;
     buildRoom(
-      rough, colliders, AXIS_X, descEndY - 0.9, subCenterZ, sub.w, sub.d, sub.h,
+      rough, colliders, lowerX, lowerEndY - 0.9, subCenterZ, sub.w, sub.d, sub.h,
       [{ wall: 'n', offset: 0, width: PW, height: PH, sill: 0.9 }],
       { uvUnit: 2.4 }
     );
-    this.nodes.subterranean = new THREE.Vector3(AXIS_X, descEndY - 0.9, subCenterZ);
+    this.nodes.subterranean = new THREE.Vector3(lowerX, lowerEndY - 0.9, subCenterZ);
     this.viewpoints.subterranean = {
-      position: new THREE.Vector3(AXIS_X - 4.5, descEndY - 0.9, subCenterZ - 2.0),
+      position: new THREE.Vector3(lowerX - 4.5, lowerEndY - 0.9, subCenterZ - 2.0),
       yaw: Math.PI * 0.75,
     };
     // The unfinished pit and the dead-end southern shaft Petrie recorded.
-    rough.push(box(2.2, 3.0, 2.4, AXIS_X + 2.4, descEndY - 2.4, subCenterZ + 0.6));
-    buildPassage(rough, colliders, descEndY - 0.9, subCenterZ + sub.d / 2, descEndY - 0.9, subCenterZ + sub.d / 2 + 16, 0.75, 0.85);
-    this.torchSites.push({ x: AXIS_X - sub.w / 2 + 1.2, y: descEndY + 0.6, z: subCenterZ - 1.5, scale: 0.85 });
-    this.torchSites.push({ x: AXIS_X + sub.w / 2 - 1.2, y: descEndY + 0.6, z: subCenterZ + 1.5, scale: 0.85 });
+    rough.push(box(2.2, 3.0, 2.4, lowerX + 2.4, lowerEndY - 2.4, subCenterZ + 0.6));
+    buildPassage(rough, colliders, lowerEndY - 0.9, subCenterZ + sub.d / 2, lowerEndY - 0.9, subCenterZ + sub.d / 2 + 16, 0.75, 0.85, { x: lowerX });
+    this.torchSites.push({ x: lowerX - sub.w / 2 + 1.2, y: lowerEndY + 0.6, z: subCenterZ - 1.5, scale: 0.85 });
+    this.torchSites.push({ x: lowerX + sub.w / 2 - 1.2, y: lowerEndY + 0.6, z: subCenterZ + 1.5, scale: 0.85 });
 
     // -------------------------------------------------- ascending passage
     const ascLen = K.ascendingLength;
     const ascEndY = junctionY + ascLen * Math.sin(SLOPE);
     const ascEndZ = junctionZ + ascLen * Math.cos(SLOPE);
-    buildPassage(lime, colliders, junctionY, junctionZ, ascEndY, ascEndZ, PW, PH);
+    const ascStartY = hallFloorY + 1.05;
+    buildPassage(lime, colliders, ascStartY, hallSouthZ, ascEndY, ascEndZ, PW, PH);
     this.nodes.ascending = new THREE.Vector3(AXIS_X, junctionY + 8, junctionZ + 16);
-    // The granite plugs that sealed it, still in place at the lower end.
-    granite.push(box(PW * 0.96, PH * 0.92, 3.4, AXIS_X, junctionY + 0.62, junctionZ + 1.9));
+    // The granite plugs that sealed this passage, shown where they were let
+    // down: al-Ma'mun's men tunnelled in precisely to get around them.
+    granite.push(box(PW * 0.96, PH * 0.92, 3.4, AXIS_X, junctionY + 0.7, junctionZ - 1.4));
 
     // ------------------------------------------------------ queen's chamber
     const qc = K.queensChamber;
@@ -357,6 +443,7 @@ export class InteriorSystem {
       const inset = i * 0.26;
       dressed.push(box(0.5, 0.62, 1.55 - inset * 2, AXIS_X + qc.w / 2 - 0.25, qc.floorY + 0.31 + i * 0.62, 0.9));
     }
+    this.nodes.horizontal = new THREE.Vector3(AXIS_X, horizY, ascEndZ + 12);
     this.nodes.queensChamber = new THREE.Vector3(AXIS_X, qc.floorY, 0);
     this.viewpoints.queensChamber = {
       position: new THREE.Vector3(AXIS_X - 1.2, qc.floorY, -1.4),
@@ -391,6 +478,17 @@ export class InteriorSystem {
     const stepY = ggEndY + 0.9;
     const anteZ = ggEndZ + 1.5;
     dressed.push(box(gg.bottomWidth + 2.2, 0.9, 1.8, AXIS_X, ggEndY + 0.45, ggEndZ + 0.6));
+    // The gallery's floor colliders take the lower end of each tread, so the
+    // top of the gallery stands 0.45 m below ggEndY; the treads start there.
+    for (let i = 0; i < 3; i++) {
+      const top = ggEndY + 0.45 * i;
+      colliders.push({
+        minX: AXIS_X - 1.1, maxX: AXIS_X + 1.1,
+        minY: top - 0.9, maxY: top,
+        minZ: ggEndZ - 1.7 + i * 0.55, maxZ: ggEndZ + 2.2,
+        tag: 'great-step',
+      });
+    }
     buildRoom(
       granite, colliders, AXIS_X, stepY, anteZ, K.antechamber.w, K.antechamber.d, K.antechamber.h,
       [
@@ -448,9 +546,16 @@ export class InteriorSystem {
     // --------------------------------------------- al-Ma'mun's forced tunnel
     const mamunY = 7.0;
     const mamunZ = faceZ(mamunY);
-    buildPassage(rough, colliders, mamunY, mamunZ, junctionY - 0.1, junctionZ - 1.2, 1.5, 2.0, { thickness: 1.4 });
-    this.nodes.mamun = new THREE.Vector3(AXIS_X, mamunY, mamunZ + 4);
-    this.torchSites.push({ x: AXIS_X, y: mamunY + 1.5, z: mamunZ + 6, scale: 0.8 });
+    // No ceiling collider: at 2 m the tunnel needs no auto-crouch, and the
+    // slab it used to register rose through the floor of the Descending
+    // Passage that crosses above it, leaving a lump the player climbed onto.
+    buildPassage(rough, colliders, mamunY, mamunZ, hallFloorY, hallNorthZ, 1.5, 2.0, {
+      thickness: 1.4,
+      ceilingCollision: false,
+      x: AXIS_X - 1.3,
+    });
+    this.nodes.mamun = new THREE.Vector3(AXIS_X - 1.3, mamunY, mamunZ + 0.6);
+    this.torchSites.push({ x: AXIS_X - 1.3, y: mamunY + 1.5, z: mamunZ + 6, scale: 0.8 });
 
     // Torches every 9 m along the main descending and ascending runs.
     this._lineTorches(entryY, entryZ + 3, descEndY, descEndZ, 9);
@@ -700,13 +805,19 @@ export class InteriorSystem {
         });
       }
     }
-    for (const side of [-1, 1]) {
-      colliders.push({
-        minX: side < 0 ? cx - gg.bottomWidth / 2 - 1.6 : cx + gg.bottomWidth / 2,
-        maxX: side < 0 ? cx - gg.bottomWidth / 2 : cx + gg.bottomWidth / 2 + 1.6,
-        minY: Math.min(y0, y1) - 1, maxY: Math.max(y0, y1) + gg.height + 2,
-        minZ: Math.min(z0, z1), maxZ: Math.max(z0, z1), tag: 'gallery-wall',
-      });
+    for (let i = 0; i < steps; i++) {
+      const zA = z0 + dz * (i / steps);
+      const zB = z0 + dz * ((i + 1) / steps);
+      const yA = y0 + dy * (i / steps);
+      const yB = y0 + dy * ((i + 1) / steps);
+      for (const side of [-1, 1]) {
+        colliders.push({
+          minX: side < 0 ? cx - gg.bottomWidth / 2 - 1.6 : cx + gg.bottomWidth / 2,
+          maxX: side < 0 ? cx - gg.bottomWidth / 2 : cx + gg.bottomWidth / 2 + 1.6,
+          minY: Math.min(yA, yB) - 0.6, maxY: Math.max(yA, yB) + gg.height + 1.5,
+          minZ: Math.min(zA, zB), maxZ: Math.max(zA, zB), tag: 'gallery-wall',
+        });
+      }
     }
   }
 
@@ -758,13 +869,13 @@ export class InteriorSystem {
     this.torchSites.push({ x: AXIS_X, y: davisonY + 0.5, z: kcCenterZ, scale: 0.6 });
   }
 
-  _lineTorches(y0, z0, y1, z1, spacing) {
+  _lineTorches(y0, z0, y1, z1, spacing, x = AXIS_X) {
     const len = Math.hypot(z1 - z0, y1 - y0);
     const n = Math.max(1, Math.floor(len / spacing));
     for (let i = 1; i <= n; i++) {
       const t = i / (n + 1);
       this.torchSites.push({
-        x: AXIS_X + (i % 2 === 0 ? 0.42 : -0.42),
+        x: x + (i % 2 === 0 ? 0.42 : -0.42),
         y: lerp(y0, y1, t) + 0.78,
         z: lerp(z0, z1, t),
         scale: 0.55,

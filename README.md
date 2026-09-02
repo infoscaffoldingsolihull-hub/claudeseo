@@ -72,6 +72,11 @@ landing at the doorway; stand on it and press `E`.
 | Khafre — lower entrance | the lower passage and its subsidiary chamber |
 | Menkaure — north face | panelled chamber, main chamber, the six niches, the vaulted burial chamber |
 
+The plateau around them carries what the site plan carries: the Western and Eastern
+cemeteries laid out in streets of mastabas, the Mastaba of Hemiunu with its offering chapel,
+the shaft of Queen Hetepheres, the Tomb of Queen Khentkawes, the workmen's galleries behind
+the western wall, and the rock-cut tomb façades in the quarry faces.
+
 The six temples are hollow and walkable too — through the gate, into the court, round the
 colonnade. Khafre's valley temple is the one to see: the granite hall with the emplacements of
 the twenty-three seated statues of the king.
@@ -130,8 +135,8 @@ assets/vendor/                three.js r160, vendored for offline use
 src/
   shell.html                  HTML skeleton shared by both builds
   main.js                     application shell and the test API
-  engine/                     renderer, post-processing, controls, input, quality, noise, textures
-  world/                      terrain, sky, pyramids, monuments, entrances, interior, tombs, relics, site, workers, props
+  engine/                     renderer, post-processing, controls, input, audio, quality, noise, textures
+  world/                      terrain, sky, pyramids, monuments, cemeteries, entrances, interior, tombs, relics, site, workers, props
   pm/                         the project simulation: model, CPM, EVM, Monte Carlo, advisor
   ui/                         dashboard panels, charts, HUD, guided tour, touch layer, stylesheet
 tools/

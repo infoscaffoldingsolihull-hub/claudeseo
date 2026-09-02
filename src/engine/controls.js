@@ -27,6 +27,7 @@ export class FirstPersonController {
     this.grounded = false;
     this.crouching = false;
     this.forcedCrouch = false;
+    this.crouchLatch = false;
     this.height = 1.72;
     this.sensitivity = 0.0021;
     this.bobPhase = 0;
@@ -80,16 +81,24 @@ export class FirstPersonController {
 
     const axes = this.input.axes();
     const sprint = this.input.isDown('ShiftLeft', 'ShiftRight');
-    const wantsCrouch = this.input.isDown('ControlLeft', 'ControlRight', 'KeyC');
+    // Ctrl holds a crouch; C toggles one. Ctrl alone is awkward to hold while
+    // walking, and a C that only works where the ceiling is already low reads
+    // as a broken key.
+    if (this.input.pressed('KeyC')) this.crouchLatch = !this.crouchLatch;
+    const wantsCrouch = this.crouchLatch || this.input.isDown('ControlLeft', 'ControlRight');
 
     // Auto-crouch: the pyramid's passages are 1.20 m high, so a standing
     // visitor simply cannot pass. Duck automatically when there is no headroom,
     // and stand up again the moment there is.
     const feet = this.position.y - this.height;
-    this.forcedCrouch =
-      !wantsCrouch && !!collision && collision.isSolid(this.position.x, feet + this.eyeHeight + 0.06, this.position.z);
+    const headroom =
+      !collision || !collision.isSolid(this.position.x, feet + this.eyeHeight + 0.06, this.position.z);
+    this.forcedCrouch = !wantsCrouch && !headroom;
     this.crouching = wantsCrouch || this.forcedCrouch;
-    const targetHeight = this.crouching ? this.crouchHeight : this.eyeHeight;
+    // Never stand up into a ceiling: raising the head into solid rock is what
+    // used to hand the collision resolver an overlap it could only escape
+    // sideways, out of the corridor and into the void.
+    const targetHeight = this.crouching || !headroom ? this.crouchHeight : this.eyeHeight;
     if (targetHeight !== this.height) {
       this.height = targetHeight;
       this.position.y = feet + this.height;

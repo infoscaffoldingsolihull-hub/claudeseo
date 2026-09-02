@@ -1182,3 +1182,7 @@ body.touch-mode .rail button .tip { display: none; }
   .touch-pad { bottom: 8px; }
   .touch-btn { width: 56px; height: 56px; }
 }
+
+/* The sound toggle in the top bar reads as off when it is off. */
+.mode-btn.muted { opacity: 0.45; }
+.mode-btn.muted span { text-decoration: line-through; }

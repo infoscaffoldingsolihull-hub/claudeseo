@@ -146,6 +146,28 @@ async function run() {
   const relics = await page.evaluate(() => window.__giza.relicReport());
   console.log(`> relics: ${relics.total} discoverable (${JSON.stringify(relics.bySite)})`);
 
+  console.log('> walking the tombs end to end');
+  const routes = [
+    { site: 'khufu', waypoints: ['entrance', 'descending', 'junction', 'ascending', 'grandGallery', 'kingsChamber'] },
+    { site: 'khufu', waypoints: ['mamun', 'junction', 'ascending', 'grandGallery'] },
+    { site: 'khafre', waypoints: ['entrance', 'descending', 'burialChamber'] },
+    { site: 'khafre', waypoints: ['lowerEntrance', 'subsidiary'] },
+    { site: 'menkaure', waypoints: ['entrance', 'panelledChamber', 'mainChamber', 'burialChamber'] },
+    { site: 'menkaure', waypoints: ['entrance', 'panelledChamber', 'mainChamber', 'nicheChamber'] },
+  ];
+  for (const r of routes) {
+    const res = await page.evaluate((spec) => window.__giza.autoWalk(spec), r);
+    const label = `${r.site}:${r.waypoints[0]}>${r.waypoints[r.waypoints.length - 1]}`;
+    console.log(`  ${label.padEnd(34)} ${res.complete ? 'walked' : `STOPPED after ${res.reached.length}/${res.of}`}` +
+      `${res.fell ? ' FELL' : ''}${res.caught ? ` caught=${res.caught}` : ''}`);
+    // A fall past the safety net is unrecoverable: the session is over.
+    if (res.fell) failures.push(`${label} fell out of the world at ${JSON.stringify(res.fellAt)}`);
+    // A caught fall means a hole in the floor the net had to paper over.
+    if (res.caught) failures.push(`${label} fell into ${res.caught} hole(s): ${JSON.stringify(res.holes)}`);
+    if (!res.complete) failures.push(`${label} could not be walked: ${JSON.stringify(res.stuckAt)}`);
+  }
+  await page.evaluate(() => { if (window.__giza.sim.world.inInterior) window.__giza.sim.toggleInterior(true); });
+
   console.log('> walking into every temple');
   const temples = await page.evaluate(() => window.__giza.templeReport());
   for (const t of temples) {
@@ -241,6 +263,7 @@ async function run() {
   console.log(`entrances      : ${entrances.length} (all walkable, all lead inside)`);
   console.log(`temples        : ${temples.length} walkable`);
   console.log(`relics         : ${relics.total} discoverable`);
+  console.log(`tomb routes    : ${routes.length} walked end to end`);
   console.log(`console errors : ${errors.length}`);
   console.log(`console warns  : ${warnings.length}`);
   console.log(`assertions     : ${failures.length} failed`);

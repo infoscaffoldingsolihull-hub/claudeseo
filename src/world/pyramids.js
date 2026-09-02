@@ -502,6 +502,13 @@ export class ConstructionRamp {
     this.mesh = null;
     this.lastHeight = -999;
     this.visible = true;
+    this.collision = null;
+    this.colliderIds = [];
+  }
+
+  /** Enable or disable every collider the ramp currently owns. */
+  setCollisionEnabled(on) {
+    if (this.collision) this.collision.setDisabled(this.colliderIds, !on);
   }
 
   update(builtHeight, collision) {
@@ -537,6 +544,7 @@ export class ConstructionRamp {
     }
 
     // ---- wrapping side ramps for the upper courses ----
+    const bands = [];
     if (builtHeight > straightTop + 2) {
       const rise = builtHeight - straightTop;
       const wraps = Math.max(1, Math.round(rise / 26));
@@ -557,10 +565,19 @@ export class ConstructionRamp {
         const u1 = lerp(-hw, hw, a1 <= a0 ? 1 : a1);
         const mid = (u0 + u1) / 2;
         const len = Math.abs(u1 - u0) + 1.6;
-        if (side === 0) parts.push(box(len, bandH, bandW, mid, y, hw));
-        else if (side === 1) parts.push(box(bandW, bandH, len, hw, y, -mid));
-        else if (side === 2) parts.push(box(len, bandH, bandW, -mid, y, -hw));
-        else parts.push(box(bandW, bandH, len, -hw, y, mid));
+        if (side === 0) {
+          parts.push(box(len, bandH, bandW, mid, y, hw));
+          bands.push([mid, y, hw, len, bandH, bandW]);
+        } else if (side === 1) {
+          parts.push(box(bandW, bandH, len, hw, y, -mid));
+          bands.push([hw, y, -mid, bandW, bandH, len]);
+        } else if (side === 2) {
+          parts.push(box(len, bandH, bandW, -mid, y, -hw));
+          bands.push([-mid, y, -hw, len, bandH, bandW]);
+        } else {
+          parts.push(box(bandW, bandH, len, -hw, y, mid));
+          bands.push([-hw, y, mid, bandW, bandH, len]);
+        }
       }
     }
 
@@ -571,23 +588,34 @@ export class ConstructionRamp {
     this.mesh.receiveShadow = true;
     this.group.add(this.mesh);
 
-    if (collision) {
+    // Collision.  The ramp is rebuilt every time the pyramid rises 2 m, so the
+    // previous set is disabled rather than removed, and a fresh set added.
+    // Without this the whole embankment was scenery: you walked straight
+    // through it and it passed overhead.
+    if (collision) this.collision = collision;
+    if (this.collision) {
+      this.collision.setDisabled(this.colliderIds, true);
+      this.colliderIds = [];
+      const add = (cx, cy, cz, sx, sy, sz) => {
+        this.colliderIds.push(
+          this.collision.addCenteredBox(
+            p.spec.x + cx, p.spec.baseY + cy, p.spec.z + cz, sx, sy, sz, 'ramp'
+          )
+        );
+      };
       for (let i = 0; i < segs; i++) {
         const t0 = i / segs;
         const t1 = (i + 1) / segs;
         const y1 = straightTop * t1;
         const z0 = zAt(t0);
         const z1 = zAt(t1);
-        collision.addCenteredBox(
-          p.spec.x,
-          p.spec.baseY + Math.max(1.2, y1) / 2 - 0.4,
-          p.spec.z + (z0 + z1) / 2,
-          lerp(RAMP.baseWidth, RAMP.topWidth, t1),
-          Math.max(1.2, y1),
-          Math.abs(z0 - z1) + 0.8,
-          'ramp'
-        );
+        const height = Math.max(1.2, y1);
+        // Matches the geometry above, which is drawn at height/2 - 0.4.
+        add(0, height / 2 - 0.4, (z0 + z1) / 2,
+            lerp(RAMP.baseWidth, RAMP.topWidth, t1), height, Math.abs(z0 - z1) + 0.8);
       }
+      for (const b of bands) add(b[0], b[1], b[2], b[3], b[4], b[5]);
+      if (!this.visible) this.setCollisionEnabled(false);
     }
   }
 
@@ -801,7 +829,7 @@ export class PyramidSystem {
   setKhufuProgress(coreFraction, casingFraction) {
     this.khufu.setProgress(coreFraction, casingFraction);
     const built = this.khufu.designHeight * this.khufu.progress;
-    this.ramp.update(built, null);
+    this.ramp.update(built, this.collision);
     this.scaffolding.update(built);
   }
 
@@ -811,6 +839,10 @@ export class PyramidSystem {
 
   setRampVisible(visible) {
     this.ramp.group.visible = visible;
+    this.ramp.visible = visible;
+    // Hiding the ramp has to take its collision with it, or the player walks
+    // into an embankment that is no longer there.
+    this.ramp.setCollisionEnabled(visible);
     this.scaffolding.group.visible = visible;
   }
 
