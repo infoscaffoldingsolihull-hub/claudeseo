@@ -375,6 +375,8 @@ const container = document.getElementById('viewport');
 const app = new AeonSpire(container);
 
 window.AEON = app;
+/* The zone preset table, exposed for the Section G walkthrough harness. */
+window.__ZONES = ZONE_PRESETS;
 
 app.boot().catch((err) => {
   console.error(err);

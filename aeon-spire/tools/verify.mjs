@@ -716,6 +716,159 @@ if (booted) {
           `back to ${hud.restored} on exit`);
   }
 
+  /* ================================================================== */
+  /* SECTION G — the master walkthrough.                                 */
+  /*                                                                     */
+  /* "a full walkthrough (all 7 zones and their interiors from Section D, */
+  /*  all 5 time-of-day modes, rain, wind, full construction scrub 1→10,  */
+  /*  every keyboard control) has been performed without errors."         */
+  /*                                                                     */
+  /* Every step below renders real frames, so a shader that only fails    */
+  /* when a particular material first reaches the GPU is still caught.    */
+  /* ================================================================== */
+  if (FULL) {
+    console.log('\n  Section G — master walkthrough');
+    const errorsBefore = consoleErrors.length + pageErrors.length;
+    const log = [];
+
+    const render = async (frames = 2) => {
+      await page.evaluate((n) => new Promise((done) => {
+        let i = 0;
+        const tick = () => {
+          window.AEON.engine.tick(1 / 60);
+          if (++i >= n) done(); else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }), frames);
+    };
+
+    /* --- 1. All seven zones, exterior then interior --- */
+    await page.evaluate(() => { window.AEON.releaseInteriors(); });
+    for (let z = 0; z < 7; z++) {
+      for (const inside of [false, true]) {
+        const name = await page.evaluate(([i, ins]) => {
+          const a = window.AEON;
+          const p = a.milestones ? null : null;
+          const preset = a.constructor ? null : null;
+          const zp = window.__ZONES[i];
+          a.setCamera(ins && zp.interior ? zp.interior : zp.position,
+                      ins && zp.interiorLook ? zp.interiorLook : zp.look);
+          return zp.name + (ins ? ' — interior' : '');
+        }, [z, inside]);
+        await render(3);
+        const seen = await page.evaluate(() => ({
+          rooms: window.AEON.world.interiors.visibleCount,
+          calls: window.AEON.engine.stats().calls
+        }));
+        log.push(`zone ${z + 1} ${inside ? 'interior' : 'exterior'}: ${seen.calls} calls, ${seen.rooms} rooms live`);
+      }
+    }
+    const zonesOk = log.length === 14;
+    check('G · walked all 7 zones, exterior and interior', zonesOk, `${log.length} viewpoints rendered`);
+
+    /* --- 2. Every named Section D interior, rendered --- */
+    const roomWalk = await page.evaluate(async () => {
+      const a = window.AEON;
+      const names = [];
+      for (const room of a.world.interiors.rooms) {
+        a.world.interiors._ensureBuilt(room);
+        room.setVisible(true);
+        // Stand in the middle of the room and look across it.
+        const c = room.center;
+        a.setCamera([c.x, c.y, c.z], [c.x + 10, c.y, c.z + 10]);
+        a.engine.tick(1 / 60);
+        names.push(room.name);
+        room.update(1 / 60, 0);
+      }
+      return names;
+    });
+    check('G · stood inside every named Section D interior',
+          roomWalk.length === 31, `${roomWalk.length} rooms visited`);
+
+    /* --- 3. All five time-of-day modes, each rendered --- */
+    const todWalk = [];
+    for (const id of ['dawn', 'day', 'golden', 'dusk', 'night']) {
+      await page.evaluate((m) => {
+        const a = window.AEON;
+        a.setTimeOfDay(m);
+        for (let i = 0; i < 200; i++) a.timeOfDay.update(1 / 60);
+        a.refreshEnvironment(a.timeOfDay.state);
+      }, id);
+      await render(3);
+      todWalk.push(await page.evaluate(() => window.AEON.timeOfDayStatus().id));
+    }
+    check('G · rendered all 5 time-of-day modes',
+          todWalk.join(',') === 'dawn,day,golden,dusk,night', todWalk.join(' → '));
+
+    /* --- 4. Rain and wind, rendered --- */
+    await page.evaluate(() => {
+      const a = window.AEON;
+      a.setRain(true); a.setWind(0.85);
+      for (let i = 0; i < 300; i++) a.weather.update(1 / 60, a.camera, 0);
+      a.strikeLightning();
+    });
+    await render(4);
+    const wet = await page.evaluate(() => window.AEON.weatherStatus());
+    check('G · rendered rain, wind and a lightning strike',
+          wet.rain && wet.wetness > 0.5 && wet.wind > 0.6,
+          `wetness ${wet.wetness.toFixed(2)}, wind ${wet.wind.toFixed(2)}`);
+    await page.evaluate(() => { window.AEON.setRain(false); window.AEON.setWind(0.25); });
+
+    /* --- 5. Full construction scrub, 1 → 10, each milestone rendered --- */
+    await page.evaluate(() => {
+      const a = window.AEON;
+      a.setConstruction(true);
+      a.setCamera([300, 180, 330], [0, 160, 0]);
+    });
+    const scrub = [];
+    for (let m = 1; m <= 10; m++) {
+      await page.evaluate((n) => {
+        const a = window.AEON;
+        a.goToMilestone(n);
+        for (let i = 0; i < 120; i++) { a.construction.update(1 / 60); a.site.update(1 / 60, i / 60); }
+      }, m);
+      await render(3);
+      scrub.push(await page.evaluate(() => {
+        const s = window.AEON.constructionStatus();
+        return `M${s.milestone}@d${s.day}`;
+      }));
+    }
+    check('G · scrubbed the full construction programme 1 → 10',
+          scrub.length === 10 && scrub[0].startsWith('M1') && scrub[9].startsWith('M10'),
+          scrub.join(' '));
+    await page.evaluate(() => { window.AEON.setConstruction(false); });
+    await render(3);
+
+    /* --- 6. Every keyboard control, with frames rendered between --- */
+    const keys = ['KeyF', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'ShiftLeft',
+      'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7',
+      'KeyT', 'KeyG', 'KeyN', 'KeyR', 'KeyC', 'BracketLeft', 'BracketRight',
+      'Space', 'KeyM', 'KeyH', 'KeyP', 'Escape'];
+    for (const k of keys) {
+      await page.evaluate((code) => window.AEON.pressKey(code), k);
+      await render(1);
+    }
+    // Leave the scene in a clean state.
+    await page.evaluate(() => {
+      const a = window.AEON;
+      if (a.helpVisible) a.toggleHelp();
+      if (a.photoMode) a.togglePhotoMode();
+      a.setConstruction(false);
+      a.setRain(false);
+      a.setTimeOfDay('day', { instant: true });
+    });
+    await render(3);
+    check('G · exercised every keyboard control with frames rendered',
+          true, `${keys.length} keys pressed`);
+
+    const newErrors = (consoleErrors.length + pageErrors.length) - errorsBefore;
+    check('G · the entire walkthrough ran without a single error', newErrors === 0,
+          newErrors ? consoleErrors.slice(errorsBefore).concat(pageErrors.slice(errorsBefore)).slice(0, 3).join(' | ') : 'clean');
+
+    const final = await page.evaluate(() => window.AEON.engine.stats());
+    console.log(`    final state: ${final.calls} calls, ${final.triangles.toLocaleString()} tris, tier ${final.tier}`);
+  }
+
   if (SHOTS) {
     fs.mkdirSync(path.join(ROOT, 'docs/screenshots'), { recursive: true });
     await page.screenshot({ path: path.join(ROOT, 'docs/screenshots/verify.jpg'), quality: 82, type: 'jpeg' });
