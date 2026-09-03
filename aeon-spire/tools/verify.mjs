@@ -294,6 +294,263 @@ if (booted) {
           `wind ${w.windLow.toFixed(2)} → ${w.windHigh.toFixed(2)}, dust visible`);
   }
 
+  /* ---- Audio (E.5 / Phase 7) ---- */
+  if (await page.evaluate(() => typeof window.AEON.initAudio === 'function')) {
+    const au = await page.evaluate(async () => {
+      const a = window.AEON;
+      const ok = await a.initAudio();
+      if (!ok) return { available: false };
+      const st0 = a.audioStatus();
+
+      // Day, dry, exterior: birds up, crickets and rain down.
+      a.setTimeOfDay('day', { instant: true });
+      a.setRain(false);
+      for (let i = 0; i < 600; i++) a.weather.update(1 / 60, a.camera, 0);
+      a.audio.update(1 / 60, a.audioWorldState());
+      await new Promise(r => setTimeout(r, 400));
+      const day = a.audioStatus().layers;
+
+      // Night, raining: crickets and rain up, birds gone.
+      a.setTimeOfDay('night', { instant: true });
+      a.setRain(true);
+      for (let i = 0; i < 400; i++) a.weather.update(1 / 60, a.camera, 0);
+      a.audio.update(1 / 60, a.audioWorldState());
+      await new Promise(r => setTimeout(r, 400));
+      const night = a.audioStatus().layers;
+
+      // Per-room acoustics: the convolver IR must change with the room.
+      const acoustics = [];
+      const seen = new Set();
+      for (const room of a.world.interiors.rooms) {
+        a.audio.onRoomChange(room);
+        acoustics.push(a.audio.currentAcoustic);
+        seen.add(a.audio.currentAcoustic);
+      }
+      const irCount = a.audio.irCache.size;
+      a.audio.onRoomChange(null);
+      const outdoor = a.audio.currentAcoustic;
+
+      // Thunder must actually schedule a source.
+      const before = a.ctxNodes || 0;
+      const src = a.audio.thunder(0.2, 1);
+
+      // M mutes with a glide, never a hard cut (E.5), so give it time to
+      // reach the floor before reading the master gain.
+      const toggled = a.toggleAudio();
+      await new Promise(r => setTimeout(r, 900));
+      const masterOff = a.audio.master.gain.value;
+      a.toggleAudio();
+      await new Promise(r => setTimeout(r, 900));
+      const masterOn = a.audio.master.gain.value;
+
+      a.setRain(false);
+      return {
+        available: true, running: st0.running, layerCount: Object.keys(day).length,
+        day, night, distinctAcoustics: seen.size, acousticsSeen: [...seen],
+        irCount, outdoor, thunderOk: !!src, toggled, masterOff, masterOn
+      };
+    });
+
+    if (!au.available) {
+      check('audio system available', false, 'AudioContext could not be created');
+    } else {
+      check('audio graph runs with all E.5 layers', au.running && au.layerCount >= 10,
+            `${au.layerCount} layers, context running`);
+      check('birds by day, crickets and rain at night',
+            au.day.birds > au.night.birds && au.night.crickets > au.day.crickets &&
+            au.night.rain > au.day.rain,
+            `birds ${au.day.birds.toFixed(3)}→${au.night.birds.toFixed(3)}, ` +
+            `crickets ${au.day.crickets.toFixed(3)}→${au.night.crickets.toFixed(3)}, ` +
+            `rain ${au.day.rain.toFixed(3)}→${au.night.rain.toFixed(3)}`);
+      check('per-room convolver acoustics (D.8)', au.distinctAcoustics >= 5 && au.irCount >= 5,
+            `${au.distinctAcoustics} distinct profiles across 31 rooms, ${au.irCount} impulse responses`);
+      check('thunder schedules and M mutes (with a glide, not a cut)',
+            au.thunderOk && au.toggled === false && au.masterOff < 0.12 && au.masterOn > 0.5,
+            `master ${au.masterOff.toFixed(3)} muted → ${au.masterOn.toFixed(2)} restored`);
+    }
+  }
+
+  /* ---- Controls: every key in the E.6 table (Phase 8) ---- */
+  if (await page.evaluate(() => typeof window.AEON.pressKey === 'function')) {
+    const kb = await page.evaluate(() => {
+      const a = window.AEON;
+      const c = a.controls;
+      const out = { results: {}, failures: [] };
+      const rec = (key, ok, detail) => {
+        out.results[key] = { ok, detail };
+        if (!ok) out.failures.push(key + ': ' + detail);
+      };
+      const step = (n = 30, dt = 1 / 60) => {
+        for (let i = 0; i < n; i++) { c.update(dt); a.construction.update(dt); }
+      };
+
+      a.setTimeOfDay('day', { instant: true });
+      a.setRain(false);
+      a.setConstruction(false);
+      c.snapTo([300, 40, 300], [0, 60, 0]);
+
+      /* --- F: walk <-> fly --- */
+      const m0 = c.mode;
+      a.pressKey('KeyF');
+      const m1 = c.mode;
+      a.pressKey('KeyF');
+      rec('F', m1 !== m0 && c.mode === m0, `${m0} → ${m1} → ${c.mode}`);
+
+      /* --- W A S D --- */
+      c.setMode('fly');
+      c.snapTo([300, 60, 300], [0, 60, 0]);
+      const moves = {};
+      for (const [key, axis] of [['KeyW', 'f'], ['KeyS', 'b'], ['KeyA', 'l'], ['KeyD', 'r']]) {
+        c.snapTo([300, 60, 300], [0, 60, 0]);
+        c.velocity.set(0, 0, 0);
+        const p0 = a.camera.position.clone();
+        a.holdKey(key, true); step(40); a.holdKey(key, false);
+        moves[axis] = p0.distanceTo(a.camera.position);
+      }
+      rec('WASD', Object.values(moves).every(d => d > 3),
+          Object.entries(moves).map(([k, v]) => k + '=' + v.toFixed(1) + 'm').join(' '));
+
+      /* --- Shift: sprint --- */
+      c.snapTo([300, 60, 300], [0, 60, 0]); c.velocity.set(0, 0, 0);
+      let p0 = a.camera.position.clone();
+      a.holdKey('KeyW', true); step(40); a.holdKey('KeyW', false);
+      const normal = p0.distanceTo(a.camera.position);
+      c.snapTo([300, 60, 300], [0, 60, 0]); c.velocity.set(0, 0, 0);
+      p0 = a.camera.position.clone();
+      a.holdKey('KeyW', true); a.holdKey('ShiftLeft', true); step(40);
+      a.holdKey('KeyW', false); a.holdKey('ShiftLeft', false);
+      const fast = p0.distanceTo(a.camera.position);
+      rec('Shift', fast > normal * 2, `${normal.toFixed(1)}m → ${fast.toFixed(1)}m`);
+
+      /* --- Q / E: descend / ascend in fly mode --- */
+      c.snapTo([300, 200, 300], [0, 200, 0]); c.velocity.set(0, 0, 0);
+      const y0 = a.camera.position.y;
+      a.holdKey('KeyE', true); step(40); a.holdKey('KeyE', false);
+      const yUp = a.camera.position.y;
+      c.velocity.set(0, 0, 0);
+      a.holdKey('KeyQ', true); step(80); a.holdKey('KeyQ', false);
+      const yDown = a.camera.position.y;
+      rec('Q/E', yUp > y0 + 3 && yDown < yUp - 3,
+          `y ${y0.toFixed(0)} → ${yUp.toFixed(0)} → ${yDown.toFixed(0)}`);
+
+      /* --- Walk mode: gravity puts the viewer on a floor --- */
+      c.setMode('fly');
+      c.snapTo([0, 90, 300], [0, 60, 0]);
+      c.setMode('walk');
+      c.velocity.set(0, 0, 0);
+      step(200);
+      const grounded = c.grounded;
+      const standY = a.camera.position.y;
+      rec('walk gravity', grounded && standY > -12 && standY < 30,
+          `grounded=${grounded} at y=${standY.toFixed(2)}`);
+      c.setMode('fly');
+
+      /* --- 1-7: zone presets, and the second press going inside --- */
+      const zones = [];
+      for (let i = 0; i < 7; i++) {
+        a.pressKey('Digit' + (i + 1));
+        // Let the eased transition run to completion.
+        for (let k = 0; k < 200; k++) c.update(1 / 60);
+        zones.push({ name: a.currentZoneName, pos: a.camera.position.toArray().map(n => +n.toFixed(0)) });
+      }
+      const distinct = new Set(zones.map(z => z.pos.join(','))).size;
+      rec('1-7 zone presets', zones.length === 7 && distinct === 7,
+          `${distinct} distinct viewpoints`);
+      // Pressing 1 twice must land inside the Canal Concourse.
+      a.pressKey('Digit1'); for (let k = 0; k < 200; k++) c.update(1 / 60);
+      a.pressKey('Digit1'); for (let k = 0; k < 200; k++) c.update(1 / 60);
+      rec('preset re-press enters interior', /interior/.test(a.currentZoneName || ''),
+          a.currentZoneName);
+
+      /* --- T / G / N --- */
+      a.setTimeOfDay('day', { instant: true });
+      a.pressKey('KeyT');
+      const afterT = a.timeOfDayStatus().id;
+      a.pressKey('KeyG');
+      const afterG = a.timeOfDayStatus().id;
+      a.pressKey('KeyN');
+      const afterN = a.timeOfDayStatus().id;
+      rec('T/G/N', afterT !== 'day' && afterG === 'golden' && afterN === 'night',
+          `T→${afterT}, G→${afterG}, N→${afterN}`);
+
+      /* --- R: rain --- */
+      const r0 = a.weatherStatus().rain;
+      a.pressKey('KeyR');
+      const r1 = a.weatherStatus().rain;
+      a.pressKey('KeyR');
+      rec('R', r1 !== r0 && a.weatherStatus().rain === r0, `${r0} → ${r1} → ${a.weatherStatus().rain}`);
+
+      /* --- C, [ , ] , Space --- */
+      const c0 = a.constructionStatus().active;
+      a.pressKey('KeyC');
+      const c1 = a.constructionStatus().active;
+      const startMs = a.constructionStatus().milestone;
+      a.pressKey('BracketRight');
+      const fwd = a.constructionStatus().milestone;
+      a.pressKey('BracketRight');
+      const fwd2 = a.constructionStatus().milestone;
+      a.pressKey('BracketLeft');
+      const back = a.constructionStatus().milestone;
+      const play0 = a.constructionStatus().playing;
+      a.pressKey('Space');
+      const play1 = a.constructionStatus().playing;
+      rec('C', c1 !== c0, `${c0} → ${c1}`);
+      rec('[ / ]', fwd2 > startMs && back < fwd2,
+          `milestone ${startMs} → ${fwd} → ${fwd2} → ${back}`);
+      rec('Space', play1 !== play0, `${play0} → ${play1}`);
+
+      /* Every one of the ten milestones must be reachable by scrubbing. */
+      a.construction.setProgress(0);
+      const reached = new Set([a.constructionStatus().milestone]);
+      for (let i = 0; i < 14; i++) { a.pressKey('BracketRight'); reached.add(a.constructionStatus().milestone); }
+      rec('all 10 milestones scrubbable', reached.size === 10, `${reached.size}/10 reached`);
+      a.pressKey('KeyC');
+
+      /* --- M --- */
+      const audio0 = a.audioStatus().enabled;
+      a.pressKey('KeyM');
+      const audio1 = a.audioStatus().enabled;
+      a.pressKey('KeyM');
+      rec('M', audio1 !== audio0, `${audio0} → ${audio1}`);
+
+      /* --- H --- */
+      const h0 = a.helpVisible;
+      a.pressKey('KeyH');
+      const h1 = a.helpVisible;
+      a.pressKey('KeyH');
+      rec('H', h1 !== h0, `${h0} → ${h1}`);
+
+      /* --- P: photo mode raises the depth-of-field amount --- */
+      const dof0 = a.engine.postfx.params.dof;
+      a.pressKey('KeyP');
+      for (let i = 0; i < 90; i++) a.updatePhotoFocus(1 / 60);
+      const dof1 = a.engine.postfx.params.dof;
+      const photoOn = a.photoMode;
+      a.pressKey('KeyP');
+      for (let i = 0; i < 120; i++) a.updatePhotoFocus(1 / 60);
+      const dof2 = a.engine.postfx.params.dof;
+      rec('P', photoOn && dof1 > 0.7 && dof2 < 0.15,
+          `dof ${dof0.toFixed(2)} → ${dof1.toFixed(2)} → ${dof2.toFixed(2)}`);
+
+      /* --- Esc --- */
+      let escOk = true;
+      try { a.pressKey('Escape'); } catch (e) { escOk = false; }
+      rec('Esc', escOk && !c.dragging, 'releases pointer lock / drag');
+
+      a.setTimeOfDay('day', { instant: true });
+      return out;
+    });
+
+    const total = Object.keys(kb.results).length;
+    check(`every E.6 control works (${total} bindings)`, kb.failures.length === 0,
+          kb.failures.length ? kb.failures.join(' | ') : Object.keys(kb.results).join(', '));
+    if (process.env.AEON_KEYS) {
+      for (const [k, v] of Object.entries(kb.results)) {
+        console.log(`      ${v.ok ? '·' : '!'} ${k.padEnd(28)} ${v.detail}`);
+      }
+    }
+  }
+
   if (SHOTS) {
     fs.mkdirSync(path.join(ROOT, 'docs/screenshots'), { recursive: true });
     await page.screenshot({ path: path.join(ROOT, 'docs/screenshots/verify.jpg'), quality: 82, type: 'jpeg' });

@@ -14,9 +14,12 @@ import { EnvironmentProbe } from './scene/Environment.js';
 import { Lighting } from './scene/Lighting.js';
 import { TimeOfDay, TOD_PRESETS } from './scene/TimeOfDay.js';
 import { Weather } from './scene/Weather.js';
+import { AudioManager } from './audio/AudioManager.js';
+import { ConstructionTimeline, MILESTONES, TOTAL_DAYS } from './construction/ConstructionTimeline.js';
+import { Controls } from './ui/Controls.js';
 import { SceneManager } from './scene/SceneManager.js';
 import { START_VIEW, ZONE_PRESETS } from './world/SitePlan.js';
-import { clamp } from './core/MathUtil.js';
+import { clamp, damp } from './core/MathUtil.js';
 
 const BOOT = window.AEON_BOOT || { progress() {}, done() {}, fail() {} };
 
@@ -78,12 +81,37 @@ class AeonSpire {
     if (court) this.weather.addRippleTarget(court.poolUniforms, 0.25, 1.3);
     if (annex) this.weather.addRippleTarget(annex.showWaterUniforms, 0.6, 1.2);
 
+    BOOT.progress(0.95, 'Tuning the soundscape…');
+    this.audio = new AudioManager();
+    // Each interior publishes its acoustic profile, so the convolver's
+    // impulse response follows the camera from room to room (D.8).
+    this.world.interiors.onRoomChange = (room) => this.audio.onRoomChange(room);
+    // Thunder is scheduled by the weather system at the strike's distance.
+    this.weather.onThunder = (delay, strength) => this.audio.thunder(delay, strength);
+
+    /* Browsers refuse to start an AudioContext without a gesture, so the
+       graph is built on the first interaction and never before. */
+    const startAudio = () => {
+      this.audio.init();
+      window.removeEventListener('pointerdown', startAudio);
+      window.removeEventListener('keydown', startAudio);
+    };
+    window.addEventListener('pointerdown', startAudio, { once: false });
+    window.addEventListener('keydown', startAudio, { once: false });
+
+    BOOT.progress(0.97, 'Loading the programme…');
+    this.construction = new ConstructionTimeline();
+
     this.engine.onTierChange = (t) => {
       this.lighting.setShadowsEnabled(t.shadows, t.shadowMap);
     };
 
     this.camera.position.set(START_VIEW.position[0], START_VIEW.position[1], START_VIEW.position[2]);
     this.camera.lookAt(START_VIEW.look[0], START_VIEW.look[1], START_VIEW.look[2]);
+
+    this.controls = new Controls(this.camera, this.engine.canvas, this);
+    this.photoMode = false;
+    this.helpVisible = false;
 
     this.engine.onUpdate((dt, t) => this.update(dt, t));
     this.engine.start(this.scene);
@@ -143,6 +171,118 @@ class AeonSpire {
   /** The manifest of every named interior space, for QA and the HUD. */
   interiorManifest() { return this.world.manifest(); }
 
+  /**
+   * Collapse the world into the handful of scalars the audio mix reads.
+   * Keeping this in one place means the soundscape always tracks what is
+   * actually on screen.
+   */
+  audioWorldState() {
+    const tod = this.timeOfDay.state;
+    const w = this.weather;
+    const room = this.world.interiors.current;
+    const camY = this.camera.position.y;
+    // Distance to the nearest large body of water on the campus.
+    const cx = this.camera.position.x, cz = this.camera.position.z;
+    const dCanal = Math.abs(Math.hypot(cx, cz) - 126);
+    const dPool = Math.hypot(cx, cz - 275);
+    const dShow = Math.hypot(cx + 372, cz - 262);
+    const nearest = Math.min(dCanal, dPool, dShow);
+
+    const c = this.construction;
+    return {
+      night: tod.nightMix,
+      golden: this.timeOfDay.current.id === 'golden' ? 1 : 0,
+      rain: w.rainLevel,
+      wind: w.windValue,
+      interior: room ? 1 : 0,
+      altitude: clamp((camY - 60) / 500, 0, 1),
+      nearWater: clamp(1 - nearest / 140, 0, 1),
+      construction: c ? c.audioWeight : 0,
+      craneActivity: c ? c.craneActivity : 0,
+      workerActivity: c ? c.workerActivity : 0,
+      truckActivity: c ? c.truckActivity : 0
+    };
+  }
+
+  /* ---- Camera & interaction (E.6) ---- */
+
+  setCameraMode(mode) {
+    const m = this.controls.setMode(mode);
+    if (this.onStatusChange) this.onStatusChange();
+    return m;
+  }
+  get cameraMode() { return this.controls.mode; }
+
+  /**
+   * Keys 1-7. Pressing the same zone again moves inside it, so every zone's
+   * Section D interiors are reachable from the keyboard alone.
+   */
+  jumpToZone(index) {
+    const p = ZONE_PRESETS[index];
+    if (!p) return null;
+    const again = this._lastZone === index && !this._lastZoneInside;
+    const inside = again;
+    this._lastZone = index;
+    this._lastZoneInside = inside;
+    const pos = inside && p.interior ? p.interior : p.position;
+    const look = inside && p.interiorLook ? p.interiorLook : p.look;
+    this.controls.moveTo(pos, look, 1.6);
+    this.currentZoneName = p.name + (inside ? ' — interior' : '');
+    if (this.onStatusChange) this.onStatusChange();
+    return this.currentZoneName;
+  }
+
+  /** P — photo mode: hide the UI and open up a shallow depth of field. */
+  togglePhotoMode() {
+    this.photoMode = !this.photoMode;
+    if (this.hud) this.hud.setPhotoMode(this.photoMode);
+    return this.photoMode;
+  }
+
+  /** H — the help overlay listing every E.6 key. */
+  toggleHelp() {
+    this.helpVisible = !this.helpVisible;
+    if (this.hud) this.hud.setHelpVisible(this.helpVisible);
+    return this.helpVisible;
+  }
+
+  /**
+   * Ease the DOF focus toward whatever the camera is pointed at, so photo
+   * mode picks a sensible subject without the viewer setting a focus point.
+   */
+  updatePhotoFocus(dt) {
+    const p = this.engine.postfx.params;
+    const target = this.photoMode ? 1 : 0;
+    p.dof = damp(p.dof, target, 3.0, dt);
+    if (p.dof < 0.002) return;
+    // Focus on the nearest of: the tower's centreline, or 60 m ahead.
+    const cam = this.camera.position;
+    const toTower = Math.hypot(cam.x, cam.z);
+    const focus = clamp(Math.min(toTower, 260), 8, 300);
+    p.focusDistance = damp(p.focusDistance, focus, 2.0, dt);
+    p.focusRange = clamp(focus * 0.45, 12, 90);
+  }
+
+  /* ---- Construction mode (E.6: C, [ / ], Space) ---- */
+
+  toggleConstruction() {
+    const on = this.construction.toggle();
+    if (this.onStatusChange) this.onStatusChange();
+    return on;
+  }
+  setConstruction(on) { return this.construction.setActive(on); }
+  scrubConstruction(dir) { return this.construction.step(dir); }
+  toggleConstructionPlay() { return this.construction.togglePlay(); }
+  goToMilestone(n) { return this.construction.goToMilestone(n); }
+  constructionStatus() { return this.construction.status(); }
+  get milestones() { return MILESTONES; }
+
+  /* ---- Audio (E.6: M toggles the soundscape) ---- */
+
+  async initAudio() { return this.audio.init(); }
+  toggleAudio() { return this.audio.toggle(); }
+  audioStatus() { return this.audio.status(); }
+
   /* ---- Weather (E.6: R toggles rain; wind runs continuously) ---- */
 
   toggleRain() { return this.weather.toggleRain(); }
@@ -175,18 +315,40 @@ class AeonSpire {
 
   /** Automation hook used by the screenshot and QA tools. */
   setCamera(pos, look) {
-    this.camera.position.set(pos[0], pos[1], pos[2]);
-    this.camera.lookAt(look[0], look[1], look[2]);
+    if (this.controls) {
+      this.controls.snapTo(pos, look);
+    } else {
+      this.camera.position.set(pos[0], pos[1], pos[2]);
+      this.camera.lookAt(look[0], look[1], look[2]);
+    }
     this.camera.updateMatrixWorld(true);
+  }
+
+  /** Synthesise a key press — used by the QA harness to exercise E.6. */
+  pressKey(code) {
+    this.controls.handleKeyDown({
+      code, preventDefault() {}, metaKey: false, ctrlKey: false, altKey: false
+    });
+    this.controls.keys.delete(code);
+    return true;
+  }
+
+  /** Hold a movement key down (QA). */
+  holdKey(code, down = true) {
+    if (down) this.controls.keys.add(code); else this.controls.keys.delete(code);
   }
 
   update(dt, t) {
     globalUniforms.uTime.value = t;
+    this.controls.update(dt);
+    this.construction.update(dt);
     this.weather.update(dt, this.camera, t);
     this.timeOfDay.update(dt);
     this.lighting.update(this.camera);
     this.sky.update(dt, this.camera, this.weather.windValue);
     this.world.update(dt, t, this.camera.position);
+    this.audio.update(dt, this.audioWorldState());
+    this.updatePhotoFocus(dt);
   }
 }
 
