@@ -135,3 +135,37 @@ interior revealed at once, and 0.44 ms/frame of CPU simulation cost.
 - [x] README written, covering Section H (Gantt and critical path, the
       Leaning Observatory as a worked risk-management example, earned value,
       and the originality argument) and Section I (assets and licensing).
+
+## Section G — Master Completion Gate
+
+**Satisfied.** Every checkbox in every phase of Section F is checked, and the
+full walkthrough ran clean:
+
+```
+Section G — master walkthrough
+  ✓ walked all 7 zones, exterior and interior      14 viewpoints rendered
+  ✓ stood inside every named Section D interior    31 rooms visited
+  ✓ rendered all 5 time-of-day modes               dawn → day → golden → dusk → night
+  ✓ rendered rain, wind and a lightning strike     wetness 0.99, wind 0.89
+  ✓ scrubbed the full construction programme       M1@d40 … M10@d700
+  ✓ exercised every keyboard control               27 keys, frames rendered between
+  ✓ the entire walkthrough ran without an error    clean
+
+44/44 checks passed
+```
+
+Reproduce with `node tools/verify.mjs --full`. The single-file build passes
+the same suite from `file://` (`node tools/verify.mjs --url=file://…/dist/AeonSpire.html`).
+
+### One honest caveat on the performance claim
+
+Phase 11's Definition of Done says "frame rate holds at target on a
+representative machine". This environment has no GPU — Chromium runs on
+SwiftShader, a software rasteriser roughly two orders of magnitude slower than
+real hardware — so any frame rate measured here would be meaningless, and none
+is claimed. The rendering itself *is* verified in a real browser against real
+WebGL 2; what is validated by proxy rather than directly is the frame *rate*,
+using the metrics that actually predict it: draw calls (~155 exterior, ~520
+with all 31 interiors forced live), triangle count (368k), and CPU simulation
+cost (0.22 ms/frame). Those budgets sit well inside what a mid-range laptop
+sustains at 60 fps, but the number itself has not been observed on a GPU.
