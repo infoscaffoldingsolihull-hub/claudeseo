@@ -717,10 +717,12 @@ export class ConstructionSite {
       c.setHeight(clamp(this.buildHeight + 16, 24, RING.top + 20));
       c.update(dt, elapsed, crane);
     }
-    // The climbing crane rides the spire during topping-out.
+    /* The self-jacking crane sits on the structure and climbs with it, which
+       is the whole point of the type: its mast stays a fixed short length and
+       the base rides the topmost completed level. */
     if (this.climber) {
-      this.climber.setHeight(clamp(this.buildHeight - 8, 24, SPIRE.tip - 40));
-      this.climber.group.position.y = clamp(this.buildHeight - this.climber.group.position.y > 0 ? 0 : 0, 0, 0);
+      this.climber.setHeight(38);
+      this.climber.group.position.y = clamp(this.buildHeight - 42, 0, SPIRE.tip - 60);
       this.climber.update(dt, elapsed, ms >= 6 && ms <= 8 ? crane : 0);
       if (this.climber.flag) this.climber.flag.visible = ms >= 7;
     }

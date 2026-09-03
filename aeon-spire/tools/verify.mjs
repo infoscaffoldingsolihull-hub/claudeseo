@@ -766,7 +766,13 @@ if (booted) {
     const zonesOk = log.length === 14;
     check('G · walked all 7 zones, exterior and interior', zonesOk, `${log.length} viewpoints rendered`);
 
-    /* --- 2. Every named Section D interior, rendered --- */
+    /* --- 2. Every named Section D interior, rendered ---
+       Every room is revealed at once for this pass, which is ~520 draw calls
+       a frame. Under SwiftShader that is several seconds per frame at full
+       size, so the viewport is shrunk for the duration: the point is that
+       each interior's materials reach the GPU at least once, not that they
+       do so at presentation resolution. */
+    await page.setViewportSize({ width: 320, height: 200 });
     const roomWalk = await page.evaluate(async () => {
       const a = window.AEON;
       const names = [];
@@ -782,6 +788,7 @@ if (booted) {
       }
       return names;
     });
+    await page.setViewportSize({ width: 720, height: 440 });
     check('G · stood inside every named Section D interior',
           roomWalk.length === 31, `${roomWalk.length} rooms visited`);
 
