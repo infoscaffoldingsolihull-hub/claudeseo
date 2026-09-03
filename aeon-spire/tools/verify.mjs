@@ -551,6 +551,101 @@ if (booted) {
     }
   }
 
+  /* ---- Construction simulation (E.7 / Phase 9) ---- */
+  if (await page.evaluate(() => typeof window.AEON.siteStatus === 'function')) {
+    const cs = await page.evaluate(() => {
+      const a = window.AEON;
+      const step = (n = 60) => {
+        for (let i = 0; i < n; i++) {
+          a.construction.update(1 / 60);
+          a.site.update(1 / 60, i / 60);
+        }
+      };
+      a.setConstruction(true);
+      a.construction.playing = false;
+      step(120);
+
+      const rows = [];
+      for (let m = 1; m <= 10; m++) {
+        a.goToMilestone(m);
+        step(90);
+        const st = a.constructionStatus();
+        const site = a.siteStatus();
+        // Which staged site objects are on screen at this milestone?
+        const visible = a.site.stages.filter(s => s.obj.visible).map(s => s.obj.name);
+        // Which zones of the finished building are present?
+        const zones = a.world.zones.filter(z => z.group.visible).map(z => z.id);
+        // Are the workers and cranes actually moving? Measure the crew in
+        // aggregate: at any instant most figures are idle or working in
+        // place, which is the intended behaviour, not a stalled animation.
+        const live = Math.max(1, a.site.crew.liveCount || 0);
+        const before = a.site.crew.workers.slice(0, live).map(w => w.pos.clone());
+        step(60);
+        let moved = 0;
+        for (let k = 0; k < live; k++) moved += before[k].distanceTo(a.site.crew.workers[k].pos);
+        const craneSlew = a.site.towerCranes[0].slew.rotation.y;
+        step(30);
+        const craneMoved = Math.abs(a.site.towerCranes[0].slew.rotation.y - craneSlew) > 1e-4;
+        rows.push({
+          m, day: st.day, name: st.milestoneName, buildHeight: site.buildHeight,
+          plantVisible: visible.length, zones: zones.length, zoneIds: zones,
+          liveWorkers: live, crewMotion: +moved.toFixed(2),
+          workersMoved: moved > 0.05, craneMoved,
+          ribbonVisible: !!(a.site.ribbon && a.site.ribbon.visible),
+          glazing: +a.materials.glazingReveal.toFixed(3),
+          budget: +st.budgetUsed.toFixed(3), spi: +st.spi.toFixed(3), cpi: +st.cpi.toFixed(3)
+        });
+      }
+
+      // Turning construction mode off must restore the finished campus.
+      a.setConstruction(false);
+      step(180);
+      const restoredZones = a.world.zones.filter(z => z.group.visible).length;
+      const clipOff = !a.materials.buildClipEnabled;
+      const glazingBack = a.materials.glazingReveal;
+
+      return { rows, restoredZones, clipOff, glazingBack, siteBuilt: a.siteStatus().built,
+               plantCount: a.siteStatus().plant };
+    });
+
+    const heights = cs.rows.map(r => r.buildHeight);
+    const rising = heights.every((h, i) => i === 0 || h >= heights[i - 1]);
+    const spread = heights[heights.length - 1] - heights[0];
+    check('every milestone changes the structure',
+          rising && spread > 600 && new Set(heights).size >= 7,
+          `build height ${heights[0]} → ${heights[heights.length - 1]} m across ` +
+          `${new Set(heights).size} distinct stages`);
+    /* Milestones 1-9 are live work; by milestone 10 the job is handed over
+       and the crew has left, so the ribbon replaces them. */
+    const working = cs.rows.slice(0, 9);
+    check('plant and workers animate at every milestone',
+          cs.rows.every(r => r.plantVisible > 0) &&
+          working.every(r => r.workersMoved) &&
+          cs.rows[9].ribbonVisible &&
+          cs.rows.filter(r => r.craneMoved).length >= 4,
+          `${cs.plantCount} plant items; crew ` +
+          `${Math.min(...working.map(r => r.liveWorkers))}-${Math.max(...working.map(r => r.liveWorkers))} ` +
+          `figures on M1-9, cranes slewing in ` +
+          `${cs.rows.filter(r => r.craneMoved).length}/10; ribbon up at handover`);
+    check('zones appear on their own milestones',
+          cs.rows[0].zones === 0 && cs.rows[9].zones === 7 &&
+          cs.rows[8].zoneIds.includes('court') && !cs.rows[5].zoneIds.includes('court'),
+          `M1 ${cs.rows[0].zones} zones → M9 ${cs.rows[8].zones} → M10 ${cs.rows[9].zones}`);
+    check('glazing waits for the facade package',
+          cs.rows[5].glazing < 0.1 && cs.rows[8].glazing > 0.9,
+          `M6 ${cs.rows[5].glazing} → M8 ${cs.rows[7].glazing} → M9 ${cs.rows[8].glazing}`);
+    check('leaving construction mode restores the campus',
+          cs.restoredZones === 7 && cs.clipOff && cs.glazingBack > 0.98,
+          `${cs.restoredZones}/7 zones, clipping off, glazing ${cs.glazingBack.toFixed(2)}`);
+    if (process.env.AEON_MILESTONES) {
+      for (const r of cs.rows) {
+        console.log(`      ${String(r.m).padStart(2)}  day ${String(r.day).padStart(3)}  ` +
+          `h=${String(r.buildHeight).padStart(4)}m  zones=${r.zones}  glaze=${r.glazing.toFixed(2)}  ` +
+          `budget=${(r.budget * 100).toFixed(1)}%  SPI=${r.spi.toFixed(2)}  ${r.name}`);
+      }
+    }
+  }
+
   if (SHOTS) {
     fs.mkdirSync(path.join(ROOT, 'docs/screenshots'), { recursive: true });
     await page.screenshot({ path: path.join(ROOT, 'docs/screenshots/verify.jpg'), quality: 82, type: 'jpeg' });

@@ -133,6 +133,16 @@ export class MaterialLibrary {
     this.interiorMaterials = [];
     this.interiorEnv = 0.42;
     this.envMap = null;
+
+    /* Construction mode (Phase 9). `buildClipPlane` reveals the finished
+       building by height; materials created with `noClip` (the site plant)
+       opt out, and `glazing` materials are held back until the facade
+       package. */
+    this.buildClipPlane = null;
+    this.buildClipEnabled = false;
+    this.clippable = [];
+    this.glazing = [];
+    this.glazingReveal = 1;
   }
 
   /** Cached construction. `build` receives (THREE, textureFactory). */
@@ -174,7 +184,8 @@ export class MaterialLibrary {
     repeat = 1, color = 0xffffff, roughness = 0.8, metalness = 0.0,
     exterior = false, wind = false, opts = null, side = THREE.FrontSide,
     normalScale = 1, envMapIntensity = 1, transparent = false, opacity = 1,
-    alphaTest = 0, emissive = 0x000000, emissiveIntensity = 0, flatShading = false
+    alphaTest = 0, emissive = 0x000000, emissiveIntensity = 0, flatShading = false,
+    noClip = false
   } = {}) {
     return this.get(key, (tex) => {
       const set = tex.get(key + '|' + repeat + '|' + texKey, (size, f) => f[texKey](size, opts || undefined));
@@ -188,6 +199,7 @@ export class MaterialLibrary {
       if (this.envMap) m.envMap = this.envMap;
       if (exterior) { makeWeatherReactive(m); this.exterior.push(m); }
       if (wind) makeWindReactive(m);
+      if (!noClip) this.clippable.push(m);
       return m;
     });
   }
@@ -197,7 +209,7 @@ export class MaterialLibrary {
     color = 0xcccccc, roughness = 0.7, metalness = 0.0, exterior = false,
     wind = false, side = THREE.FrontSide, transparent = false, opacity = 1,
     emissive = 0x000000, emissiveIntensity = 0, flatShading = false, envMapIntensity = 1,
-    depthWrite = true, alphaTest = 0
+    depthWrite = true, alphaTest = 0, noClip = false
   } = {}) {
     return this.get(key, () => {
       const m = new THREE.MeshStandardMaterial({
@@ -207,6 +219,7 @@ export class MaterialLibrary {
       if (this.envMap) m.envMap = this.envMap;
       if (exterior) { makeWeatherReactive(m); this.exterior.push(m); }
       if (wind) makeWindReactive(m);
+      if (!noClip) this.clippable.push(m);
       return m;
     });
   }
@@ -220,7 +233,7 @@ export class MaterialLibrary {
   glass(key, {
     color = 0x9fc4d8, opacity = 0.26, roughness = 0.05, metalness = 0.12,
     side = THREE.DoubleSide, tint = 1, exterior = true, emissive = 0x000000,
-    emissiveIntensity = 0, envMapIntensity = 2.2
+    emissiveIntensity = 0, envMapIntensity = 2.2, noClip = false
   } = {}) {
     return this.get(key, () => {
       const m = new THREE.MeshStandardMaterial({
@@ -230,6 +243,13 @@ export class MaterialLibrary {
       });
       if (this.envMap) m.envMap = this.envMap;
       if (exterior) { makeWeatherReactive(m); this.exterior.push(m); }
+      if (!noClip) {
+        this.clippable.push(m);
+        // Glazing is the facade package; construction mode holds it back
+        // until milestone 8 so the structure reads as a bare frame first.
+        m.userData.baseOpacity = opacity;
+        this.glazing.push(m);
+      }
       return m;
     });
   }
@@ -255,9 +275,12 @@ export class MaterialLibrary {
         c.wrapS = c.wrapT = THREE.RepeatWrapping; c.repeat.set(repeat, repeat); return c;
       })();
       mat.userData.maxEmissive = maxEmissive;
+      mat.userData.baseOpacity = opacity;
       if (this.envMap) mat.envMap = this.envMap;
       makeWeatherReactive(mat);
       this.exterior.push(mat);
+      this.clippable.push(mat);
+      this.glazing.push(mat);
       return mat;
     });
     if (!this.emissiveWindows.includes(m)) this.emissiveWindows.push(m);
@@ -313,6 +336,47 @@ export class MaterialLibrary {
     for (const m of this.emissiveWindows) {
       m.emissiveIntensity = (m.userData.maxEmissive ?? 1.5) * k;
     }
+  }
+
+  /* ---------------- Construction-mode reveal (Phase 9) ---------------- */
+
+  /** Hand the library the plane that clips the finished building by height. */
+  setBuildClip(plane) {
+    this.buildClipPlane = plane;
+    return plane;
+  }
+
+  /**
+   * Turn height clipping on or off. Assigning `clippingPlanes` forces a
+   * shader recompile, so this only touches the materials when the flag
+   * actually changes.
+   */
+  setBuildClipEnabled(on) {
+    const want = !!on && !!this.buildClipPlane;
+    if (want === this.buildClipEnabled) return want;
+    this.buildClipEnabled = want;
+    const planes = want ? [this.buildClipPlane] : null;
+    for (const m of this.clippable) {
+      m.clippingPlanes = planes;
+      m.needsUpdate = true;
+    }
+    return want;
+  }
+
+  /**
+   * Fade the glazing in as the facade package proceeds. 1 = fully glazed,
+   * 0 = bare structure.
+   */
+  setGlazingReveal(k) {
+    const v = clamp(k, 0, 1);
+    if (Math.abs(v - this.glazingReveal) < 0.002) return v;
+    this.glazingReveal = v;
+    for (const m of this.glazing) {
+      const base = m.userData.baseOpacity ?? 1;
+      m.opacity = base * v;
+      m.visible = v > 0.02;
+    }
+    return v;
   }
 
   setWetness(v) { globalUniforms.uWetness.value = clamp(v, 0, 1); }

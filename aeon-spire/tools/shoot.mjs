@@ -71,6 +71,17 @@ if (process.env.SHOT_INTERIORS) {
   await page.waitForTimeout(1500);
 }
 
+if (process.env.SHOT_MILESTONE) {
+  await page.evaluate((m) => {
+    const a = window.AEON;
+    a.setConstruction(true);
+    a.construction.playing = false;
+    a.goToMilestone(Number(m));
+    for (let i = 0; i < 200; i++) { a.construction.update(1 / 60); a.site.update(1 / 60, i / 60); }
+  }, process.env.SHOT_MILESTONE);
+  await page.waitForTimeout(1400);
+}
+
 if (process.env.SHOT_RAIN) {
   await page.evaluate(() => {
     const a = window.AEON;

@@ -17,6 +17,7 @@ import { Weather } from './scene/Weather.js';
 import { AudioManager } from './audio/AudioManager.js';
 import { ConstructionTimeline, MILESTONES, TOTAL_DAYS } from './construction/ConstructionTimeline.js';
 import { Controls } from './ui/Controls.js';
+import { ConstructionSite } from './construction/ConstructionSite.js';
 import { SceneManager } from './scene/SceneManager.js';
 import { START_VIEW, ZONE_PRESETS } from './world/SitePlan.js';
 import { clamp, damp } from './core/MathUtil.js';
@@ -101,6 +102,14 @@ class AeonSpire {
 
     BOOT.progress(0.97, 'Loading the programme…');
     this.construction = new ConstructionTimeline();
+    this.site = new ConstructionSite(
+      this.scene, this.materials, this.world, this.construction, this.renderer,
+      { tier: this.engine.tier }
+    );
+    // The pile rig's hammer drives a foley hit, so the blows land on picture.
+    this.construction.onMilestoneChange = (m) => {
+      if (this.hud) this.hud.onMilestoneChange(m);
+    };
 
     this.engine.onTierChange = (t) => {
       this.lighting.setShadowsEnabled(t.shadows, t.shadowMap);
@@ -275,6 +284,7 @@ class AeonSpire {
   toggleConstructionPlay() { return this.construction.togglePlay(); }
   goToMilestone(n) { return this.construction.goToMilestone(n); }
   constructionStatus() { return this.construction.status(); }
+  siteStatus() { return this.site.status(); }
   get milestones() { return MILESTONES; }
 
   /* ---- Audio (E.6: M toggles the soundscape) ---- */
@@ -342,6 +352,7 @@ class AeonSpire {
     globalUniforms.uTime.value = t;
     this.controls.update(dt);
     this.construction.update(dt);
+    this.site.update(dt, t);
     this.weather.update(dt, this.camera, t);
     this.timeOfDay.update(dt);
     this.lighting.update(this.camera);

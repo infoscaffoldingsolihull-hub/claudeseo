@@ -141,9 +141,10 @@ export class SceneManager {
       if (x < -180 && z > -180 && z < 320) continue;
       xs.push({ pos: [x, 0.5, z], rot: [0, r() * TAU, 0], scale: 0.8 + r() * 0.7 });
     }
-    this.scene.add(instance(tree(1717, 1.0), treeMat, xs, {
+    this.landscape = instance(tree(1717, 1.0), treeMat, xs, {
       name: 'SiteTrees', castShadow: true, receiveShadow: true
-    }));
+    });
+    this.scene.add(this.landscape);
     this.treeCount = xs.length;
   }
 
