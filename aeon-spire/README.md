@@ -9,6 +9,8 @@ texture, every sound and every piece of geometry is generated procedurally at
 runtime — there are no downloaded assets, no sample libraries and no build
 step required to run it.
 
+![The campus at golden hour](docs/screenshots/tod-golden.jpg)
+
 ---
 
 ## Run it
@@ -225,6 +227,19 @@ generated here from a parametric function whose parameters are in
 trademarked logo or brand name appears anywhere, and the concept vehicle in
 the Motorsport Pavilion is a pure aerodynamic silhouette belonging to no
 marque. Nothing in the scene is copied; everything in it is argued for.
+
+---
+
+## Gallery
+
+| | |
+|---|---|
+| ![Night](docs/screenshots/tod-night.jpg) | ![Rain at dusk](docs/screenshots/weather-rain.jpg) |
+| **Night** — lit windows, moonlight raking the sail, the aviation beacon pulsing at 700 m | **Rain at dusk** — wind-blown streaks, wet surfaces, the canal rippling harder |
+| ![The Ring Deck](docs/screenshots/facade-ringface.jpg) | ![The canal](docs/screenshots/facade-canal.jpg) |
+| **The Ring Deck** — a 110 m disc on edge, radial face diagrid, the tower waisting through it | **The Canal Concourse** — the sunken canal, arched footbridges, the market arcade |
+| ![Milestone 6](docs/screenshots/build-m06.jpg) | ![The PM panel](docs/screenshots/hud-construction.jpg) |
+| **Construction, milestone 6** — bare diagrid, the disc going in, hoarding and haul road, no landscaping yet | **The PM panel at milestone 7** — duration-weighted Gantt, day 505 of 700, SPI 0.973, CPI 0.911 |
 
 ---
 
