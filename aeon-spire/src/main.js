@@ -18,6 +18,7 @@ import { AudioManager } from './audio/AudioManager.js';
 import { ConstructionTimeline, MILESTONES, TOTAL_DAYS } from './construction/ConstructionTimeline.js';
 import { Controls } from './ui/Controls.js';
 import { ConstructionSite } from './construction/ConstructionSite.js';
+import { HUD } from './ui/HUD.js';
 import { SceneManager } from './scene/SceneManager.js';
 import { START_VIEW, ZONE_PRESETS } from './world/SitePlan.js';
 import { clamp, damp } from './core/MathUtil.js';
@@ -121,6 +122,7 @@ class AeonSpire {
     this.controls = new Controls(this.camera, this.engine.canvas, this);
     this.photoMode = false;
     this.helpVisible = false;
+    this.hud = new HUD(this);
 
     this.engine.onUpdate((dt, t) => this.update(dt, t));
     this.engine.start(this.scene);
@@ -285,6 +287,7 @@ class AeonSpire {
   goToMilestone(n) { return this.construction.goToMilestone(n); }
   constructionStatus() { return this.construction.status(); }
   siteStatus() { return this.site.status(); }
+  hudStatus() { return this.hud.status(); }
   get milestones() { return MILESTONES; }
 
   /* ---- Audio (E.6: M toggles the soundscape) ---- */
@@ -360,6 +363,7 @@ class AeonSpire {
     this.world.update(dt, t, this.camera.position);
     this.audio.update(dt, this.audioWorldState());
     this.updatePhotoFocus(dt);
+    this.hud.update(dt);
   }
 }
 

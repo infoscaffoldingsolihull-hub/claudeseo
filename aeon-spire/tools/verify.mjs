@@ -646,6 +646,76 @@ if (booted) {
     }
   }
 
+  /* ---- HUD (E.8 / Phase 10) ---- */
+  if (await page.evaluate(() => typeof window.AEON.hudStatus === 'function')) {
+    const hud = await page.evaluate(async () => {
+      const a = window.AEON;
+      const step = (n = 40) => {
+        for (let i = 0; i < n; i++) {
+          a.construction.update(1 / 60); a.site.update(1 / 60, i / 60); a.hud.update(1 / 60);
+        }
+      };
+      a.setConstruction(false); step(30);
+      const hiddenWhenOff = !a.hudStatus().pmPanelVisible;
+
+      a.setConstruction(true);
+      a.goToMilestone(6);
+      step(60);
+      const s6 = a.hudStatus();
+      const bars6 = [...a.hud.bars].map(b => b.el.className);
+
+      a.goToMilestone(9);
+      step(60);
+      const s9 = a.hudStatus();
+
+      // The Gantt must be synced to the scrubber: milestone 9 marks more
+      // segments done than milestone 6 does.
+      const done6 = bars6.filter(c => c.includes('done')).length;
+      const done9 = [...a.hud.bars].filter(b => b.el.className.includes('done')).length;
+
+      // Clicking a Gantt bar must scrub there.
+      a.hud.bars[2].el.click();
+      step(30);
+      const clicked = a.constructionStatus().milestone;
+
+      a.toggleHelp(); step(4);
+      const helpOn = a.hudStatus().helpVisible;
+      a.toggleHelp(); step(4);
+      a.togglePhotoMode(); step(4);
+      const photo = a.hudStatus();
+      const photoOn = photo.photoMode;
+      // The UI fades over 0.45 s of real time. Under software rendering the
+      // compositor can be starved and the transition never advances, so the
+      // check reads the target opacity of the matched rule instead.
+      const uiHidden = photo.targetOpacity;
+      const uiInert = photo.pointerEvents === 'none' && photo.hiddenClass;
+      a.togglePhotoMode(); step(4);
+      const restored = a.hudStatus().targetOpacity;
+
+      a.setConstruction(false); step(30);
+      return {
+        hiddenWhenOff, s6, s9, done6, done9, clicked, helpOn, photoOn,
+        uiHidden: Number(uiHidden), uiInert, restored,
+        ganttBars: s6.ganttBars, helpRows: s6.helpRows
+      };
+    });
+
+    check('Gantt bar has all 10 milestones and syncs to the scrubber',
+          hud.ganttBars === 10 && hud.done9 > hud.done6 && hud.clicked === 3,
+          `${hud.ganttBars} bars, ${hud.done6}→${hud.done9} complete, click scrubbed to M${hud.clicked}`);
+    check('day counter and budget ticker track the programme',
+          /\d+/.test(hud.s6.dayText) && hud.s6.dayText !== hud.s9.dayText &&
+          /%/.test(hud.s6.budgetText) && hud.s6.budgetText !== hud.s9.budgetText,
+          `day "${hud.s6.dayText}" → "${hud.s9.dayText}", budget "${hud.s6.budgetText}" → "${hud.s9.budgetText}"`);
+    check('PM panel shows only in construction mode',
+          hud.hiddenWhenOff && hud.s6.pmPanelVisible, 'hidden when off, shown when on');
+    check('help overlay lists every E.6 key, photo mode hides the UI',
+          hud.helpOn && hud.helpRows >= 17 && hud.photoOn &&
+          hud.uiHidden < 0.05 && hud.uiInert && hud.restored === 1,
+          `${hud.helpRows} key rows; UI fades to ${hud.uiHidden} and goes inert in photo mode, ` +
+          `back to ${hud.restored} on exit`);
+  }
+
   if (SHOTS) {
     fs.mkdirSync(path.join(ROOT, 'docs/screenshots'), { recursive: true });
     await page.screenshot({ path: path.join(ROOT, 'docs/screenshots/verify.jpg'), quality: 82, type: 'jpeg' });
