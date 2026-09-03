@@ -91,6 +91,14 @@ export const QUEENS_PYRAMIDS = [
   { id: 'g1c', name: 'G1-c — Queen Henutsen', x: 152, z: 60, baseLength: 46.9, height: 29.6, baseY: 0.9 },
 ];
 
+/**
+ * Khafre's own subsidiary (satellite) pyramid, GII-a, hard against the south
+ * face - a small cult pyramid, now reduced to its lowest courses.
+ */
+export const KHAFRE_SATELLITE = [
+  { id: 'g2a', name: 'GII-a — Khafre’s Satellite Pyramid', x: -230, z: 545, baseLength: 20.9, height: 13.4, baseY: 10.4 },
+];
+
 /** Menkaure's three subsidiary pyramids, G3-a/b/c. */
 export const MENKAURE_QUEENS = [
   { id: 'g3a', name: 'G3-a', x: -594, z: 940, baseLength: 44.0, height: 28.4, baseY: 14.2 },
@@ -265,6 +273,10 @@ export const BOAT_PITS = [
   { id: 'pit-s1', name: 'Southern Boat Pit I (Khufu Ship)', x: -26, z: 143, w: 32, d: 5.5, depth: 4.5 },
   { id: 'pit-s2', name: 'Southern Boat Pit II', x: 34, z: 143, w: 30, d: 5.2, depth: 4.4 },
   { id: 'pit-e1', name: 'Eastern Boat Pit', x: 128, z: -96, w: 26, d: 5.0, depth: 4.0 },
+  // The pair beside Khafre's mortuary temple, on the plan between the temple
+  // and the pyramid's south-east corner.
+  { id: 'pit-khafre1', name: 'Khafre Boat Pit I', x: -66, z: 452, w: 24, d: 5.0, depth: 3.6 },
+  { id: 'pit-khafre2', name: 'Khafre Boat Pit II', x: -30, z: 452, w: 24, d: 5.0, depth: 3.6 },
 ];
 
 /**

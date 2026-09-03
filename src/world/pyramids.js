@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeRng, clamp, lerp, smoothstep } from '../engine/noise.js';
 import { mergeGeometries, box, scaleUvByWorldSize, ensureOutwardWinding } from './geobuild.js';
-import { PYRAMIDS, QUEENS_PYRAMIDS, MENKAURE_QUEENS, RAMP } from './layout.js';
+import { PYRAMIDS, QUEENS_PYRAMIDS, MENKAURE_QUEENS, KHAFRE_SATELLITE, RAMP } from './layout.js';
 
 /**
  * The pyramids, built out of stone rather than drawn as cones.
@@ -802,7 +802,7 @@ export class PyramidSystem {
     this.satellites = new THREE.Group();
     this.satellites.name = 'satellite-pyramids';
     this.group.add(this.satellites);
-    for (const q of [...QUEENS_PYRAMIDS, ...MENKAURE_QUEENS]) {
+    for (const q of [...QUEENS_PYRAMIDS, ...MENKAURE_QUEENS, ...KHAFRE_SATELLITE]) {
       const courses = Math.max(14, Math.round(q.height / 1.35));
       const mesh = new THREE.Mesh(
         steppedPyramidGeometry(q.baseLength / 2, q.height, courses),
