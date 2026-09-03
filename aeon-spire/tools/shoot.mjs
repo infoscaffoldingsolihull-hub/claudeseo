@@ -71,6 +71,25 @@ if (process.env.SHOT_INTERIORS) {
   await page.waitForTimeout(1500);
 }
 
+if (process.env.SHOT_RAIN) {
+  await page.evaluate(() => {
+    const a = window.AEON;
+    a.setRain(true);
+    a.setWind(0.7);
+    for (let i = 0; i < 400; i++) a.weather.update(1 / 60, a.camera, 0);
+  });
+  await page.waitForTimeout(600);
+}
+
+if (process.env.SHOT_TOD) {
+  await page.evaluate((id) => {
+    const a = window.AEON;
+    a.setTimeOfDay(id, { instant: true });
+    a.refreshEnvironment(a.timeOfDay.state);
+  }, process.env.SHOT_TOD);
+  await page.waitForTimeout(900);
+}
+
 for (const [name, pos, look] of shots) {
   await page.evaluate(([p, l]) => {
     const a = window.AEON;

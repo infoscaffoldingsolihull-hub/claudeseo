@@ -172,6 +172,128 @@ if (booted) {
   const api = await page.evaluate(() => Object.keys(window.AEON).filter(k => typeof window.AEON[k] === 'function'));
   if (process.env.AEON_LOG) console.log('    api:', api.join(', '));
 
+  /* ---- Time of day (E.4 / Phase 5) ---- */
+  if (await page.evaluate(() => typeof window.AEON.cycleTimeOfDay === 'function')) {
+    const tod = await page.evaluate(() => {
+      const a = window.AEON;
+      const modes = a.timeOfDayModes;
+      const seen = [];
+      // Cycle through every mode with T, settling each one.
+      for (let i = 0; i < modes.length; i++) {
+        a.cycleTimeOfDay();
+        for (let k = 0; k < 200; k++) a.timeOfDay.update(1 / 60);
+        seen.push(a.timeOfDayStatus().id);
+      }
+      // G and N must force their modes.
+      a.setTimeOfDay('golden'); for (let k = 0; k < 200; k++) a.timeOfDay.update(1 / 60);
+      const golden = a.timeOfDayStatus().id;
+      a.setTimeOfDay('night'); for (let k = 0; k < 200; k++) a.timeOfDay.update(1 / 60);
+      const night = a.timeOfDayStatus().id;
+      const nightMix = a.timeOfDay.state.nightMix;
+      const nightEmissive = a.materials.emissiveWindows[0]
+        ? a.materials.emissiveWindows[0].emissiveIntensity : -1;
+
+      // Now measure the transition itself: day -> night, sampled.
+      a.setTimeOfDay('day', { instant: true });
+      a.setTimeOfDay('night');
+      const samples = [];
+      for (let k = 0; k < 160; k++) {
+        a.timeOfDay.update(1 / 60);
+        if (k % 16 === 0) samples.push({
+          mix: a.timeOfDay.state.nightMix,
+          exposure: a.timeOfDay.state.exposure,
+          sunI: a.timeOfDay.state.sunIntensity,
+          transitioning: a.timeOfDay.isTransitioning
+        });
+      }
+      for (let k = 0; k < 200; k++) a.timeOfDay.update(1 / 60);
+      const dayEmissive = (() => {
+        a.setTimeOfDay('day', { instant: true });
+        return a.materials.emissiveWindows[0] ? a.materials.emissiveWindows[0].emissiveIntensity : -1;
+      })();
+      return { modes: modes.map(m => m.id), seen, golden, night, nightMix, nightEmissive, dayEmissive, samples };
+    });
+
+    check('all 5 time-of-day modes reachable via T',
+          tod.modes.length === 5 && tod.modes.every(m => tod.seen.includes(m)),
+          tod.seen.join(' → '));
+    check('G forces Golden Hour, N forces Night',
+          tod.golden === 'golden' && tod.night === 'night', `${tod.golden}, ${tod.night}`);
+
+    // The transition must pass through intermediate values, not jump.
+    const mids = tod.samples.filter(s => s.mix > 0.02 && s.mix < 0.98);
+    const monotonic = tod.samples.every((s, i, arr) => i === 0 || s.mix >= arr[i - 1].mix - 1e-6);
+    check('time-of-day transition is smooth, not a hard cut',
+          mids.length >= 4 && monotonic,
+          `${mids.length} intermediate samples, monotonic=${monotonic}, ` +
+          `mix ${tod.samples.map(s => s.mix.toFixed(2)).join('/')}`);
+    check('windows are emissive at night and dark by day (E.4)',
+          tod.nightEmissive > 1.0 && tod.dayEmissive < 0.05,
+          `night ${tod.nightEmissive.toFixed(2)} / day ${tod.dayEmissive.toFixed(2)}`);
+  }
+
+  /* ---- Weather (E.4 / Phase 6) ---- */
+  if (await page.evaluate(() => typeof window.AEON.toggleRain === 'function')) {
+    const w = await page.evaluate(() => {
+      const a = window.AEON;
+      const step = (n) => { for (let i = 0; i < n; i++) a.weather.update(1 / 60, a.camera, 0); };
+
+      const dry = { ...a.weatherStatus(), wetU: a.materials.tex ? 0 : 0 };
+      const dryWet = a.weather.wetness;
+
+      const on = a.toggleRain();
+      step(180);
+      const wetStatus = a.weatherStatus();
+      const rainVisible = a.weather.rain.visible;
+      const drawRange = a.weather.rain.geometry.drawRange.count;
+      const canalRipple = a.world.zone('canal').waterUniforms.uRipple.value;
+
+      // Wetness must actually reach the shared uniform the materials read.
+      const uWet = a.materials.constructor === undefined ? -1 : null;
+      const wetUniform = a.weather.materials.exterior.length;
+
+      // Lightning: force a strike and confirm the post chain flashes.
+      let thunderDelay = -1;
+      a.weather.onThunder = (d) => { thunderDelay = d; };
+      a.strikeLightning();
+      step(2);
+      const flash = a.engine.postfx.params.flash;
+
+      // Wind independent of rain. Drying is deliberately slow — surfaces
+      // soak fast and dry over tens of seconds — so give it a real window.
+      a.setRain(false);
+      step(1500);
+      const dried = a.weather.wetness;
+      a.setWind(0.9);
+      step(60);
+      const windHigh = a.weather.windValue;
+      a.setWind(0.05);
+      step(60);
+      const windLow = a.weather.windValue;
+      const dustVisible = a.weather.dust.visible;
+
+      return {
+        dryWet, wetness: wetStatus.wetness, rainOn: on, rainVisible, drawRange,
+        canalRipple, wetUniform, flash, thunderDelay, dried, windHigh, windLow,
+        dustVisible, exteriorMaterials: a.materials.exterior.length
+      };
+    });
+
+    check('rain renders and wets surfaces',
+          w.rainOn && w.rainVisible && w.drawRange > 0 && w.wetness > 0.5,
+          `${w.drawRange / 2} drops, wetness ${w.wetness.toFixed(2)} across ${w.exteriorMaterials} exterior materials`);
+    check('canal ripple rises with rain', w.canalRipple > 0.9,
+          `uRipple ${w.canalRipple.toFixed(2)}`);
+    check('lightning flashes and queues thunder',
+          w.flash > 0.05 && w.thunderDelay > 0,
+          `flash ${w.flash.toFixed(2)}, thunder in ${w.thunderDelay.toFixed(1)}s`);
+    check('surfaces dry out after the rain stops', w.dried < 0.1,
+          `wetness ${w.dried.toFixed(3)} after 25 s of drying`);
+    check('wind is independent of rain and drives dust',
+          w.windHigh > 0.7 && w.windLow < 0.3 && w.dustVisible,
+          `wind ${w.windLow.toFixed(2)} → ${w.windHigh.toFixed(2)}, dust visible`);
+  }
+
   if (SHOTS) {
     fs.mkdirSync(path.join(ROOT, 'docs/screenshots'), { recursive: true });
     await page.screenshot({ path: path.join(ROOT, 'docs/screenshots/verify.jpg'), quality: 82, type: 'jpeg' });

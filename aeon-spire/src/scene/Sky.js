@@ -76,9 +76,9 @@ void main() {
   // ---- Stars (night) ----
   if (uStarMix > 0.001) {
     vec2 suv = vec2(atan(dir.z, dir.x) / 6.2831853 + 0.5, acos(clamp(dir.y, -1.0, 1.0)) / 3.14159265);
-    vec3 stars = texture2D(tStars, suv * vec2(3.0, 1.5)).rgb;
+    vec3 stars = texture2D(tStars, suv * vec2(9.0, 4.5)).rgb;
     float twinkle = 0.75 + 0.25 * sin(uTime * 2.1 + hash(floor(suv * 900.0)) * 40.0);
-    sky += stars * uStarMix * clamp(h * 2.4, 0.0, 1.0) * twinkle * 1.35;
+    sky += stars * uStarMix * clamp(h * 2.4, 0.0, 1.0) * twinkle * 1.9;
   }
 
   // ---- Cloud bands ----

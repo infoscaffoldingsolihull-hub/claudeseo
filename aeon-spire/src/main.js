@@ -11,6 +11,9 @@ import { Engine } from './core/Engine.js';
 import { MaterialLibrary, globalUniforms } from './core/Materials.js';
 import { Sky } from './scene/Sky.js';
 import { EnvironmentProbe } from './scene/Environment.js';
+import { Lighting } from './scene/Lighting.js';
+import { TimeOfDay, TOD_PRESETS } from './scene/TimeOfDay.js';
+import { Weather } from './scene/Weather.js';
 import { SceneManager } from './scene/SceneManager.js';
 import { START_VIEW, ZONE_PRESETS } from './world/SitePlan.js';
 import { clamp } from './core/MathUtil.js';
@@ -52,13 +55,32 @@ class AeonSpire {
       onProgress: (f, m) => BOOT.progress(f, m)
     }).build();
 
-    // Provisional lighting; the full time-of-day rig replaces this in Phase 5.
-    this.hemi = new THREE.HemisphereLight(0xbcd4e8, 0x4a4336, 1.1);
-    this.scene.add(this.hemi);
-    this.sun = new THREE.DirectionalLight(0xfff2dc, 2.4);
-    this.sun.position.set(320, 460, 240);
-    this.scene.add(this.sun);
-    this.scene.fog = new THREE.Fog(0xbcd4e8, 420, 3400);
+    BOOT.progress(0.88, 'Setting the light…');
+    this.lighting = new Lighting(this.scene, { tier: this.engine.tier });
+    this.timeOfDay = new TimeOfDay({
+      scene: this.scene,
+      sky: this.sky,
+      lighting: this.lighting,
+      materials: this.materials,
+      postfx: this.engine.postfx,
+      envProbe: this.envProbe,
+      onEnvRefresh: (state) => this.refreshEnvironment(state)
+    });
+    BOOT.progress(0.92, 'Bringing in the weather…');
+    this.weather = new Weather(this.scene, this.materials, this.engine.postfx, {
+      tier: this.engine.tier
+    });
+    // Every water surface in the campus ripples harder in the rain (E.4).
+    const canal = this.world.zone('canal');
+    const court = this.world.zone('court');
+    const annex = this.world.zone('annex');
+    if (canal) this.weather.addRippleTarget(canal.waterUniforms, 0.5, 1.5);
+    if (court) this.weather.addRippleTarget(court.poolUniforms, 0.25, 1.3);
+    if (annex) this.weather.addRippleTarget(annex.showWaterUniforms, 0.6, 1.2);
+
+    this.engine.onTierChange = (t) => {
+      this.lighting.setShadowsEnabled(t.shadows, t.shadowMap);
+    };
 
     this.camera.position.set(START_VIEW.position[0], START_VIEW.position[1], START_VIEW.position[2]);
     this.camera.lookAt(START_VIEW.look[0], START_VIEW.look[1], START_VIEW.look[2]);
@@ -77,15 +99,16 @@ class AeonSpire {
    * push it onto every material. Called on boot and whenever the time of
    * day changes.
    */
-  refreshEnvironment() {
+  refreshEnvironment(state) {
     const u = this.sky.uniforms;
-    const preset = {
+    const preset = state || {
       zenith: u.uZenith.value, horizon: u.uHorizon.value, ground: u.uGround.value,
       sunColor: u.uSunColor.value, sunDiscIntensity: u.uSunIntensity.value
     };
-    const env = this.envProbe.update(preset, u.uSunDir.value);
+    const dir = this.lighting ? this.lighting.sunDirection : u.uSunDir.value;
+    const env = this.envProbe.update(preset, dir);
     this.scene.environment = env;
-    this.scene.environmentIntensity = 1.0;
+    if (this.scene.environmentIntensity === undefined) this.scene.environmentIntensity = 0.85;
     if (this.materials) this.materials.setEnvMap(null);   // let scene.environment drive it
     return env;
   }
@@ -120,6 +143,26 @@ class AeonSpire {
   /** The manifest of every named interior space, for QA and the HUD. */
   interiorManifest() { return this.world.manifest(); }
 
+  /* ---- Weather (E.6: R toggles rain; wind runs continuously) ---- */
+
+  toggleRain() { return this.weather.toggleRain(); }
+  setRain(on) { return this.weather.setRain(on); }
+  setWind(v) { return this.weather.setWind(v); }
+  cycleWind() { return this.weather.cycleWind(); }
+  strikeLightning() { return this.weather.strike(1); }
+  weatherStatus() { return this.weather.status(); }
+
+  /* ---- Time of day (E.6: T cycles, G forces Golden Hour, N forces Night) ---- */
+
+  cycleTimeOfDay() { return this.timeOfDay.cycle().name; }
+  setTimeOfDay(idOrIndex, opts) {
+    return typeof idOrIndex === 'number'
+      ? this.timeOfDay.set(idOrIndex, opts)
+      : this.timeOfDay.setById(idOrIndex, opts);
+  }
+  timeOfDayStatus() { return this.timeOfDay.status(); }
+  get timeOfDayModes() { return TOD_PRESETS.map(p => ({ id: p.id, name: p.name })); }
+
   /** Jump to one of the seven zone presets (E.6 keys 1-7). */
   gotoZone(index, inside = false) {
     const p = ZONE_PRESETS[index];
@@ -139,7 +182,10 @@ class AeonSpire {
 
   update(dt, t) {
     globalUniforms.uTime.value = t;
-    this.sky.update(dt, this.camera, globalUniforms.uWind.value);
+    this.weather.update(dt, this.camera, t);
+    this.timeOfDay.update(dt);
+    this.lighting.update(this.camera);
+    this.sky.update(dt, this.camera, this.weather.windValue);
     this.world.update(dt, t, this.camera.position);
   }
 }

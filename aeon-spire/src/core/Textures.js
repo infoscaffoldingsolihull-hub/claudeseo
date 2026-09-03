@@ -759,20 +759,20 @@ export class TextureFactory {
     const ctx = c.getContext('2d');
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, size, size);
-    const count = Math.floor(size * 3.2);
+    const count = Math.floor(size * 9);
     for (let i = 0; i < count; i++) {
       const x = r() * size, y = r() * size;
       const mag = Math.pow(r(), 3.2);
-      const rad = 0.35 + mag * 1.9;
+      const rad = 0.16 + mag * 0.55;
       const a = 0.25 + mag * 0.75;
       const tint = r();
       const col = tint < 0.15 ? '190,205,255' : tint > 0.9 ? '255,225,190' : '255,255,255';
-      const g = ctx.createRadialGradient(x, y, 0, x, y, rad * 2.6);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, rad * 2.2);
       g.addColorStop(0, `rgba(${col},${a})`);
       g.addColorStop(1, `rgba(${col},0)`);
       ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.arc(x, y, rad * 2.6, 0, TAU);
+      ctx.arc(x, y, rad * 2.2, 0, TAU);
       ctx.fill();
     }
     // A faint galactic band.
@@ -781,7 +781,7 @@ export class TextureFactory {
       const x = t * size;
       const y = size * 0.42 + Math.sin(t * 3.1) * size * 0.09 + (r() - 0.5) * size * 0.1;
       ctx.fillStyle = `rgba(200,210,240,${0.02 + r() * 0.05})`;
-      ctx.fillRect(x, y, 1.4, 1.4);
+      ctx.fillRect(x, y, 1.0, 1.0);
     }
     const t = toTexture(c, { repeat: 1 });
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
