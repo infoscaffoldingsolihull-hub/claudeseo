@@ -90,6 +90,46 @@ class AeonSpire {
     return env;
   }
 
+  /**
+   * Force every Section D interior to build and show. Used by the QA
+   * walkthrough so a room that is never approached still gets exercised.
+   */
+  revealInteriors(latch = true) {
+    return this.world.interiors.revealAll(latch);
+  }
+
+  /** Return to normal distance-based interior culling (D.8). */
+  releaseInteriors() { this.world.interiors.releaseAll(); }
+
+  /**
+   * Time the per-frame CPU work (scene graph, animated props, culling)
+   * without rendering. Software rasterisation dominates any headless frame
+   * timing, so this is the honest measure of the simulation's own cost and
+   * the one that predicts behaviour on real hardware.
+   * @returns {{ms:number, frames:number}} mean milliseconds per update pass
+   */
+  benchUpdate(frames = 120) {
+    const t0 = performance.now();
+    for (let i = 0; i < frames; i++) {
+      for (const fn of this.engine.updaters) fn(1 / 60, this.engine.elapsed + i / 60);
+    }
+    const ms = (performance.now() - t0) / frames;
+    return { ms, frames };
+  }
+
+  /** The manifest of every named interior space, for QA and the HUD. */
+  interiorManifest() { return this.world.manifest(); }
+
+  /** Jump to one of the seven zone presets (E.6 keys 1-7). */
+  gotoZone(index, inside = false) {
+    const p = ZONE_PRESETS[index];
+    if (!p) return null;
+    const pos = inside && p.interior ? p.interior : p.position;
+    const look = inside && p.interiorLook ? p.interiorLook : p.look;
+    this.setCamera(pos, look);
+    return p.name;
+  }
+
   /** Automation hook used by the screenshot and QA tools. */
   setCamera(pos, look) {
     this.camera.position.set(pos[0], pos[1], pos[2]);

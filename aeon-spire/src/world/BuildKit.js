@@ -463,6 +463,12 @@ export function stairRun(width, yBottom, yTop, length, steps = 16) {
  * @param {Array<{pos:number[],rot?:number[],scale?:number|number[],quat?:THREE.Quaternion}>} xs
  */
 export function instance(geo, mat, xs, { castShadow = false, receiveShadow = false, name = '' } = {}) {
+  if (!Array.isArray(xs)) {
+    // Passing the options object in the transforms slot yields an
+    // InstancedMesh with an undefined count, which poisons renderer stats
+    // with NaN rather than throwing. Fail loudly instead.
+    throw new TypeError(`instance("${name}"): transforms must be an array, got ${typeof xs}`);
+  }
   const m = new THREE.InstancedMesh(geo, mat, xs.length);
   const mtx = new THREE.Matrix4();
   const q = new THREE.Quaternion();

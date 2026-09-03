@@ -66,6 +66,10 @@ page.on('console', m => { if (m.type() === 'error' && !/jsdelivr|Failed to load 
 await page.goto(`http://localhost:${PORT}/index.html?quality=high`, { waitUntil: 'load', timeout: 60000 });
 await page.waitForFunction(() => window.AEON_STARTED === true || window.AEON_FATAL, { timeout: 120000 });
 await page.waitForTimeout(1200);
+if (process.env.SHOT_INTERIORS) {
+  await page.evaluate(() => window.AEON.revealInteriors && window.AEON.revealInteriors());
+  await page.waitForTimeout(1500);
+}
 
 for (const [name, pos, look] of shots) {
   await page.evaluate(([p, l]) => {

@@ -18,7 +18,13 @@ import {
   mergeGeometries, xform, box, cyl, circleRing, roundedRectRing, loft, mesh,
   instance, member, tube, circularTruss, balustrade, glassBalustrade
 } from '../world/BuildKit.js';
-import { TAU, lerp, clamp, smoothstep } from '../core/MathUtil.js';
+import { TAU, lerp, clamp, smoothstep, rng } from '../core/MathUtil.js';
+import {
+  roomShell, remapUV, seatPod, lowTable, chair, bench, workstation, stool,
+  curvedBar, planter, plaque, elevatorDoors, swingDoor, tunedMassDamper,
+  roomLight, roomSpot
+} from '../interiors/InteriorKit.js';
+import { tree } from '../world/BuildKit.js';
 
 export class RingDeck extends Zone {
   constructor(ctx) {
@@ -422,5 +428,585 @@ Object.assign(RingDeck.prototype, {
     this.shell.add(mesh(mergeGeometries(parts.filter(Boolean)), mullMat, {
       name: 'RingRimMullions', cast: true
     }));
+  }
+});
+
+/* ==================================================================== */
+/* Phase 4 — interiors (Section D.3)                                    */
+/*                                                                      */
+/* Halo Walkway Interior · Ring-Level Sky Gardens · Observation Lounge · */
+/* Typical Ring Floor Interior · Seismic Joint Viewing Gallery          */
+/* ==================================================================== */
+
+Object.assign(RingDeck.prototype, {
+
+  interiorsPass() {
+    const A = this.ctx.RoomClasses.ACOUSTIC;
+    const M = this.materials;
+
+    this.palette = {
+      terrazzo: M.surface('ringTerrazzo', 'terrazzo', { repeat: 14, roughness: 0.26 }),
+      glassFloor: M.glass('ringGlassFloor', {
+        color: 0xb6d6e4, opacity: 0.3, roughness: 0.04, side: THREE.DoubleSide, exterior: false
+      }),
+      glass: M.glass('ringGlassInt', { color: 0xd2e8f0, opacity: 0.18, roughness: 0.05, exterior: false }),
+      metal: M.surface('ringIntMetal', 'brushedMetal', { repeat: 4, roughness: 0.26, metalness: 0.8 }),
+      marble: M.surface('ringIntMarble', 'marble', { repeat: 8, roughness: 0.12 }),
+      timber: M.surface('ringIntTimber', 'paintedTimber', { repeat: 2, roughness: 0.6, color: 0xd8c6a8 }),
+      leather: M.solid('ringLeather', { color: 0x8f5a3c, roughness: 0.55 }),
+      foliage: M.surface('ringFoliage', 'foliage', { repeat: 3, roughness: 0.9 }),
+      ceiling: M.solid('ringCeilingMat', { color: 0xdfe2e6, roughness: 0.8 }),
+      dark: M.solid('ringDarkMat', { color: 0x2b3038, roughness: 0.5, metalness: 0.5 })
+    };
+    this.palette.ribGlow = M.solid('ringRibGlow', {
+      color: 0x1c2430, roughness: 0.4, emissive: 0x9fd4ff, emissiveIntensity: 2.6
+    });
+    this.palette.warmGlow = M.solid('ringWarmGlow', {
+      color: 0x30281c, roughness: 0.4, emissive: 0xffcf95, emissiveIntensity: 2.4
+    });
+    M.registerInteriorPalette(this.palette);
+
+    this.roomHaloWalkway(A);
+    this.roomSkyGardens(A);
+    this.roomObservationLounge(A);
+    this.roomTypicalRingFloor(A);
+    this.roomDamperGallery(A);
+  },
+
+  /* ---------------- Halo Walkway Interior ---------------- */
+
+  /** "A full circular glass-floored corridor; underfoot, illuminated steel
+      ribs are visible through the glass in a radial terrazzo setting." */
+  roomHaloWalkway(A) {
+    const P = this.palette;
+    const y = RING.haloLevel;
+    const room = this.room({
+      name: 'Halo Walkway Interior', level: 'L44',
+      center: [0, y + 2, 0], size: [180, 8, 180],
+      acoustic: A.GLASS_ATRIUM, range: 220
+    });
+
+    room.lazy((r) => {
+      const inner = this.haloOutline(2.4);
+      const outer = this.haloOutline(2.4 + RING.haloWidth);
+
+      /* A radial terrazzo band on the inner half, structural glass on the
+         outer half — the "glass panels in a radial terrazzo setting". */
+      const build = (a, b, uvY0, uvY1) => {
+        const pos = [], uvs = [], idx = [];
+        for (let i = 0; i <= 96; i++) {
+          const k = i % 96;
+          pos.push(a[k][0], y + 0.05, a[k][1]);
+          pos.push(b[k][0], y + 0.05, b[k][1]);
+          uvs.push(i / 5, uvY0, i / 5, uvY1);
+        }
+        for (let i = 0; i < 96; i++) {
+          const p = i * 2;
+          idx.push(p, p + 2, p + 1, p + 1, p + 2, p + 3);
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+        g.setIndex(idx);
+        g.computeVertexNormals();
+        return g;
+      };
+      const mid = this.haloOutline(2.4 + RING.haloWidth * 0.45);
+      r.group.add(mesh(build(inner, mid, 0, 0.45), P.terrazzo, {
+        name: 'RadialTerrazzo', receive: true
+      }));
+      r.group.add(mesh(build(mid, outer, 0.45, 1), P.glassFloor, {
+        name: 'StructuralGlassPanels', renderOrder: 5
+      }));
+
+      /* Prop 1 — illuminated steel ribs read through the glass underfoot. */
+      const ribs = [];
+      for (let i = 0; i < 96; i += 2) {
+        const a = this.haloOutline(2.2)[i], b = this.haloOutline(2.4 + RING.haloWidth + 0.2)[i];
+        const m = member([a[0], y - 0.32, a[1]], [b[0], y - 0.32, b[1]], 0.14, 0.16);
+        if (m) ribs.push(m);
+      }
+      const ribMesh = mesh(mergeGeometries(ribs.filter(Boolean)), P.ribGlow, { name: 'UnderfloorRibs' });
+      r.group.add(ribMesh);
+      const lights = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * TAU;
+        const p = this.haloOutline(2.4 + RING.haloWidth / 2)[Math.round((i / 6) * 96) % 96];
+        lights.push(roomLight(r, 0x9fd4ff, 22, 30, [p[0], y - 0.1, p[1]]));
+      }
+      r.addProp({
+        name: 'Under-floor rib lighting',
+        update() {
+          // A slow travelling pulse around the ring.
+          const t = performance.now() * 0.0006;
+          P.ribGlow.emissiveIntensity = 2.2 + Math.sin(t) * 0.7;
+          for (let i = 0; i < lights.length; i++) {
+            lights[i].intensity = 18 + Math.sin(t * 2 + i * 1.05) * 8;
+          }
+        }
+      });
+
+      /* The corridor's inner wall and ceiling. */
+      const wallPos = [], wallUv = [], wallIdx = [];
+      for (let i = 0; i <= 96; i++) {
+        const k = i % 96;
+        wallPos.push(inner[k][0], y + 0.05, inner[k][1]);
+        wallPos.push(inner[k][0], y + 3.4, inner[k][1]);
+        wallUv.push(i / 4, 0, i / 4, 1);
+      }
+      for (let i = 0; i < 96; i++) {
+        const p = i * 2;
+        wallIdx.push(p, p + 1, p + 2, p + 1, p + 3, p + 2);
+      }
+      const wall = new THREE.BufferGeometry();
+      wall.setAttribute('position', new THREE.Float32BufferAttribute(wallPos, 3));
+      wall.setAttribute('uv', new THREE.Float32BufferAttribute(wallUv, 2));
+      wall.setIndex(wallIdx);
+      wall.computeVertexNormals();
+      r.group.add(mesh(wall, P.metal, { name: 'WalkwayInnerWall', receive: true }));
+
+      /* Prop 2 — an interpretive rail of plaques around the walkway. */
+      const plaques = [];
+      for (let i = 0; i < 12; i++) {
+        const p = inner[Math.round((i / 12) * 96) % 96];
+        plaques.push({ pos: [p[0] * 1.01, y, p[1] * 1.01], rot: [0, -Math.atan2(p[1], p[0]), 0] });
+      }
+      const plaqueMesh = instance(plaque(0.8, 0.5, 0.95), P.metal, plaques, { name: 'WalkwayPlaques' });
+      r.group.add(plaqueMesh);
+      r.addProp({
+        name: 'Walkway plaques',
+        update() {
+          P.warmGlow.emissiveIntensity = 2.2 + Math.sin(performance.now() * 0.0005) * 0.3;
+        }
+      });
+
+      /* Prop 3 — bench seating at the four cardinal viewing bays. */
+      const benches = [];
+      for (let i = 0; i < 4; i++) {
+        const idx = Math.round((i / 4) * 96) % 96;
+        const p = mid[idx];
+        benches.push({ pos: [p[0], y + 0.05, p[1]], rot: [0, -Math.atan2(p[1], p[0]), 0] });
+      }
+      r.group.add(instance(bench(2.4, 0.45), P.timber, benches, { name: 'WalkwayBenches', castShadow: true }));
+      const bayLights = benches.map(b => roomLight(r, 0xffd9b0, 16, 18, [b.pos[0], y + 2.6, b.pos[2]]));
+      r.addProp({
+        name: 'Viewing-bay lighting',
+        update() {
+          const k = 0.9 + Math.sin(performance.now() * 0.00045) * 0.1;
+          for (const l of bayLights) l.intensity = 16 * k;
+        }
+      });
+    });
+  },
+
+  /* ---------------- Ring-Level Sky Gardens ---------------- */
+
+  roomSkyGardens(A) {
+    const P = this.palette;
+    const room = this.room({
+      name: 'Ring-Level Sky Gardens', level: 'L36–L46',
+      center: [0, RING.discCentreY - 14, 0], size: [96, 34, 96],
+      acoustic: A.GLASS_ATRIUM, range: 200
+    });
+
+    room.lazy((r) => {
+      const floors = [], planters = [], leaves = [], trunks = [];
+      const skylights = [];
+      for (let gi = 0; gi < RING.gardenAngles.length; gi++) {
+        const a = RING.gardenAngles[gi];
+        const y = RING.discCentreY - 26 + gi * 9;
+        const plan = this.discPlan(y);
+        const rad = Math.min(plan.zHalf, 40) * 0.62;
+        const cxp = Math.cos(a) * rad * 0.5, czp = Math.sin(a) * plan.zHalf * 0.55;
+
+        const g = new THREE.CircleGeometry(9, 28);
+        g.rotateX(-Math.PI / 2);
+        remapUV(g, 'xz', 0.1);
+        floors.push(xform(g, { pos: [cxp, y + 0.06, czp] }));
+
+        /* Skylight well above each garden. */
+        const well = new THREE.CylinderGeometry(6.4, 8.2, 9, 24, 1, true);
+        skylights.push(xform(well, { pos: [cxp, y + 9, czp] }));
+
+        /* Full-height planting under the skylight. */
+        for (let i = 0; i < 10; i++) {
+          const aa = (i / 10) * TAU;
+          const rr2 = 3.4 + (i % 3) * 1.6;
+          const e = { pos: [cxp + Math.cos(aa) * rr2, y, czp + Math.sin(aa) * rr2], rot: [0, aa, 0] };
+          planters.push(e);
+          leaves.push(e);
+        }
+        for (let i = 0; i < 4; i++) {
+          const aa = (i / 4) * TAU + 0.6;
+          trunks.push({ pos: [cxp + Math.cos(aa) * 6.2, y, czp + Math.sin(aa) * 6.2], scale: 0.7 });
+        }
+        roomLight(r, 0xe6f0ff, 40, 26, [cxp, y + 7, czp]);
+      }
+      r.group.add(mesh(mergeGeometries(floors), P.terrazzo, { name: 'SkyGardenFloors', receive: true }));
+      r.group.add(mesh(mergeGeometries(skylights), P.glass, { name: 'SkylightWells', renderOrder: 4 }));
+      const pl = planter(2.0, 0.8, 0.6);
+      r.group.add(instance(pl.tub, P.metal, planters, { name: 'GardenTroughs' }));
+      const foliageMesh = instance(pl.foliage, P.foliage, leaves, { name: 'GardenPlanting', castShadow: true });
+      r.group.add(foliageMesh);
+      r.group.add(instance(tree(3131, 1.1), P.foliage, trunks, { name: 'GardenTrees', castShadow: true }));
+
+      /* Prop 1 — the planting stirs in the conditioned air. */
+      r.addProp({
+        name: 'Sky-garden planting',
+        update() { foliageMesh.rotation.y = Math.sin(performance.now() * 0.0004) * 0.006; }
+      });
+
+      /* Prop 2 — trickling water channels through each garden. */
+      const chanMat = this.materials.glass('ringChannelWater', {
+        color: 0x2f6070, opacity: 0.8, roughness: 0.05, metalness: 0.2, exterior: false
+      });
+      const chans = [];
+      for (let gi = 0; gi < RING.gardenAngles.length; gi++) {
+        const a = RING.gardenAngles[gi];
+        const y = RING.discCentreY - 26 + gi * 9;
+        const plan = this.discPlan(y);
+        const rad = Math.min(plan.zHalf, 40) * 0.62;
+        const cxp = Math.cos(a) * rad * 0.5, czp = Math.sin(a) * plan.zHalf * 0.55;
+        const g = new THREE.PlaneGeometry(1.1, 15);
+        g.rotateX(-Math.PI / 2);
+        chans.push(xform(g, { pos: [cxp, y + 0.1, czp], rot: [0, a, 0] }));
+      }
+      const chanMesh = mesh(mergeGeometries(chans), chanMat, { name: 'GardenWaterChannels', renderOrder: 3 });
+      r.group.add(chanMesh);
+      r.addProp({
+        name: 'Water channels',
+        update() {
+          const k = 0.72 + Math.sin(performance.now() * 0.0013) * 0.08;
+          chanMat.opacity = k;
+        }
+      });
+
+      /* Prop 3 — bench seating whose lighting warms and cools. */
+      const benches = [];
+      for (let gi = 0; gi < RING.gardenAngles.length; gi++) {
+        const a = RING.gardenAngles[gi];
+        const y = RING.discCentreY - 26 + gi * 9;
+        const plan = this.discPlan(y);
+        const rad = Math.min(plan.zHalf, 40) * 0.62;
+        const cxp = Math.cos(a) * rad * 0.5, czp = Math.sin(a) * plan.zHalf * 0.55;
+        for (let i = 0; i < 3; i++) {
+          const aa = (i / 3) * TAU;
+          benches.push({ pos: [cxp + Math.cos(aa) * 7.4, y + 0.06, czp + Math.sin(aa) * 7.4], rot: [0, -aa, 0] });
+        }
+      }
+      r.group.add(instance(bench(2.0, 0.44), P.timber, benches, { name: 'GardenBenches', castShadow: true }));
+      const gl = r.lights.slice();
+      r.addProp({
+        name: 'Sky-garden daylight wash',
+        update() {
+          const k = 0.85 + Math.sin(performance.now() * 0.00028) * 0.15;
+          for (const l of gl) l.intensity = 40 * k;
+        }
+      });
+    });
+  },
+
+  /* ---------------- Observation Lounge ---------------- */
+
+  roomObservationLounge(A) {
+    const P = this.palette;
+    const y = RING.discCentreY + 34;
+    const plan = this.discPlan(y);
+    const room = this.room({
+      name: 'Observation Lounge', level: 'L52',
+      center: [0, y + 2.5, 0], size: [plan.xHalf * 2 + 4, 8, plan.zHalf * 2 + 4],
+      acoustic: A.PADDED_LOUNGE, range: 180
+    });
+
+    room.lazy((r) => {
+      const ring = roundedRectRing(plan.xHalf - 1, plan.zHalf - 1, Math.min(plan.xHalf, plan.zHalf) * 0.9, 40);
+      const shape = new THREE.Shape();
+      shape.moveTo(ring[0][0], ring[0][1]);
+      for (let k = 1; k < ring.length; k++) shape.lineTo(ring[k][0], ring[k][1]);
+      shape.closePath();
+
+      const floor = new THREE.ShapeGeometry(shape, 4);
+      floor.rotateX(-Math.PI / 2);
+      remapUV(floor, 'xz', 0.07);
+      r.group.add(mesh(xform(floor, { pos: [0, y + 0.06, 0] }), P.terrazzo, {
+        name: 'LoungeFloor', receive: true
+      }));
+      const ceil = new THREE.ShapeGeometry(shape, 4);
+      ceil.rotateX(Math.PI / 2);
+      remapUV(ceil, 'xz', 0.1);
+      r.group.add(mesh(xform(ceil, { pos: [0, y + 4.4, 0] }), P.ceiling, { name: 'LoungeCeiling' }));
+
+      /* Radial rib ceiling pattern (D.3). */
+      const cribs = [];
+      for (let i = 0; i < 32; i++) {
+        const a = (i / 32) * TAU;
+        const m = member([0, y + 4.28, 0],
+          [Math.cos(a) * (plan.xHalf - 1), y + 4.28, Math.sin(a) * (plan.zHalf - 1)], 0.12, 0.16);
+        if (m) cribs.push(m);
+      }
+      r.group.add(mesh(mergeGeometries(cribs.filter(Boolean)), P.metal, { name: 'RadialRibCeiling' }));
+
+      /* Prop 1 — the curved bar, back-lit. */
+      r.group.add(mesh(curvedBar(9.5, Math.PI * 0.85, 1.12, 0.95, 30), P.marble, {
+        name: 'CurvedBar', pos: [0, y + 0.06, 0], cast: true
+      }));
+      const backBar = [];
+      for (let i = 0; i < 26; i++) {
+        const a = -Math.PI * 0.42 + (i / 26) * Math.PI * 0.85;
+        backBar.push(box(0.9, 2.4, 0.3, [Math.cos(a) * 11.6, y + 1.3, Math.sin(a) * 11.6], [0, -a, 0]));
+      }
+      const backBarMesh = mesh(mergeGeometries(backBar), P.warmGlow, { name: 'BackBarGlow' });
+      r.group.add(backBarMesh);
+      const barLight = roomLight(r, 0xffc98a, 44, 30, [0, y + 2.6, 0]);
+      r.addProp({
+        name: 'Bar back-lighting',
+        update() {
+          const k = 1 + Math.sin(performance.now() * 0.0006) * 0.16;
+          P.warmGlow.emissiveIntensity = 2.2 * k;
+          barLight.intensity = 40 * k;
+        }
+      });
+
+      /* Prop 2 — stools and lounge seating at the 360° glazing. */
+      const stools = [], pods = [], tbls = [];
+      for (let i = 0; i < 16; i++) {
+        const a = -Math.PI * 0.42 + (i / 16) * Math.PI * 0.85;
+        stools.push({ pos: [Math.cos(a) * 8.2, y + 0.06, Math.sin(a) * 8.2], rot: [0, -a, 0] });
+      }
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * TAU;
+        const rx = (plan.xHalf - 4.5), rz = (plan.zHalf - 4.5);
+        pods.push({ pos: [Math.cos(a) * rx, y + 0.06, Math.sin(a) * rz], rot: [0, -a + Math.PI, 0] });
+        if (i % 2 === 0) tbls.push({ pos: [Math.cos(a) * (rx - 1.9), y + 0.06, Math.sin(a) * (rz - 1.9)] });
+      }
+      r.group.add(instance(stool(0.78, 0.2), P.metal, stools, { name: 'BarStools', castShadow: true }));
+      r.group.add(instance(seatPod(1.05, 1.0, 0.8), P.leather, pods, { name: 'LoungeSeating', castShadow: true }));
+      r.group.add(instance(lowTable(0.55, 0.44), P.marble, tbls, { name: 'LoungeTables', castShadow: true }));
+      const podLights = [];
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * TAU;
+        podLights.push(roomLight(r, 0xffd6ab, 20, 26, [Math.cos(a) * 12, y + 3.6, Math.sin(a) * 14]));
+      }
+      r.addProp({
+        name: 'Lounge accent lighting',
+        update() {
+          const k = 0.9 + Math.sin(performance.now() * 0.00037) * 0.1;
+          for (const l of podLights) l.intensity = 20 * k;
+        }
+      });
+
+      /* Prop 3 — a slowly turning orrery sculpture over the bar. */
+      const orrery = new THREE.Group();
+      orrery.name = 'LoungeOrrery';
+      const rings = [];
+      for (let i = 0; i < 4; i++) {
+        const g = new THREE.TorusGeometry(1.4 + i * 0.7, 0.05, 6, 34);
+        rings.push(xform(g, { rot: [i * 0.5, i * 0.9, i * 0.3] }));
+      }
+      orrery.add(mesh(mergeGeometries(rings), P.metal, { name: 'OrreryRings' }));
+      orrery.add(mesh(new THREE.SphereGeometry(0.5, 14, 10), P.warmGlow, { name: 'OrreryCore' }));
+      orrery.position.set(0, y + 3.2, 0);
+      r.group.add(orrery);
+      r.addProp({
+        name: 'Orrery sculpture',
+        update(dt) { orrery.rotation.y += dt * 0.12; orrery.rotation.x += dt * 0.04; }
+      });
+    });
+  },
+
+  /* ---------------- Typical Ring Floor Interior ---------------- */
+
+  roomTypicalRingFloor(A) {
+    const P = this.palette;
+    const y = RING.discCentreY - 4;
+    const plan = this.discPlan(y);
+    const room = this.room({
+      name: 'Typical Ring Floor Interior', level: 'L41',
+      center: [0, y + 2.2, 0], size: [plan.xHalf * 2 + 4, 6, plan.zHalf * 2 + 4],
+      acoustic: A.PADDED_LOUNGE, range: 170
+    });
+
+    room.lazy((r) => {
+      const outer = roundedRectRing(plan.xHalf - 1.2, plan.zHalf - 1.2, Math.min(plan.xHalf, plan.zHalf) * 0.9, 40);
+      const shape = new THREE.Shape();
+      shape.moveTo(outer[0][0], outer[0][1]);
+      for (let k = 1; k < outer.length; k++) shape.lineTo(outer[k][0], outer[k][1]);
+      shape.closePath();
+      const hole = new THREE.Path();
+      hole.absarc(0, 0, RING.discInner, 0, TAU, true);
+      shape.holes.push(hole);
+
+      const floor = new THREE.ShapeGeometry(shape, 4);
+      floor.rotateX(-Math.PI / 2);
+      remapUV(floor, 'xz', 0.06);
+      r.group.add(mesh(xform(floor, { pos: [0, y + 0.06, 0] }), P.terrazzo, {
+        name: 'RingFloorFinish', receive: true
+      }));
+      const ceil = new THREE.ShapeGeometry(shape, 4);
+      ceil.rotateX(Math.PI / 2);
+      remapUV(ceil, 'xz', 0.1);
+      r.group.add(mesh(xform(ceil, { pos: [0, y + 3.6, 0] }), P.ceiling, { name: 'RingFloorCeiling' }));
+
+      /* The central service core the floor wraps. */
+      r.group.add(mesh(
+        loft(() => circleRing(RING.discInner, 32), [y, y + 3.6], { capTop: false }),
+        P.metal, { name: 'ServiceCoreWall', receive: true }
+      ));
+
+      /* Workstations arranged radially around the core. */
+      const desks = [], chairs = [];
+      for (let i = 0; i < 26; i++) {
+        const a = (i / 26) * TAU;
+        const rx = plan.xHalf * 0.62, rz = plan.zHalf * 0.62;
+        desks.push({ pos: [Math.cos(a) * rx, y + 0.06, Math.sin(a) * rz], rot: [0, -a, 0] });
+        chairs.push({ pos: [Math.cos(a) * (rx - 1.2), y + 0.06, Math.sin(a) * (rz - 1.2)], rot: [0, -a + Math.PI, 0] });
+      }
+      r.group.add(instance(workstation(), P.metal, desks, { name: 'RingWorkstations', castShadow: true }));
+      r.group.add(instance(chair(0.5, 0.9), P.leather, chairs, { name: 'RingChairs', castShadow: true }));
+
+      /* Prop 1 — core lift doors. */
+      const lifts = [];
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * TAU + 0.3;
+        const d = elevatorDoors(2.0, 2.6, { period: 11 + i * 1.9 });
+        const gL = d.geometry.clone(); gL.scale(-1, 1, 1);
+        d.left.geometry = gL; d.left.material = P.metal;
+        d.right.geometry = d.geometry; d.right.material = P.metal;
+        d.group.position.set(Math.cos(a) * (RING.discInner + 0.15), y + 0.06, Math.sin(a) * (RING.discInner + 0.15));
+        d.group.rotation.y = -a;
+        r.group.add(d.group);
+        lifts.push(d);
+      }
+      r.addProp({ name: 'Core lifts', update: (dt) => { for (const l of lifts) l.update(dt); } });
+
+      /* Prop 2 — a perimeter cove that follows the curve. */
+      const cove = [];
+      for (let i = 0; i < outer.length; i += 2) {
+        const a = outer[i], b = outer[(i + 2) % outer.length];
+        const m = member([a[0] * 0.96, y + 3.4, a[1] * 0.96], [b[0] * 0.96, y + 3.4, b[1] * 0.96], 0.09, 0.09);
+        if (m) cove.push(m);
+      }
+      r.group.add(mesh(mergeGeometries(cove.filter(Boolean)), P.ribGlow, { name: 'PerimeterCove' }));
+      const cl = [roomLight(r, 0xdce8f4, 34, 44, [0, y + 3.0, 22]),
+        roomLight(r, 0xdce8f4, 34, 44, [0, y + 3.0, -22])];
+      r.addProp({
+        name: 'Perimeter cove',
+        update() {
+          const k = 0.9 + Math.sin(performance.now() * 0.00031) * 0.1;
+          for (const l of cl) l.intensity = 34 * k;
+        }
+      });
+
+      /* Prop 3 — a meeting-room door on the core. */
+      const door = swingDoor(1.1, 2.3);
+      door.pivot.add(mesh(door.geometry, P.timber, { name: 'DoorLeaf' }));
+      door.pivot.position.set(RING.discInner + 0.2, y + 0.06, 4);
+      door.pivot.rotation.y = -Math.PI / 2;
+      r.group.add(door.pivot);
+      r.addProp({ name: 'Meeting-room door', update: (dt) => door.update(dt) });
+    });
+  },
+
+  /* ---------------- Seismic Joint Viewing Gallery ---------------- */
+
+  /** "A glass viewing panel at the ring/tower structural joint reveals the
+      seismic damper mechanism, with an informational plaque — a deliberate
+      engineering-education moment." */
+  roomDamperGallery(A) {
+    const P = this.palette;
+    const y = RING.base + 2.0;
+    const a = RING.damperAngle;
+    const plan = this.discPlan(y + 2);
+    const cxp = Math.cos(a) * (plan.xHalf * 0.8);
+    const czp = Math.sin(a) * (plan.zHalf * 0.8);
+    const room = this.room({
+      name: 'Seismic Joint Viewing Gallery', level: 'L31',
+      center: [cxp, y + 2.4, czp], size: [26, 8, 26],
+      acoustic: A.MACHINE_ROOM, range: 150
+    });
+
+    room.lazy((r) => {
+      const g = new THREE.Group();
+      g.position.set(cxp, y, czp);
+      g.rotation.y = -a;
+      r.group.add(g);
+
+      const shell = roomShell(18, 4.6, 12, { open: ['+x'] });
+      g.add(mesh(mergeGeometries(shell.floor), P.terrazzo, { name: 'GalleryFloor', receive: true }));
+      g.add(mesh(mergeGeometries(shell.walls), P.dark, { name: 'GalleryWalls', receive: true }));
+      g.add(mesh(mergeGeometries(shell.ceiling), P.dark, { name: 'GalleryCeiling' }));
+
+      /* The glass viewing panel onto the joint. */
+      g.add(mesh(box(0.12, 3.0, 10.0, [8.9, 1.7, 0]), P.glass, {
+        name: 'DamperViewingPanel', renderOrder: 4
+      }));
+      g.add(mesh(mergeGeometries([
+        box(0.34, 3.4, 0.34, [8.9, 1.7, -5.1]),
+        box(0.34, 3.4, 0.34, [8.9, 1.7, 5.1]),
+        box(0.34, 0.34, 10.4, [8.9, 3.3, 0]),
+        box(0.34, 0.34, 10.4, [8.9, 0.15, 0])
+      ]), P.metal, { name: 'PanelFrame' }));
+
+      /**
+       * Prop 1 — the damper assembly itself, on show behind the glass.
+       * D.3's modelling note: a simplified but recognisable assembly (large
+       * suspended mass plus visible bracing), a visual and educational
+       * element, not a working physics simulation.
+       */
+      const rig = new THREE.Group();
+      rig.name = 'DamperRig';
+      rig.position.set(13.5, 3.2, 0);
+      g.add(rig);
+      const arm = new THREE.Group();
+      rig.add(arm);
+      arm.add(mesh(mergeGeometries([
+        cyl(0.3, 0.3, 5.4, 12, [0, -2.7, 0]),
+        cyl(0.55, 0.55, 0.5, 12, [0, -5.4, 0])
+      ]), P.metal, { name: 'DamperHanger' }));
+      arm.add(mesh(new THREE.SphereGeometry(1.5, 20, 14).translate(0, -6.6, 0), P.metal, {
+        name: 'DamperMass', cast: true
+      }));
+      /* Visible bracing and viscous dampers around the mass. */
+      const brace = [];
+      for (let i = 0; i < 4; i++) {
+        const aa = (i / 4) * TAU;
+        brace.push(member([Math.cos(aa) * 3.2, -1.0, Math.sin(aa) * 3.2],
+          [Math.cos(aa) * 1.2, -6.0, Math.sin(aa) * 1.2], 0.16, 0.16));
+        brace.push(cyl(0.22, 0.22, 2.4, 10, [Math.cos(aa) * 2.4, -6.2, Math.sin(aa) * 2.4], [0, -aa, Math.PI / 2.6]));
+      }
+      rig.add(mesh(mergeGeometries(brace.filter(Boolean)), P.dark, { name: 'DamperBracing' }));
+      r.addProp({
+        name: 'Seismic damper',
+        update(dt, t) {
+          const p = performance.now() * 0.001;
+          arm.rotation.z = Math.sin(p * 0.42) * 0.075 + Math.sin(p * 0.17) * 0.03;
+          arm.rotation.x = Math.cos(p * 0.33) * 0.06;
+        }
+      });
+
+      /* Prop 2 — a focused spotlight on the mechanism (D.3's lighting note). */
+      const spot = new THREE.SpotLight(0xfff0d8, 300, 40, 0.5, 0.6, 2);
+      spot.position.set(9.5, 4.2, 0);
+      spot.target.position.set(14, -3.4, 0);
+      g.add(spot, spot.target);
+      r.lights.push(spot);
+      r.addProp({
+        name: 'Damper spotlight',
+        update() { spot.intensity = 260 + Math.sin(performance.now() * 0.0008) * 55; }
+      });
+
+      /* Prop 3 — the informational plaques, warm-lit. */
+      const plaques = [];
+      for (let i = 0; i < 3; i++) plaques.push({ pos: [2 + i * 3, 0, -4.4], rot: [0, 0.3, 0] });
+      g.add(instance(plaque(1.0, 0.62, 1.0), P.metal, plaques, { name: 'GalleryPlaques' }));
+      g.add(mesh(box(5.6, 0.9, 0.08, [4, 2.9, -5.9]), P.warmGlow, { name: 'GallerySignBoard' }));
+      const gl = roomLight(r, 0xffd5a4, 24, 22, [4, 3.4, -3]);
+      g.add(gl);
+      r.lights.push(gl);
+      r.addProp({
+        name: 'Interpretation lighting',
+        update() { gl.intensity = 22 + Math.sin(performance.now() * 0.0006) * 5; }
+      });
+    });
   }
 });

@@ -17,6 +17,12 @@ import {
   surfaceGrid, thicken, waterPlane, balustrade, loft, circleRing, flag
 } from '../world/BuildKit.js';
 import { TAU, lerp, clamp, rng, smoothstep } from '../core/MathUtil.js';
+import {
+  roomShell, remapUV, table, chair, bench, stool, planter, plaque, signPanel,
+  rotatingPlinth, simulatorPod, conceptVehicle, tieredSeating, blockSeat,
+  roomLight, roomSpot
+} from '../interiors/InteriorKit.js';
+import { glassBalustrade as glassAnnexRail } from '../world/BuildKit.js';
 
 export class WonderAnnex extends Zone {
   constructor(ctx) {
@@ -491,5 +497,541 @@ Object.assign(WonderAnnex.prototype, {
     frames.push(box(16, 0.5, 5.0, [0, 7.6, zEnd - 2.2]));   // entrance canopy
     g.add(mesh(mergeGeometries(frames), frameMat, { name: 'PortalFrames', cast: true }));
     this.shell.add(g);
+  }
+});
+
+/* ==================================================================== */
+/* Phase 4 — interiors (Section D.7)                                    */
+/*                                                                      */
+/* Motorsport Pavilion Interior · Modular Block Pavilion Interior ·     */
+/* Themed Promenade Arcade                                              */
+/*                                                                      */
+/* Section A's IP rule governs this zone: every vehicle, block and shop */
+/* form here is generic and unbranded.                                  */
+/* ==================================================================== */
+
+Object.assign(WonderAnnex.prototype, {
+
+  interiorsPass() {
+    const A = this.ctx.RoomClasses.ACOUSTIC;
+    const M = this.materials;
+
+    this.palette = {
+      gloss: M.surface('annexGloss', 'glossResin', { repeat: 8, roughness: 0.07, metalness: 0.1 }),
+      tile: M.surface('annexTile', 'promenadeTile', { repeat: 10, roughness: 0.3 }),
+      metal: M.surface('annexMetal', 'brushedMetal', { repeat: 3, roughness: 0.26, metalness: 0.82 }),
+      dark: M.solid('annexDark', { color: 0x14171c, roughness: 0.5, metalness: 0.4 }),
+      silver: M.solid('annexSilver', { color: 0xc4cad2, roughness: 0.18, metalness: 0.9 }),
+      red: M.solid('annexRed', { color: 0xb8231c, roughness: 0.3, metalness: 0.2 }),
+      glass: M.glass('annexGlassInt', { color: 0xd6e8f0, opacity: 0.2, roughness: 0.05, exterior: false }),
+      plaster: M.surface('annexPlaster', 'plaster', { repeat: 6, roughness: 0.84, color: 0xf0e6d2 }),
+      timber: M.surface('annexTimber', 'paintedTimber', { repeat: 2, roughness: 0.62, color: 0xd6c4a4 })
+    };
+    /* Primary-colour resin floors and blocks for the maker pavilion. */
+    for (const [key, hex] of [['pRed', 0xd8352a], ['pBlue', 0x1f63c4], ['pYellow', 0xf0b400],
+                              ['pGreen', 0x2f9c46], ['pWhite', 0xe8e6e0]]) {
+      this.palette[key] = M.surface('annexInt_' + key, 'primaryResin', {
+        repeat: 4, roughness: 0.32, opts: { hex }
+      });
+    }
+    this.palette.stageWarm = M.solid('annexStageWarm', {
+      color: 0x2a1a12, roughness: 0.4, emissive: 0xff7a3a, emissiveIntensity: 2.4
+    });
+    this.palette.stageCool = M.solid('annexStageCool', {
+      color: 0x101a26, roughness: 0.4, emissive: 0x66b0ff, emissiveIntensity: 2.4
+    });
+    this.palette.shopGlow = M.solid('annexShopGlow', {
+      color: 0x352a1c, roughness: 0.5, emissive: 0xffc27a, emissiveIntensity: 2.2
+    });
+    this.palette.brightWhite = M.solid('annexBrightWhite', {
+      color: 0x2a2c30, roughness: 0.4, emissive: 0xffffff, emissiveIntensity: 2.0
+    });
+    M.registerInteriorPalette(this.palette);
+
+    this.roomMotorsportInterior(A);
+    this.roomBlockPavilionInterior(A);
+    this.roomPromenadeArcade(A);
+  },
+
+  /* ---------------- Motorsport Pavilion Interior ---------------- */
+
+  /** "A dramatic curved, aerodynamic-form ceiling with sweeping stage-style
+      lighting over a central rotating display plinth (a generic, unbranded
+      concept vehicle) and a row of simulator pods." */
+  roomMotorsportInterior(A) {
+    const P = this.palette;
+    const M = ANNEX.motorsport;
+    const room = this.room({
+      name: 'Motorsport Pavilion Interior', level: 'Ground',
+      center: [M.x, 8, M.z], size: [M.w + 6, 24, M.d + 6],
+      acoustic: A.SHOW_HALL, range: 170
+    });
+
+    room.lazy((r) => {
+      const g = new THREE.Group();
+      g.position.set(M.x, 0, M.z);
+      g.rotation.y = M.rot;
+      r.group.add(g);
+
+      /* Dark glossy resin display floor — reflective, for dramatic lighting. */
+      const floor = new THREE.PlaneGeometry(M.w * 0.92, M.d * 0.9, 1, 1);
+      floor.rotateX(-Math.PI / 2);
+      remapUV(floor, 'xz', 0.06);
+      g.add(mesh(xform(floor, { pos: [0, 0.22, 0] }), P.gloss, {
+        name: 'GlossResinFloor', receive: true
+      }));
+
+      /* The curved aerodynamic-form ceiling, read from inside. */
+      const ceiling = surfaceGrid((u, v, o) => {
+        const zLocal = (u - 0.5) * (M.d - 4);
+        const halfW = ((M.w - 6) / 2) * Math.pow(Math.sin(Math.PI * Math.min(u * 1.12, 1)), 0.62);
+        const hMax = (M.h - 2.4) * (0.42 + 0.58 * Math.sin(Math.PI * Math.pow(u, 0.78)));
+        const a = v * Math.PI;
+        o.set(Math.cos(a) * halfW, 0.6 + Math.sin(a) * hMax, zLocal);
+      }, 34, 16, { flip: true, uvScale: [6, 2] });
+      g.add(mesh(ceiling, P.dark, { name: 'AerodynamicCeiling', receive: true }));
+
+      /* Structural ribs following the shell's curvature. */
+      const ribs = [];
+      for (let b = 1; b < 11; b++) {
+        const u = b / 11;
+        const zLocal = (u - 0.5) * (M.d - 4);
+        const halfW = ((M.w - 6) / 2) * Math.pow(Math.sin(Math.PI * Math.min(u * 1.12, 1)), 0.62);
+        const hMax = (M.h - 2.4) * (0.42 + 0.58 * Math.sin(Math.PI * Math.pow(u, 0.78)));
+        const seg = 12;
+        for (let i = 0; i < seg; i++) {
+          const a0 = (i / seg) * Math.PI, a1 = ((i + 1) / seg) * Math.PI;
+          const m = member(
+            [Math.cos(a0) * halfW * 0.98, 0.6 + Math.sin(a0) * hMax * 0.98, zLocal],
+            [Math.cos(a1) * halfW * 0.98, 0.6 + Math.sin(a1) * hMax * 0.98, zLocal], 0.16, 0.24);
+          if (m) ribs.push(m);
+        }
+      }
+      g.add(mesh(mergeGeometries(ribs.filter(Boolean)), P.metal, { name: 'CeilingRibs', cast: true }));
+
+      /**
+       * Prop 1 — the central rotating display plinth carrying a generic,
+       * unbranded concept-vehicle silhouette.
+       */
+      const rp = rotatingPlinth(6.0, 0.85, 1.6);
+      const plinthHolder = new THREE.Group();
+      plinthHolder.position.set(0, 0.22, 4);
+      plinthHolder.add(mesh(rp.base, P.metal, { name: 'PlinthBase', cast: true }));
+      plinthHolder.add(rp.turntable);
+      const car = conceptVehicle();
+      rp.turntable.position.y = 0.85;
+      rp.turntable.add(mesh(car.body, P.silver, { name: 'ConceptVehicleBody', cast: true }));
+      rp.turntable.add(mesh(car.canopy, P.glass, { name: 'ConceptVehicleCanopy', renderOrder: 4 }));
+      g.add(plinthHolder);
+      r.addProp({ name: 'Rotating display plinth', update: (dt) => rp.update(dt) });
+
+      /* Prop 2 — sweeping stage-style lighting in red, black and silver. */
+      const rigHeight = M.h - 4.0;
+      const heads = [];
+      const headGroups = [];
+      for (let i = 0; i < 8; i++) {
+        const x = -14 + (i % 4) * 9.3;
+        const z = i < 4 ? -8 : 16;
+        const yoke = new THREE.Group();
+        yoke.position.set(x, rigHeight, z);
+        yoke.add(mesh(mergeGeometries([
+          box(0.7, 0.5, 0.7, [0, 0.3, 0]),
+          cyl(0.28, 0.28, 0.9, 10, [0, -0.2, 0], [Math.PI / 2, 0, 0])
+        ]), P.dark, { name: 'FixtureYoke' }));
+        const lensMat = i % 2 ? P.stageWarm : P.stageCool;
+        yoke.add(mesh(cyl(0.24, 0.3, 0.16, 12, [0, -0.55, 0]), lensMat, { name: 'FixtureLens' }));
+        g.add(yoke);
+        const spot = new THREE.SpotLight(i % 2 ? 0xff7a3a : 0x66b0ff, 260, 46, 0.32, 0.5, 2);
+        spot.position.set(x, rigHeight - 0.6, z);
+        spot.target.position.set(0, 0.5, 4);
+        g.add(spot, spot.target);
+        r.lights.push(spot);
+        headGroups.push({ yoke, spot, phase: i * 0.78, warm: i % 2 === 1 });
+      }
+      /* Truss carrying the rig. */
+      const truss = [];
+      for (const z of [-8, 16]) {
+        truss.push(member([-18, rigHeight + 0.9, z], [18, rigHeight + 0.9, z], 0.2, 0.2));
+        truss.push(member([-18, rigHeight + 1.7, z], [18, rigHeight + 1.7, z], 0.2, 0.2));
+        for (let i = 0; i <= 12; i++) {
+          const x = -18 + i * 3;
+          truss.push(member([x, rigHeight + 0.9, z], [x, rigHeight + 1.7, z], 0.1, 0.1));
+        }
+      }
+      g.add(mesh(mergeGeometries(truss.filter(Boolean)), P.metal, { name: 'LightingTruss', cast: true }));
+      r.addProp({
+        name: 'Sweeping stage lighting',
+        update() {
+          const t = performance.now() * 0.001;
+          for (const h of headGroups) {
+            const sweep = Math.sin(t * 0.55 + h.phase);
+            h.yoke.rotation.z = sweep * 0.55;
+            h.yoke.rotation.x = Math.cos(t * 0.4 + h.phase) * 0.28;
+            h.spot.target.position.set(sweep * 12, 0.5, 4 + Math.cos(t * 0.4 + h.phase) * 8);
+            h.spot.intensity = 180 + Math.abs(sweep) * 160;
+          }
+          P.stageWarm.emissiveIntensity = 2.0 + Math.sin(t * 1.3) * 0.8;
+          P.stageCool.emissiveIntensity = 2.0 + Math.cos(t * 1.1) * 0.8;
+        }
+      });
+
+      /* Prop 3 — the row of simulator pods, rocking on their motion bases. */
+      const pods = [];
+      for (let i = 0; i < ANNEX.simulatorPods; i++) {
+        const x = -18 + i * 9;
+        const sp = simulatorPod();
+        const holder = new THREE.Group();
+        holder.position.set(x, 0.22, -18);
+        holder.add(mesh(sp.base, P.dark, { name: 'PodBase' }));
+        sp.rocker.position.y = 0.6;
+        sp.rocker.add(mesh(sp.shell, i % 2 ? P.red : P.silver, { name: 'PodShell', cast: true }));
+        holder.add(sp.rocker);
+        g.add(holder);
+        pods.push(sp);
+      }
+      r.addProp({
+        name: 'Simulator pods',
+        update(dt) { const t = performance.now() * 0.001; for (const p of pods) p.update(dt, t); }
+      });
+
+      /* Barrier rail around the display, and ambient fill. */
+      const railPts = [];
+      for (let i = 0; i <= 32; i++) {
+        const a = (i / 32) * TAU;
+        railPts.push([Math.cos(a) * 8.4, 0.22, 4 + Math.sin(a) * 8.4]);
+      }
+      g.add(mesh(balustrade(railPts, 0.95, 3, 0.035, 0.05), P.metal, { name: 'DisplayBarrier' }));
+      roomLight(r, 0x8fa8c0, 22, 60, [M.x, 10, M.z]);
+    });
+  },
+
+  /* ---------------- Modular Block Pavilion Interior ---------------- */
+
+  /** "Oversized colorful block-shaped elements as literal feature-wall
+      building blocks, in a playful primary-color palette with interactive
+      maker tables." */
+  roomBlockPavilionInterior(A) {
+    const P = this.palette;
+    const B = ANNEX.blocks;
+    const room = this.room({
+      name: 'Modular Block Pavilion Interior', level: 'Ground',
+      center: [B.x, B.h / 2, B.z], size: [B.w, B.h + 4, B.d],
+      acoustic: A.SHOW_HALL, range: 160
+    });
+
+    room.lazy((r) => {
+      /* Bright poured-resin floor, quartered in primary colours. */
+      const quads = [
+        { m: P.pRed, x: -1, z: -1 }, { m: P.pBlue, x: 1, z: -1 },
+        { m: P.pYellow, x: -1, z: 1 }, { m: P.pGreen, x: 1, z: 1 }
+      ];
+      for (const q of quads) {
+        const f = new THREE.PlaneGeometry(B.w / 2 - 1.6, B.d / 2 - 1.6);
+        f.rotateX(-Math.PI / 2);
+        remapUV(f, 'xz', 0.07);
+        r.group.add(mesh(xform(f, { pos: [B.x + q.x * B.w / 4, 0.46, B.z + q.z * B.d / 4] }), q.m, {
+          name: 'ResinFloorQuad', receive: true
+        }));
+      }
+
+      /* Interior feature walls of oversized modular blocks. */
+      const unit = 2.4;
+      const seatGeo = blockSeat(unit, 2, 1);
+      const wallGeo = blockSeat(unit, 2, 1);
+      const buckets = { pRed: [], pBlue: [], pYellow: [], pGreen: [], pWhite: [] };
+      const keys = Object.keys(buckets);
+      const rr = rng(6060);
+      for (let side = 0; side < 4; side++) {
+        const ang = side * Math.PI / 2;
+        const nx = Math.cos(ang), nz = Math.sin(ang);
+        for (let row = 0; row < 5; row++) {
+          for (let c = -5; c <= 5; c++) {
+            if (rr() > 0.62) continue;
+            const along = c * unit * 2;
+            if (Math.abs(along) > B.w / 2 - unit * 2) continue;
+            const px = B.x + nx * (B.w / 2 - 1.4) - nz * along;
+            const pz = B.z + nz * (B.d / 2 - 1.4) + nx * along;
+            buckets[keys[Math.floor(rr() * keys.length) % keys.length]].push({
+              pos: [px, 0.46 + row * unit * 0.72, pz], rot: [0, -ang, 0]
+            });
+          }
+        }
+      }
+      for (const k of keys) {
+        if (buckets[k].length) {
+          r.group.add(instance(wallGeo, P[k], buckets[k], {
+            name: 'FeatureWallBlocks_' + k, castShadow: true, receiveShadow: true
+          }));
+        }
+      }
+
+      /* Prop 1 — interactive maker tables whose work surfaces light up. */
+      const tables = [];
+      const tableTops = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * TAU;
+        const px = B.x + Math.cos(a) * 14, pz = B.z + Math.sin(a) * 14;
+        r.group.add(mesh(table(2.4, 1.2, 0.78, 0.07), P.timber, {
+          name: 'MakerTable', pos: [px, 0.46, pz], rot: [0, -a, 0], cast: true
+        }));
+        const topMat = this.materials.solid('annexMakerTop' + i, {
+          color: 0x1a1e24, roughness: 0.3, emissive: 0x88ddff, emissiveIntensity: 1.2
+        });
+        this.materials.registerInterior(topMat);
+        const top = mesh(box(2.0, 0.04, 0.9, [px, 1.27, pz], [0, -a, 0]), topMat, { name: 'MakerSurface' });
+        r.group.add(top);
+        tableTops.push(topMat);
+        /* Stools around each table. */
+        const st = [];
+        for (let k = 0; k < 4; k++) {
+          const aa = (k / 4) * TAU;
+          st.push({ pos: [px + Math.cos(aa) * 1.7, 0.46, pz + Math.sin(aa) * 1.7] });
+        }
+        r.group.add(instance(stool(0.62, 0.18), P[keys[i % keys.length]], st, {
+          name: 'MakerStools', castShadow: true
+        }));
+        tables.push({ topMat, phase: i * 1.1 });
+      }
+      r.addProp({
+        name: 'Interactive maker tables',
+        update() {
+          const t = performance.now() * 0.001;
+          for (const tb of tables) {
+            tb.topMat.emissiveIntensity = 0.7 + Math.abs(Math.sin(t * 0.8 + tb.phase)) * 1.1;
+            tb.topMat.emissive.setHSL((t * 0.05 + tb.phase * 0.1) % 1, 0.6, 0.6);
+          }
+        }
+      });
+
+      /* Prop 2 — stacked block seating that visitors rearrange; the stack
+         shuffles slowly to suggest it is being used. */
+      const seatXs = [];
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * TAU + 0.35;
+        seatXs.push({ pos: [B.x + Math.cos(a) * 22, 0.46, B.z + Math.sin(a) * 22], rot: [0, -a, 0] });
+      }
+      const seatMesh = instance(seatGeo, P.pYellow, seatXs, {
+        name: 'BlockSeating', castShadow: true, receiveShadow: true
+      });
+      r.group.add(seatMesh);
+      const seatMtx = new THREE.Matrix4();
+      const seatQ = new THREE.Quaternion();
+      const seatE = new THREE.Euler();
+      const seatV = new THREE.Vector3();
+      const seatS = new THREE.Vector3(1, 1, 1);
+      r.addProp({
+        name: 'Block seating',
+        update() {
+          const t = performance.now() * 0.001;
+          for (let i = 0; i < seatXs.length; i++) {
+            const s = seatXs[i];
+            seatV.set(s.pos[0], s.pos[1] + Math.max(0, Math.sin(t * 0.3 + i)) * 0.5, s.pos[2]);
+            seatE.set(0, s.rot[1] + Math.sin(t * 0.2 + i) * 0.25, 0);
+            seatQ.setFromEuler(seatE);
+            seatMtx.compose(seatV, seatQ, seatS);
+            seatMesh.setMatrixAt(i, seatMtx);
+          }
+          seatMesh.instanceMatrix.needsUpdate = true;
+        }
+      });
+
+      /* Prop 3 — bright even primary-colour lighting under the skylight. */
+      const panels = [];
+      for (let i = 0; i < 9; i++) {
+        const px = B.x + ((i % 3) - 1) * 12, pz = B.z + (Math.floor(i / 3) - 1) * 12;
+        panels.push(box(6.0, 0.14, 6.0, [px, B.h - 1.2, pz]));
+      }
+      r.group.add(mesh(mergeGeometries(panels), P.brightWhite, { name: 'SkylightDiffusers' }));
+      const bright = [
+        roomLight(r, 0xffffff, 62, 50, [B.x, B.h - 3, B.z]),
+        roomLight(r, 0xffe8c0, 26, 34, [B.x - 16, B.h - 6, B.z - 16]),
+        roomLight(r, 0xd8ecff, 26, 34, [B.x + 16, B.h - 6, B.z + 16])
+      ];
+      r.addProp({
+        name: 'Skylight diffusers',
+        update() {
+          const k = 0.92 + Math.sin(performance.now() * 0.0003) * 0.08;
+          bright[0].intensity = 62 * k;
+          P.brightWhite.emissiveIntensity = 1.8 * k;
+        }
+      });
+    });
+  },
+
+  /* ---------------- Themed Promenade Arcade ---------------- */
+
+  /** "A full glass barrel-vault roof, warm-lit shopfronts, and a tiered
+      viewing gallery overlooking the exterior light-and-water show plaza." */
+  roomPromenadeArcade(A) {
+    const P = this.palette;
+    const Pr = ANNEX.promenade;
+    const S = ANNEX.showPlaza;
+    const room = this.room({
+      name: 'Themed Promenade Arcade', level: 'Ground',
+      center: [Pr.x, 8, Pr.z], size: [Pr.width + 20, 24, Pr.length + 20],
+      acoustic: A.SHOW_HALL, range: 190
+    });
+
+    room.lazy((r) => {
+      const halfL = Pr.length / 2, halfW = Pr.width / 2;
+
+      /* Patterned tile street inside the arcade. */
+      const floor = new THREE.PlaneGeometry(Pr.width, Pr.length);
+      floor.rotateX(-Math.PI / 2);
+      remapUV(floor, 'xz', 0.08);
+      r.group.add(mesh(xform(floor, { pos: [Pr.x, 0.18, Pr.z] }), P.tile, {
+        name: 'ArcadeTileFloor', receive: true
+      }));
+
+      /* Shopfront interiors: lit display cases behind the glazing. */
+      const cases = [], displays = [], fascias = [];
+      const bays = 12;
+      for (const side of [-1, 1]) {
+        const x = Pr.x + side * (halfW - 0.6);
+        for (let i = 0; i < bays; i++) {
+          const z = Pr.z - halfL + (i + 0.5) * (Pr.length / bays);
+          cases.push(box(1.6, 2.6, 6.4, [x + side * 0.9, 1.5, z]));
+          displays.push(box(0.9, 0.06, 5.6, [x + side * 0.5, 1.1, z]));
+          displays.push(box(0.9, 0.06, 5.6, [x + side * 0.5, 1.9, z]));
+          fascias.push(box(0.34, 0.5, 7.0, [x - side * 0.1, 4.3, z]));
+        }
+      }
+      r.group.add(mesh(mergeGeometries(cases), P.plaster, { name: 'ShopfrontCases', receive: true }));
+      r.group.add(mesh(mergeGeometries(displays), P.timber, { name: 'DisplayShelves' }));
+      const fasciaMesh = mesh(mergeGeometries(fascias), P.shopGlow, { name: 'ShopfrontFascias' });
+      r.group.add(fasciaMesh);
+
+      /* Prop 1 — warm shopfront lighting that varies bay to bay. */
+      const shopLights = [];
+      for (let i = 0; i < 6; i++) {
+        const z = Pr.z - halfL + (i + 0.5) * (Pr.length / 6);
+        shopLights.push(roomLight(r, 0xffc98a, 24, 26, [Pr.x - halfW + 2, 3.6, z]));
+        shopLights.push(roomLight(r, 0xffc98a, 24, 26, [Pr.x + halfW - 2, 3.6, z]));
+      }
+      r.addProp({
+        name: 'Shopfront lighting',
+        update() {
+          const t = performance.now() * 0.001;
+          for (let i = 0; i < shopLights.length; i++) {
+            shopLights[i].intensity = 20 + Math.sin(t * 0.4 + i * 0.9) * 5;
+          }
+          P.shopGlow.emissiveIntensity = 2.0 + Math.sin(t * 0.5) * 0.35;
+        }
+      });
+
+      /**
+       * Prop 2 — the tiered viewing gallery at the plaza end, overlooking
+       * the light-and-water show, with a show-facing spotlight rig.
+       */
+      const galleryZ = Pr.z - halfL - 6;
+      const gal = new THREE.Group();
+      gal.position.set(Pr.x, 0.18, galleryZ);
+      // Face the gallery toward the show plaza.
+      gal.rotation.y = Math.atan2(S.x - Pr.x, S.z - galleryZ);
+      gal.add(mesh(tieredSeating(Pr.width + 6, 5, 0.55, 1.3), P.plaster, {
+        name: 'TieredGallery', cast: true, receive: true
+      }));
+      const galRail = [];
+      for (let i = 0; i <= 12; i++) galRail.push([-(Pr.width + 6) / 2 + i * (Pr.width + 6) / 12, 2.85, 1.0]);
+      gal.add(mesh(glassAnnexRail(galRail, 1.1), P.glass, { name: 'GalleryGuard', renderOrder: 4 }));
+      r.group.add(gal);
+
+      const showSpots = [];
+      for (let i = 0; i < 5; i++) {
+        const off = (i - 2) * 5.5;
+        const yoke = new THREE.Group();
+        yoke.position.set(off, 6.4, 1.4);
+        yoke.add(mesh(mergeGeometries([
+          box(0.6, 0.44, 0.6, [0, 0.26, 0]),
+          cyl(0.22, 0.26, 0.7, 10, [0, -0.2, 0], [Math.PI / 2, 0, 0])
+        ]), P.dark, { name: 'ShowFixture' }));
+        yoke.add(mesh(cyl(0.2, 0.26, 0.14, 12, [0, -0.5, 0]), P.stageCool, { name: 'ShowLens' }));
+        gal.add(yoke);
+        const sp = new THREE.SpotLight(0x88c8ff, 200, 90, 0.3, 0.55, 2);
+        sp.position.set(off, 6.0, 1.4);
+        sp.target.position.set(off * 2, 0, -40);
+        gal.add(sp, sp.target);
+        r.lights.push(sp);
+        showSpots.push({ yoke, sp, phase: i * 1.2 });
+      }
+      /* The rig's supporting gantry. */
+      const gantry = [];
+      gantry.push(member([-(Pr.width + 6) / 2, 7.0, 1.4], [(Pr.width + 6) / 2, 7.0, 1.4], 0.22, 0.22));
+      for (let i = 0; i <= 6; i++) {
+        const x = -(Pr.width + 6) / 2 + i * (Pr.width + 6) / 6;
+        gantry.push(member([x, 7.0, 1.4], [x, 0.2, 1.4], 0.16, 0.16));
+      }
+      gal.add(mesh(mergeGeometries(gantry.filter(Boolean)), P.metal, { name: 'ShowGantry', cast: true }));
+
+      const annexZone = this;
+      r.addProp({
+        name: 'Show-facing spotlight rig',
+        update() {
+          const t = performance.now() * 0.001;
+          const power = annexZone.showIntensity ?? 0.35;
+          for (const s of showSpots) {
+            const sweep = Math.sin(t * 0.45 + s.phase);
+            s.yoke.rotation.z = sweep * 0.42;
+            s.sp.target.position.x = sweep * 30;
+            s.sp.intensity = (120 + Math.abs(sweep) * 120) * (0.5 + power);
+            s.sp.color.setHSL((t * 0.05 + s.phase * 0.08) % 1, 0.65, 0.62);
+          }
+          P.stageCool.emissiveIntensity = 1.8 + power * 1.6;
+        }
+      });
+
+      /* Prop 3 — the glazed barrel vault read from inside, with its ribs and
+         a slow drift of light along the purlins. */
+      const vaultInner = surfaceGrid((u, v, o) => {
+        const z = Pr.z + (u - 0.5) * Pr.length;
+        const a = v * Math.PI;
+        o.set(Pr.x + Math.cos(a) * (halfW + 1.4), (Pr.height - 3) + Math.sin(a) * 5.4, z);
+      }, 30, 12, { flip: true, uvScale: [8, 2] });
+      r.group.add(mesh(vaultInner, P.glass, { name: 'BarrelVaultInner', renderOrder: 3 }));
+      const purlins = [];
+      for (let i = 1; i < 8; i++) {
+        const a = (i / 8) * Math.PI;
+        const m = member(
+          [Pr.x + Math.cos(a) * (halfW + 1.3), (Pr.height - 3) + Math.sin(a) * 5.3, Pr.z - halfL],
+          [Pr.x + Math.cos(a) * (halfW + 1.3), (Pr.height - 3) + Math.sin(a) * 5.3, Pr.z + halfL],
+          0.1, 0.1);
+        if (m) purlins.push(m);
+      }
+      const purlinMesh = mesh(mergeGeometries(purlins.filter(Boolean)), P.brightWhite, {
+        name: 'VaultPurlinLights'
+      });
+      r.group.add(purlinMesh);
+      const vaultLights = [];
+      for (let i = 0; i < 4; i++) {
+        vaultLights.push(roomLight(r, 0xe8f0ff, 22, 40,
+          [Pr.x, Pr.height + 1, Pr.z - halfL + (i + 0.5) * (Pr.length / 4)]));
+      }
+      r.addProp({
+        name: 'Barrel-vault lighting',
+        update() {
+          const t = performance.now() * 0.0007;
+          for (let i = 0; i < vaultLights.length; i++) {
+            vaultLights[i].intensity = 16 + Math.max(0, Math.sin(t - i * 0.8)) * 12;
+          }
+        }
+      });
+
+      /* Crowd-scale dressing: planters and benches down the street. */
+      const pl = planter(1.8, 0.7, 0.55);
+      const tubs = [], leaves = [], benches = [];
+      for (let i = 0; i < 8; i++) {
+        const z = Pr.z - halfL + (i + 0.5) * (Pr.length / 8);
+        for (const side of [-1, 1]) {
+          const e = { pos: [Pr.x + side * (halfW - 5), 0.18, z], rot: [0, Math.PI / 2, 0] };
+          tubs.push(e); leaves.push(e);
+        }
+        if (i % 2 === 0) benches.push({ pos: [Pr.x, 0.18, z], rot: [0, Math.PI / 2, 0] });
+      }
+      r.group.add(instance(pl.tub, P.timber, tubs, { name: 'ArcadePlanters' }));
+      r.group.add(instance(pl.foliage,
+        this.materials.surface('annexIntFoliage', 'foliage', { repeat: 2, roughness: 0.9 }),
+        leaves, { name: 'ArcadePlanting', castShadow: true }));
+      r.group.add(instance(bench(2.2, 0.44), P.timber, benches, { name: 'ArcadeBenches', castShadow: true }));
+    });
   }
 });

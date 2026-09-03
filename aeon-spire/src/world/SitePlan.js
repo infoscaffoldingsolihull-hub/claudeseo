@@ -53,8 +53,9 @@ export const LEVELS = {
   L88: 400.0,
   crownTop: 400.0,
   spireTip: 700.0,
-  /** The tuned-mass-damper chamber sits just above the last occupied floor. */
-  damperFloor: 372.0,
+  /** The tuned-mass-damper chamber sits inside the lattice spire, above the
+      last occupied floor at 400 m — not below it. */
+  damperFloor: 452.0,
   /** The beacon room caps the habitable part of the mast. */
   beaconFloor: 612.0,
 

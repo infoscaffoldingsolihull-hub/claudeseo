@@ -16,7 +16,13 @@ import {
   roundedRectRing, circleRing, loft, mesh, instance, member, tube,
   archShape, sweep, waterAnnulus, balustrade, tree, annulusShape
 } from '../world/BuildKit.js';
-import { TAU, rng, lerp, clamp } from '../core/MathUtil.js';
+import { TAU, rng, lerp, clamp, smoothstep } from '../core/MathUtil.js';
+import {
+  roomShell, remapUV, seatPod, sofa, lowTable, table, chair, bench,
+  receptionDesk, planter, plaque, lanternPendant, elevatorDoors, swingDoor,
+  causticPlane, roomLight, roomSpot
+} from '../interiors/InteriorKit.js';
+import { glassBalustrade as glassRail } from '../world/BuildKit.js';
 
 export class CanalConcourse extends Zone {
   constructor(ctx) {
@@ -539,5 +545,574 @@ Object.assign(CanalConcourse.prototype, {
     this.shell.add(instance(awningGeo, awningA, a1, { name: 'StallAwningsA', castShadow: true }));
     this.shell.add(instance(awningGeo, awningB, a2, { name: 'StallAwningsB', castShadow: true }));
     this.shell.add(instance(tableGeo, timberMat, tables, { name: 'StallTables', castShadow: true }));
+  }
+});
+
+/* ==================================================================== */
+/* Phase 4 — interiors (Section D.1)                                    */
+/*                                                                      */
+/* B2 Water Arrival Hall · B1 Market Loggia · L1 Canalside Promenade    */
+/* Interior · L2 Mezzanine Overlook · L3 Tower Transfer Lobby           */
+/* ==================================================================== */
+
+Object.assign(CanalConcourse.prototype, {
+
+  interiorsPass() {
+    const A = this.ctx.RoomClasses.ACOUSTIC;
+
+    /* Shared D.1 palette, built once and reused by every room here. */
+    const M = this.materials;
+    this.palette = {
+      limestone: M.surface('intLimestone', 'limestone', { repeat: 8, roughness: 0.42 }),
+      brick: M.surface('intBrick', 'brickHerringbone', { repeat: 10, roughness: 0.68 }),
+      vault: M.surface('intVaultStone', 'vaultStone', { repeat: 6, roughness: 0.82 }),
+      plaster: M.surface('intPlaster', 'plaster', { repeat: 6, roughness: 0.86, color: 0xf2e9d6 }),
+      timber: M.surface('intTimber', 'paintedTimber', { repeat: 2, roughness: 0.72 }),
+      iron: M.solid('intIron', { color: 0x24262b, roughness: 0.52, metalness: 0.6 }),
+      brass: M.solid('intBrass', { color: 0xc9a04b, roughness: 0.28, metalness: 0.9 }),
+      marble: M.surface('intMarble', 'marble', { repeat: 6, roughness: 0.14, metalness: 0.05 }),
+      glassInt: M.glass('intGlass', { color: 0xd0e4ec, opacity: 0.22, roughness: 0.06, exterior: false })
+    };
+    this.palette.lampGlow = M.solid('intLampGlow', {
+      color: 0x3a2f1e, roughness: 0.4, emissive: 0xffc27a, emissiveIntensity: 2.6
+    });
+    this.palette.caustic = (() => {
+      const set = M.tex.get('caustics');
+      const mat = new THREE.MeshBasicMaterial({
+        map: set.map, transparent: true, opacity: 0.42,
+        blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false
+      });
+      mat.map.wrapS = mat.map.wrapT = THREE.RepeatWrapping;
+      mat.map.repeat.set(3, 3);
+      return mat;
+    })();
+
+    M.registerInteriorPalette(this.palette);
+
+    this.roomWaterArrivalHall(A);
+    this.roomMarketLoggia(A);
+    this.roomCanalsidePromenade(A);
+    this.roomMezzanineOverlook(A);
+    this.roomTransferLobby(A);
+  },
+
+  /* ---------------- B2 — Water Arrival Hall ---------------- */
+
+  /**
+   * "Arriving by boat, you enter a dim, stone barrel-vaulted hall where
+   * rippling canal water throws animated caustic light across the ceiling."
+   */
+  roomWaterArrivalHall(A) {
+    const P = this.palette;
+    const y = LEVELS.B2;
+    const room = this.room({
+      name: 'B2 Water Arrival Hall', level: 'B2',
+      center: [0, y + 4.2, 78], size: [46, 9, 40],
+      acoustic: A.STONE_VAULT, range: 130
+    });
+
+    room.lazy((r) => {
+      const shell = roomShell(46, 8.4, 40, { open: ['+z'], center: [0, y, 78] });
+      r.group.add(mesh(mergeGeometries(shell.floor), P.limestone, { name: 'Floor', receive: true }));
+      r.group.add(mesh(mergeGeometries(shell.walls), P.vault, { name: 'Walls', receive: true }));
+
+      /* Barrel vaults: one extruded arch profile swept along three bays,
+         exactly as D.1's modelling note asks. */
+      const profile = archShape(13.2, 3.0, 4.6, 0.7);
+      const vaultParts = [];
+      for (let bay = -1; bay <= 1; bay++) {
+        const g = new THREE.ExtrudeGeometry(profile, {
+          depth: 38, bevelEnabled: false, curveSegments: 14
+        });
+        g.rotateY(Math.PI / 2);
+        vaultParts.push(xform(g, { pos: [bay * 14.6, y, 78 - 19] }));
+      }
+      // Transverse arches between the bays.
+      for (const x of [-7.3, 7.3]) {
+        for (let i = 0; i < 4; i++) {
+          const z = 78 - 15 + i * 10;
+          const g = new THREE.ExtrudeGeometry(archShape(13.0, 3.0, 4.4, 0.55), {
+            depth: 1.1, bevelEnabled: false, curveSegments: 12
+          });
+          vaultParts.push(xform(g, { pos: [x, y, z] }));
+        }
+      }
+      r.group.add(mesh(mergeGeometries(vaultParts), P.vault, { name: 'BarrelVaults', receive: true }));
+
+      /* Exposed timber tie-beams in muted ochre / venetian red. */
+      const beams = [];
+      for (let i = 0; i < 7; i++) {
+        const z = 78 - 18 + i * 6;
+        beams.push(box(44, 0.42, 0.5, [0, y + 5.6, z]));
+        beams.push(box(0.4, 0.4, 1.6, [-21.5, y + 5.9, z]));
+        beams.push(box(0.4, 0.4, 1.6, [21.5, y + 5.9, z]));
+      }
+      r.group.add(mesh(mergeGeometries(beams), P.timber, { name: 'TimberTieBeams', cast: true }));
+
+      /* Prop 1 — animated caustics thrown across the vault soffits. */
+      const caustic = causticPlane(44, 38, P.caustic);
+      caustic.position.set(0, y + 7.3, 78);
+      r.group.add(caustic);
+      const cm = P.caustic.map;
+      r.addProp({
+        name: 'Caustic light',
+        update(dt) {
+          cm.offset.x += dt * 0.021;
+          cm.offset.y += dt * 0.013;
+          P.caustic.opacity = 0.32 + Math.sin(performance.now() * 0.00042) * 0.12;
+        }
+      });
+
+      /* Prop 2 — the arrival water: a strip of canal reaching into the hall. */
+      const inletMat = this.waterMaterial;
+      const inlet = new THREE.PlaneGeometry(18, 22, 12, 12);
+      inlet.rotateX(-Math.PI / 2);
+      r.group.add(mesh(xform(inlet, { pos: [0, CANAL.waterLevel + 0.15, 88] }), inletMat, {
+        name: 'ArrivalInlet', renderOrder: 2
+      }));
+
+      /* Stone mooring edge and brass cleats. */
+      const edge = [];
+      for (const sx of [-1, 1]) edge.push(box(6, 1.0, 22, [sx * 12, y - 0.5, 88]));
+      edge.push(box(30, 1.0, 5, [0, y - 0.5, 99]));
+      r.group.add(mesh(mergeGeometries(edge), P.limestone, { name: 'MooringEdge', receive: true }));
+      const cleatGeo = mergeGeometries([cyl(0.13, 0.15, 0.42, 8, [0, 0.21, 0]),
+        cyl(0.09, 0.09, 0.62, 8, [0, 0.46, 0], [Math.PI / 2, 0, 0])]);
+      const cleats = [];
+      for (let i = 0; i < 8; i++) {
+        cleats.push({ pos: [-9 + (i % 4) * 6, y + 0.05, i < 4 ? 80 : 96] });
+      }
+      r.group.add(instance(cleatGeo, P.brass, cleats, { name: 'BrassCleats' }));
+
+      /* Wrought-iron lantern pendants at ~2700 K. */
+      const pend = lanternPendant(1.5);
+      const bodies = [], glasses = [];
+      for (let i = 0; i < 12; i++) {
+        const x = -18 + (i % 4) * 12;
+        const z = 78 - 12 + Math.floor(i / 4) * 12;
+        bodies.push({ pos: [x, y + 7.0, z] });
+        glasses.push({ pos: [x, y + 7.0, z] });
+      }
+      r.group.add(instance(pend.body, P.iron, bodies, { name: 'LanternIron' }));
+      r.group.add(instance(pend.glass, P.lampGlow, glasses, { name: 'LanternGlass' }));
+      for (let i = 0; i < 4; i++) {
+        roomLight(r, 0xffb877, 26, 26, [-16 + i * 11, y + 4.6, 78]);
+      }
+
+      /* Prop 3 — a swing door through to the Market Loggia stair. */
+      const door = swingDoor(1.4, 2.6);
+      const doorMesh = mesh(door.geometry, P.timber, { name: 'DoorLeaf' });
+      door.pivot.add(doorMesh);
+      door.pivot.position.set(-6.6, y, 58.3);
+      r.group.add(door.pivot);
+      r.group.add(mesh(mergeGeometries([
+        box(0.3, 2.9, 0.4, [-6.9, y + 1.45, 58.3]),
+        box(0.3, 2.9, 0.4, [-4.7, y + 1.45, 58.3]),
+        box(2.5, 0.3, 0.4, [-5.8, y + 2.9, 58.3])
+      ]), P.limestone, { name: 'DoorSurround' }));
+      r.addProp({ name: 'Arrival hall door', update: (dt) => door.update(dt) });
+    });
+  },
+
+  /* ---------------- B1 — Market Loggia ---------------- */
+
+  /** "The Market Loggia opens into a colonnaded arcade lined with
+      striped-awning stalls" — reclaimed herringbone brick underfoot. */
+  roomMarketLoggia(A) {
+    const P = this.palette;
+    const M = this.materials;
+    const y = LEVELS.B1;
+    const room = this.room({
+      name: 'B1 Market Loggia', level: 'B1',
+      center: [0, y + 3.2, 40], size: [62, 7, 52],
+      acoustic: A.STONE_VAULT, range: 140
+    });
+
+    room.lazy((r) => {
+      const shell = roomShell(62, 6.2, 52, { open: ['+z'], center: [0, y, 40] });
+      r.group.add(mesh(mergeGeometries(shell.floor), P.brick, { name: 'HerringboneFloor', receive: true }));
+      r.group.add(mesh(mergeGeometries(shell.walls), P.plaster, { name: 'Walls', receive: true }));
+      r.group.add(mesh(mergeGeometries(shell.ceiling), P.vault, { name: 'Ceiling' }));
+
+      /* The colonnade that gives the loggia its name. */
+      const colGeo = mergeGeometries([
+        cyl(0.42, 0.5, 4.6, 12, [0, 2.3, 0]),
+        cyl(0.62, 0.5, 0.36, 12, [0, 4.78, 0]),
+        box(1.4, 0.3, 1.4, [0, 5.1, 0]),
+        box(1.3, 0.24, 1.3, [0, 0.12, 0])
+      ]);
+      const cols = [];
+      for (let i = 0; i < 8; i++) {
+        for (const sx of [-1, 1]) {
+          cols.push({ pos: [sx * 17, y, 20 + i * 5.6] });
+        }
+      }
+      r.group.add(instance(colGeo, P.limestone, cols, { name: 'LoggiaColonnade', castShadow: true }));
+
+      /* Cross-vaults springing from the colonnade. */
+      const vaults = [];
+      const profile = archShape(9.2, 2.6, 3.0, 0.5);
+      for (let i = 0; i < 8; i++) {
+        const g = new THREE.ExtrudeGeometry(profile, { depth: 4.4, bevelEnabled: false, curveSegments: 10 });
+        vaults.push(xform(g, { pos: [0, y + 0.4, 18 + i * 5.6] }));
+      }
+      r.group.add(mesh(mergeGeometries(vaults), P.vault, { name: 'LoggiaVaults' }));
+
+      /* Prop 1 — striped-awning market stalls with produce crates. */
+      const awnA = M.surface('intAwningA', 'awningStripe', {
+        repeat: 1, roughness: 0.88, side: THREE.DoubleSide, opts: { a: 0xf6efdd, b: 0xa33f36 }
+      });
+      const awnB = M.surface('intAwningB', 'awningStripe', {
+        repeat: 1, roughness: 0.88, side: THREE.DoubleSide, opts: { a: 0xf6efdd, b: 0x2f6072 }
+      });
+      const awnGeo = (() => {
+        const g = new THREE.PlaneGeometry(3.0, 2.0, 4, 3);
+        g.rotateX(-Math.PI / 2.3);
+        g.translate(0, 2.4, -0.8);
+        return g;
+      })();
+      const tblGeo = mergeGeometries([
+        box(2.8, 0.1, 1.3, [0, 0.92, 0]),
+        box(0.1, 0.92, 0.1, [-1.3, 0.46, -0.55]), box(0.1, 0.92, 0.1, [1.3, 0.46, -0.55]),
+        box(0.1, 0.92, 0.1, [-1.3, 0.46, 0.55]), box(0.1, 0.92, 0.1, [1.3, 0.46, 0.55]),
+        box(0.6, 0.35, 0.5, [-0.8, 1.15, 0]), box(0.55, 0.3, 0.45, [0.7, 1.12, 0.1])
+      ]);
+      const sA = [], sB = [], tbl = [];
+      for (let i = 0; i < 6; i++) {
+        for (const sx of [-1, 1]) {
+          const e = { pos: [sx * 22, y, 22 + i * 6.6], rot: [0, sx > 0 ? -Math.PI / 2 : Math.PI / 2, 0] };
+          (i % 2 ? sB : sA).push(e);
+          tbl.push(e);
+        }
+      }
+      r.group.add(instance(awnGeo, awnA, sA, { name: 'StallAwningsA', castShadow: true }));
+      r.group.add(instance(awnGeo, awnB, sB, { name: 'StallAwningsB', castShadow: true }));
+      r.group.add(instance(tblGeo, P.timber, tbl, { name: 'StallTables', castShadow: true }));
+
+      /* Prop 2 — uplighting under the vault arches that breathes gently. */
+      const upGeo = cyl(0.14, 0.14, 0.06, 10, [0, 0, 0]);
+      const ups = [];
+      for (let i = 0; i < 8; i++) for (const sx of [-1, 1]) ups.push({ pos: [sx * 16, y + 0.1, 20 + i * 5.6] });
+      r.group.add(instance(upGeo, P.lampGlow, ups, { name: 'VaultUplights' }));
+      const lights = [];
+      for (let i = 0; i < 4; i++) lights.push(roomLight(r, 0xffc98d, 22, 24, [0, y + 4.4, 22 + i * 9]));
+      r.addProp({
+        name: 'Vault uplighting',
+        update(dt, t) {
+          const k = 1 + Math.sin(performance.now() * 0.0006) * 0.06;
+          for (const l of lights) l.intensity = 22 * k;
+        }
+      });
+
+      /* Prop 3 — wrought-iron café furniture, some of it occupied-looking. */
+      const chGeo = chair(0.44, 0.84);
+      const tGeo = lowTable(0.42, 0.68);
+      const chairs = [], tables = [];
+      const rr = rng(88);
+      for (let i = 0; i < 7; i++) {
+        const z = 22 + i * 6.2;
+        tables.push({ pos: [0, y, z] });
+        for (let k = 0; k < 3; k++) {
+          const a = rr() * TAU;
+          chairs.push({ pos: [Math.cos(a) * 1.0, y, z + Math.sin(a) * 1.0], rot: [0, -a + Math.PI / 2, 0] });
+        }
+      }
+      const chairMesh = instance(chGeo, P.iron, chairs, { name: 'CafeChairs', castShadow: true });
+      r.group.add(chairMesh);
+      r.group.add(instance(tGeo, P.iron, tables, { name: 'CafeTables', castShadow: true }));
+
+      /* Prop 3 — the stall awnings breathe in the draught off the canal. */
+      const awnMeshes = [
+        instance(awnGeo, awnA, sA, { name: 'StallAwningsA2' }),
+        instance(awnGeo, awnB, sB, { name: 'StallAwningsB2' })
+      ];
+      r.addProp({
+        name: 'Stall awnings',
+        update() {
+          const k = Math.sin(performance.now() * 0.0016) * 0.02;
+          for (const m of [r.group.getObjectByName('StallAwningsA'), r.group.getObjectByName('StallAwningsB')]) {
+            if (m) m.rotation.x = k;
+          }
+        }
+      });
+
+      /* Prop 4 — a market shutter that rolls up and down on a slow cycle. */
+      const shutter = new THREE.Group();
+      shutter.name = 'MarketShutter';
+      const shutterMesh = mesh(box(3.2, 2.6, 0.08, [0, -1.3, 0]), P.iron, { name: 'ShutterLeaf' });
+      shutter.add(shutterMesh);
+      shutter.position.set(-30.6, y + 4.0, 40);
+      shutter.rotation.y = Math.PI / 2;
+      r.group.add(shutter);
+      let st = 0;
+      r.addProp({
+        name: 'Market shutter',
+        update(dt) {
+          st += dt;
+          const c = st % 16;
+          const k = c < 2 ? smoothstep(c / 2) : c < 9 ? 1 : c < 11 ? 1 - smoothstep((c - 9) / 2) : 0;
+          shutterMesh.scale.y = Math.max(0.06, 1 - k * 0.92);
+        }
+      });
+    });
+  },
+
+  /* ---------------- L1 — Canalside Promenade Interior ---------------- */
+
+  /** "The Canalside Promenade runs along the water's edge with café seating
+      under the arches." */
+  roomCanalsidePromenade(A) {
+    const P = this.palette;
+    const y = LEVELS.L1;
+    const room = this.room({
+      name: 'L1 Canalside Promenade Interior', level: 'L1',
+      center: [0, y + 3.0, 66], size: [56, 7, 34],
+      acoustic: A.STONE_VAULT, range: 130
+    });
+
+    room.lazy((r) => {
+      const shell = roomShell(56, 6.0, 34, { open: ['+z'], center: [0, y, 66] });
+      r.group.add(mesh(mergeGeometries(shell.floor), P.limestone, { name: 'Floor', receive: true }));
+      r.group.add(mesh(mergeGeometries(shell.walls), P.plaster, { name: 'Walls', receive: true }));
+      r.group.add(mesh(mergeGeometries(shell.ceiling), P.timber, { name: 'TimberCeiling' }));
+
+      /* Arched openings onto the canal. */
+      const arches = [];
+      const profile = archShape(4.2, 2.9, 2.1, 0.6);
+      for (let i = 0; i < 7; i++) {
+        const g = new THREE.ExtrudeGeometry(profile, { depth: 1.2, bevelEnabled: false, curveSegments: 10 });
+        arches.push(xform(g, { pos: [-21 + i * 7, y, 82.4] }));
+      }
+      r.group.add(mesh(mergeGeometries(arches), P.limestone, { name: 'PromenadeArches', cast: true }));
+
+      /* Exposed ceiling joists. */
+      const joists = [];
+      for (let i = 0; i < 14; i++) joists.push(box(54, 0.28, 0.34, [0, y + 5.6, 50 + i * 2.4]));
+      r.group.add(mesh(mergeGeometries(joists), P.timber, { name: 'CeilingJoists' }));
+
+      /* Prop 1 — café seating that reads as occupied. */
+      const chGeo = chair(0.44, 0.84);
+      const tGeo = lowTable(0.46, 0.7);
+      const chairs = [], tables = [];
+      const rr = rng(191);
+      for (let i = 0; i < 8; i++) {
+        const x = -21 + i * 6;
+        tables.push({ pos: [x, y, 76] });
+        const n = 2 + Math.floor(rr() * 2);
+        for (let k = 0; k < n; k++) {
+          const a = rr() * TAU;
+          chairs.push({ pos: [x + Math.cos(a) * 1.05, y, 76 + Math.sin(a) * 1.05], rot: [0, -a + Math.PI / 2, 0] });
+        }
+      }
+      r.group.add(instance(tGeo, P.iron, tables, { name: 'CafeTables', castShadow: true }));
+      r.group.add(instance(chGeo, P.iron, chairs, { name: 'CafeChairs', castShadow: true }));
+
+      /* Prop 2 — pendant lanterns along the water's edge that sway a little. */
+      const pend = lanternPendant(1.1);
+      const bodies = [], glasses = [];
+      for (let i = 0; i < 8; i++) bodies.push({ pos: [-21 + i * 6, y + 5.4, 80] });
+      for (const b of bodies) glasses.push({ pos: b.pos });
+      const ironMesh = instance(pend.body, P.iron, bodies, { name: 'PendantIron' });
+      const glassMesh = instance(pend.glass, P.lampGlow, glasses, { name: 'PendantGlass' });
+      r.group.add(ironMesh, glassMesh);
+      for (let i = 0; i < 3; i++) roomLight(r, 0xffbe84, 20, 22, [-14 + i * 14, y + 4.0, 76]);
+      r.addProp({
+        name: 'Swaying lanterns',
+        update(dt, t) {
+          const k = Math.sin(performance.now() * 0.0011) * 0.03;
+          ironMesh.rotation.z = k; glassMesh.rotation.z = k;
+        }
+      });
+
+      /* Prop 3 — a planter run that marks the promenade's edge. */
+      const pl = planter(2.6, 0.7, 0.5);
+      const tubs = [], leaves = [];
+      for (let i = 0; i < 6; i++) { const e = { pos: [-19 + i * 7.6, y, 71] }; tubs.push(e); leaves.push(e); }
+      r.group.add(instance(pl.tub, P.limestone, tubs, { name: 'PlanterTubs' }));
+      const foliageMesh = instance(pl.foliage,
+        this.materials.surface('intFoliage', 'foliage', { repeat: 1, roughness: 0.9 }),
+        leaves, { name: 'PlanterFoliage', castShadow: true });
+      r.group.add(foliageMesh);
+
+      /* Prop 3 — a café door onto the promenade, and the awning above it. */
+      const door = swingDoor(1.2, 2.4);
+      door.pivot.add(mesh(door.geometry, P.timber, { name: 'DoorLeaf' }));
+      door.pivot.position.set(8.4, y, 49.4);
+      r.group.add(door.pivot);
+      r.addProp({ name: 'Café door', update: (dt) => door.update(dt) });
+    });
+  },
+
+  /* ---------------- L2 — Mezzanine Overlook ---------------- */
+
+  /** "A glass-balustraded mezzanine looks back down over the canal." */
+  roomMezzanineOverlook(A) {
+    const P = this.palette;
+    const y = LEVELS.L2;
+    const room = this.room({
+      name: 'L2 Mezzanine Overlook', level: 'L2',
+      center: [0, y + 2.9, 58], size: [48, 6.5, 32],
+      acoustic: A.PADDED_LOUNGE, range: 120
+    });
+
+    room.lazy((r) => {
+      const shell = roomShell(48, 5.8, 32, { open: ['+z'], center: [0, y, 58] });
+      r.group.add(mesh(mergeGeometries(shell.floor), P.limestone, { name: 'Floor', receive: true }));
+      r.group.add(mesh(mergeGeometries(shell.walls), P.plaster, { name: 'Walls', receive: true }));
+      r.group.add(mesh(mergeGeometries(shell.ceiling), P.plaster, { name: 'Ceiling' }));
+
+      /* The glass balustrade the space is named for. */
+      const rail = [];
+      for (let i = 0; i <= 24; i++) rail.push([-23 + i * (46 / 24), y, 73.6]);
+      r.group.add(mesh(glassRail(rail, 1.15), P.glassInt, { name: 'GlassBalustrade', renderOrder: 4 }));
+      r.group.add(mesh(balustrade(rail.map(p => [p[0], p[1] + 1.14, p[2]]), 0.05, 3, 0.03, 0.05), P.brass,
+        { name: 'BrassHandrail' }));
+
+      /* Lounge terrace furniture. */
+      const sofaGeo = sofa(2.2, 0.9);
+      const podGeo = seatPod();
+      const tblGeo = lowTable(0.55, 0.4);
+      const leatherMat = this.materials.solid('intLeatherCream', { color: 0xd9cdb6, roughness: 0.62 });
+      const sofas = [], pods = [], tbls = [];
+      for (let i = 0; i < 4; i++) {
+        const x = -18 + i * 12;
+        sofas.push({ pos: [x, y, 62], rot: [0, Math.PI, 0] });
+        tbls.push({ pos: [x, y, 64.4] });
+        pods.push({ pos: [x - 1.6, y, 66.6], rot: [0, 0.3, 0] });
+        pods.push({ pos: [x + 1.6, y, 66.6], rot: [0, -0.3, 0] });
+      }
+      r.group.add(instance(sofaGeo, leatherMat, sofas, { name: 'LoungeSofas', castShadow: true }));
+      r.group.add(instance(podGeo, leatherMat, pods, { name: 'LoungePods', castShadow: true }));
+      r.group.add(instance(tblGeo, P.marble, tbls, { name: 'LoungeTables', castShadow: true }));
+
+      /* Prop 1 — cove lighting that dims and lifts with a slow cycle. */
+      const cove = [];
+      for (const sx of [-1, 1]) cove.push(box(0.14, 0.08, 30, [sx * 23.4, y + 5.3, 58]));
+      cove.push(box(46, 0.08, 0.14, [0, y + 5.3, 43.2]));
+      const coveMesh = mesh(mergeGeometries(cove), P.lampGlow, { name: 'CoveLighting' });
+      r.group.add(coveMesh);
+      const lights = [roomLight(r, 0xffd2a0, 26, 30, [-12, y + 4.4, 58]),
+        roomLight(r, 0xffd2a0, 26, 30, [12, y + 4.4, 58])];
+      r.addProp({
+        name: 'Cove lighting cycle',
+        update() {
+          const k = 0.86 + Math.sin(performance.now() * 0.00035) * 0.14;
+          for (const l of lights) l.intensity = 26 * k;
+        }
+      });
+
+      /* Prop 2 — a caustic wash reflected up onto the mezzanine soffit. */
+      const caustic = causticPlane(44, 26, P.caustic);
+      caustic.position.set(0, y + 5.5, 64);
+      caustic.rotation.x = Math.PI;
+      r.group.add(caustic);
+      r.addProp({ name: 'Reflected caustics', update: () => {} });
+
+      /* Prop 3 — a service door into the back-of-house. */
+      const door = swingDoor(1.1, 2.3);
+      door.pivot.add(mesh(door.geometry, P.timber, { name: 'DoorLeaf' }));
+      door.pivot.position.set(-16, y, 42.4);
+      r.group.add(door.pivot);
+      r.addProp({ name: 'Service door', update: (dt) => door.update(dt) });
+    });
+  },
+
+  /* ---------------- L3 — Tower Transfer Lobby ---------------- */
+
+  /** "The sequence ends at a marble-and-brass Transfer Lobby where the
+      canal's rustic warmth gives way to the sleek glass of the Sail Atrium." */
+  roomTransferLobby(A) {
+    const P = this.palette;
+    const y = LEVELS.L3;
+    const room = this.room({
+      name: 'L3 Tower Transfer Lobby', level: 'L3',
+      center: [0, y + 3.0, 20], size: [64, 7, 56],
+      acoustic: A.MARBLE_HALL, range: 150
+    });
+
+    room.lazy((r) => {
+      const shell = roomShell(64, 6.0, 56, { open: [], center: [0, y, 20] });
+      r.group.add(mesh(mergeGeometries(shell.floor), P.marble, { name: 'MarbleFloor', receive: true }));
+      r.group.add(mesh(mergeGeometries(shell.walls), P.marble, { name: 'MarbleWalls', receive: true }));
+      r.group.add(mesh(mergeGeometries(shell.ceiling), P.plaster, { name: 'Ceiling' }));
+
+      /* Brass inlay bands in the marble floor, and a compass medallion. */
+      const inlay = [];
+      for (let i = 0; i < 5; i++) inlay.push(box(60, 0.02, 0.16, [0, y + 0.03, 0 + i * 10]));
+      for (let i = 0; i < 5; i++) inlay.push(box(0.16, 0.02, 52, [-24 + i * 12, y + 0.03, 20]));
+      const med = new THREE.RingGeometry(2.6, 3.0, 40);
+      med.rotateX(-Math.PI / 2);
+      inlay.push(xform(med, { pos: [0, y + 0.035, 20] }));
+      const med2 = new THREE.RingGeometry(1.2, 1.4, 40);
+      med2.rotateX(-Math.PI / 2);
+      inlay.push(xform(med2, { pos: [0, y + 0.035, 20] }));
+      r.group.add(mesh(mergeGeometries(inlay), P.brass, { name: 'BrassInlay' }));
+
+      /* Prop 1 — the elevator bank into the Sail Atrium, doors cycling. */
+      const bankMat = P.brass;
+      const bank = [];
+      for (let i = 0; i < 5; i++) {
+        const x = -20 + i * 10;
+        bank.push(box(2.6, 3.0, 0.3, [x, y + 1.5, -6.2]));
+        bank.push(box(3.0, 0.24, 0.42, [x, y + 3.1, -6.2]));
+      }
+      r.group.add(mesh(mergeGeometries(bank), bankMat, { name: 'ElevatorSurrounds' }));
+
+      const doorGeoCache = elevatorDoors(2.2, 2.8);
+      const lifts = [];
+      for (let i = 0; i < 5; i++) {
+        const x = -20 + i * 10;
+        const d = elevatorDoors(2.2, 2.8, { period: 9 + i * 1.3 });
+        const gL = d.geometry.clone(); gL.scale(-1, 1, 1);
+        d.left.geometry = gL;
+        d.left.material = P.brass;
+        d.right.geometry = d.geometry;
+        d.right.material = P.brass;
+        d.group.position.set(x, y, -6.0);
+        r.group.add(d.group);
+        lifts.push(d);
+      }
+      r.addProp({
+        name: 'Elevator bank',
+        update(dt) { for (const l of lifts) l.update(dt); }
+      });
+
+      /* Prop 2 — a concierge desk with a brass rail. */
+      r.group.add(mesh(receptionDesk(5.4, 1.0, 1.06), P.marble, {
+        name: 'ConciergeDesk', pos: [0, y, 32], cast: true
+      }));
+      r.group.add(mesh(box(5.6, 0.08, 0.08, [0, y + 1.22, 31.4]), P.brass, { name: 'DeskRail' }));
+
+      /* Seating and planting. */
+      const leather = this.materials.solid('intLeatherTan', { color: 0xc8b492, roughness: 0.58 });
+      const pods = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * TAU;
+        pods.push({ pos: [Math.cos(a) * 7, y, 20 + Math.sin(a) * 7], rot: [0, -a + Math.PI / 2, 0] });
+      }
+      r.group.add(instance(seatPod(1.0, 0.95, 0.8), leather, pods, { name: 'LobbySeating', castShadow: true }));
+
+      /* Prop 3 — a chandelier of suspended brass rods that rotates slowly. */
+      const chand = new THREE.Group();
+      chand.name = 'BrassChandelier';
+      const rods = [];
+      const rr = rng(404);
+      for (let i = 0; i < 90; i++) {
+        const a = rr() * TAU;
+        const rad = Math.sqrt(rr()) * 4.2;
+        const len = 0.6 + rr() * 2.4;
+        rods.push(cyl(0.022, 0.022, len, 5, [Math.cos(a) * rad, -len / 2 - rr() * 1.4, Math.sin(a) * rad]));
+      }
+      chand.add(mesh(mergeGeometries(rods), P.brass, { name: 'Rods' }));
+      chand.add(mesh(cyl(4.4, 4.4, 0.12, 32, [0, 0.1, 0]), P.lampGlow, { name: 'ChandelierPlate' }));
+      chand.position.set(0, y + 5.5, 20);
+      r.group.add(chand);
+      roomLight(r, 0xffe0b8, 60, 40, [0, y + 4.6, 20]);
+      roomLight(r, 0xfff0d8, 26, 26, [0, y + 3.0, 32]);
+      r.addProp({
+        name: 'Brass chandelier',
+        update(dt) { chand.rotation.y += dt * 0.045; }
+      });
+    });
   }
 });

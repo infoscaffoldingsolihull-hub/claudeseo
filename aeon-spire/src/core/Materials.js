@@ -129,6 +129,9 @@ export class MaterialLibrary {
     this.emissiveWindows = [];
     /** Materials that should look wet in the rain. */
     this.exterior = [];
+    /** Interior finishes — see registerInterior(). */
+    this.interiorMaterials = [];
+    this.interiorEnv = 0.42;
     this.envMap = null;
   }
 
@@ -259,6 +262,41 @@ export class MaterialLibrary {
     });
     if (!this.emissiveWindows.includes(m)) this.emissiveWindows.push(m);
     return m;
+  }
+
+  /**
+   * Mark a material as an interior finish.
+   *
+   * Interiors are enclosed, so they should not receive the full strength of
+   * the sky's environment map — without this every room reads as an
+   * over-exposed white box. Registering them also gives D.8's requirement a
+   * single lever: interior lighting reacts *subtly* to the exterior time of
+   * day (light spilling through glazing) while artificial lighting stays
+   * dominant, so rooms never go fully dark or blow out.
+   */
+  registerInterior(mat, k = null) {
+    if (!mat || !mat.isMaterial) return mat;
+    if (!this.interiorMaterials.includes(mat)) this.interiorMaterials.push(mat);
+    mat.userData.interiorEnvBase = k === null ? 1.0 : k;
+    mat.envMapIntensity = this.interiorEnv * mat.userData.interiorEnvBase;
+    return mat;
+  }
+
+  /** Register every material in a zone's palette object in one call. */
+  registerInteriorPalette(palette) {
+    for (const m of Object.values(palette)) this.registerInterior(m);
+    return palette;
+  }
+
+  /**
+   * Drive the interior environment response from the time-of-day system.
+   * The range is deliberately narrow (D.8): day 0.55 → night 0.20.
+   */
+  setInteriorEnv(k) {
+    this.interiorEnv = k;
+    for (const m of this.interiorMaterials) {
+      m.envMapIntensity = k * (m.userData.interiorEnvBase ?? 1);
+    }
   }
 
   /** Register an arbitrary material to follow the night emissive ramp. */

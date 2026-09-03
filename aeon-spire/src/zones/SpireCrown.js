@@ -14,7 +14,11 @@ import {
   mergeGeometries, xform, box, cyl, roundedRectRing, circleRing, loft, mesh,
   instance, member, tube, balustrade
 } from '../world/BuildKit.js';
-import { TAU, lerp, clamp, smoothstep } from '../core/MathUtil.js';
+import { TAU, lerp, clamp, smoothstep, rng } from '../core/MathUtil.js';
+import {
+  roomShell, remapUV, seatPod, plaque, elevatorDoors, glassTreadStair,
+  tunedMassDamper, ventFan, roomLight, roomSpot
+} from '../interiors/InteriorKit.js';
 
 export class SpireCrown extends Zone {
   constructor(ctx) {
@@ -32,7 +36,9 @@ export class SpireCrown extends Zone {
    * A power curve keeps the taper reading as a spire rather than a cone.
    */
   latticeRadius(t) {
-    return lerp(SPIRE.latticeBase, SPIRE.latticeTip, Math.pow(t, 0.62));
+    // Clamped: a fractional power of a negative t is NaN, which silently
+    // poisons every merged geometry downstream.
+    return lerp(SPIRE.latticeBase, SPIRE.latticeTip, Math.pow(clamp(t, 0, 1), 0.62));
   }
 
   massing() {
@@ -279,5 +285,467 @@ Object.assign(SpireCrown.prototype, {
       return pts;
     }, heights, { capTop: false, uvScale: [0.05, 0.02] });
     this.shell.add(mesh(skin, mat, { name: 'SpireLatticeGlazing', renderOrder: 3 }));
+  }
+});
+
+/* ==================================================================== */
+/* Phase 4 — interiors (Section D.4)                                    */
+/*                                                                      */
+/* Sky-Lobby Transfer Floor · Lattice Stair / Viewing Gallery ·         */
+/* Tuned Mass Damper Chamber · Broadcast & Beacon Room                  */
+/* ==================================================================== */
+
+Object.assign(SpireCrown.prototype, {
+
+  interiorsPass() {
+    const A = this.ctx.RoomClasses.ACOUSTIC;
+    const M = this.materials;
+
+    this.palette = {
+      concrete: M.surface('crownConcrete', 'polishedConcrete', { repeat: 10, roughness: 0.24, metalness: 0.1 }),
+      mesh: M.surface('crownMesh', 'expandedMesh', {
+        repeat: 4, roughness: 0.5, metalness: 0.7, side: THREE.DoubleSide, alphaTest: 0.4
+      }),
+      metal: M.surface('crownIntMetal', 'brushedMetal', { repeat: 3, roughness: 0.26, metalness: 0.82 }),
+      glass: M.glass('crownGlassInt', { color: 0xcfe6f0, opacity: 0.16, roughness: 0.05, exterior: false }),
+      dark: M.solid('crownDark', { color: 0x1e232b, roughness: 0.5, metalness: 0.4 }),
+      polished: M.solid('crownPolished', { color: 0xd8dde3, roughness: 0.06, metalness: 0.96 }),
+      alum: M.solid('crownAlum', { color: 0xa9b0b8, roughness: 0.34, metalness: 0.7 })
+    };
+    this.palette.ribLed = M.solid('crownRibLed', {
+      color: 0x141a24, roughness: 0.4, emissive: 0x8fc4ff, emissiveIntensity: 2.8
+    });
+    this.palette.strip = M.solid('crownStrip', {
+      color: 0x22262c, roughness: 0.5, emissive: 0xe8f2ff, emissiveIntensity: 2.4
+    });
+    M.registerInteriorPalette(this.palette);
+
+    this.roomSkyLobbyTransfer(A);
+    this.roomLatticeStair(A);
+    this.roomDamperChamber(A);
+    this.roomBeaconRoom(A);
+  },
+
+  /* ---------------- Sky-Lobby Transfer Floor (L56) ---------------- */
+
+  roomSkyLobbyTransfer(A) {
+    const P = this.palette;
+    const y = SPIRE.base;
+    const h = this.crownHalf(0);
+    const room = this.room({
+      name: 'Sky-Lobby Transfer Floor', level: 'L56',
+      center: [0, y + 3, 0], size: [h * 2 + 3, 9, h * 1.72 + 3],
+      acoustic: A.MARBLE_HALL, range: 170
+    });
+
+    room.lazy((r) => {
+      const ring = roundedRectRing(h - 1, (h - 1) * 0.86, (h - 1) * 0.42, 30);
+      const shape = new THREE.Shape();
+      shape.moveTo(ring[0][0], ring[0][1]);
+      for (let k = 1; k < ring.length; k++) shape.lineTo(ring[k][0], ring[k][1]);
+      shape.closePath();
+
+      const floor = new THREE.ShapeGeometry(shape, 4);
+      floor.rotateX(-Math.PI / 2);
+      remapUV(floor, 'xz', 0.08);
+      r.group.add(mesh(xform(floor, { pos: [0, y + 0.08, 0] }), P.concrete, {
+        name: 'DarkPolishedConcrete', receive: true
+      }));
+      const ceil = new THREE.ShapeGeometry(shape, 4);
+      ceil.rotateX(Math.PI / 2);
+      remapUV(ceil, 'xz', 0.1);
+      r.group.add(mesh(xform(ceil, { pos: [0, y + 5.2, 0] }), P.dark, { name: 'Ceiling' }));
+
+      /* Exposed lattice ribs, internally lit along their length (D.4). */
+      const ribs = [], leds = [];
+      for (let i = 0; i < 20; i++) {
+        const a = (i / 20) * TAU;
+        const p0 = [Math.cos(a) * (h - 0.6), y, Math.sin(a) * (h - 0.6) * 0.86];
+        const p1 = [Math.cos(a) * (h - 1.4), y + 5.2, Math.sin(a) * (h - 1.4) * 0.86];
+        const m = member(p0, p1, 0.42, 0.42);
+        if (m) ribs.push(m);
+        const l = member(p0, p1, 0.16, 0.16);
+        if (l) leds.push(l);
+      }
+      r.group.add(mesh(mergeGeometries(ribs.filter(Boolean)), P.metal, { name: 'ExposedRibs', cast: true }));
+      const ledMesh = mesh(mergeGeometries(leds.filter(Boolean)), P.ribLed, { name: 'RibLEDs' });
+      r.group.add(ledMesh);
+
+      /* Prop 1 — rib LEDs that shift tone (D.4: with the time-of-day mode). */
+      const ribLights = [];
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * TAU;
+        ribLights.push(roomLight(r, 0x9fd0ff, 26, 34, [Math.cos(a) * (h - 3), y + 3, Math.sin(a) * (h - 3) * 0.86]));
+      }
+      this.ribLedMaterial = P.ribLed;
+      r.addProp({
+        name: 'Rib LED lighting',
+        update() {
+          const k = 1 + Math.sin(performance.now() * 0.0005) * 0.14;
+          P.ribLed.emissiveIntensity = 2.5 * k;
+          for (const l of ribLights) l.intensity = 24 * k;
+        }
+      });
+
+      /* Prop 2 — the express-lift bank that terminates here. */
+      const lifts = [];
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * TAU + 0.4;
+        const d = elevatorDoors(2.0, 2.6, { period: 13 + i * 2.1 });
+        const gL = d.geometry.clone(); gL.scale(-1, 1, 1);
+        d.left.geometry = gL; d.left.material = P.metal;
+        d.right.geometry = d.geometry; d.right.material = P.metal;
+        d.group.position.set(Math.cos(a) * 7, y + 0.08, Math.sin(a) * 6);
+        d.group.rotation.y = -a;
+        r.group.add(d.group);
+        lifts.push(d);
+      }
+      r.addProp({ name: 'Express lifts', update: (dt) => { for (const l of lifts) l.update(dt); } });
+
+      /* Prop 3 — an altitude readout that ticks. */
+      const boardMat = this.materials.solid('crownAltBoard', {
+        color: 0x0b0f16, roughness: 0.4, emissive: 0x9fe8ff, emissiveIntensity: 1.4
+      });
+      this.materials.registerInterior(boardMat);
+      const board = mesh(box(4.4, 1.1, 0.1, [0, y + 3.6, -(h - 1.2) * 0.84]), boardMat, {
+        name: 'AltitudeReadout'
+      });
+      r.group.add(board);
+      r.addProp({
+        name: 'Altitude readout',
+        update() {
+          const p = performance.now() * 0.001;
+          boardMat.emissiveIntensity = 1.2 + (Math.sin(p * 3.1) > 0.9 ? 0.7 : 0);
+        }
+      });
+
+      /* Seating and a viewing rail at the glazing. */
+      const pods = [];
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * TAU;
+        pods.push({ pos: [Math.cos(a) * (h - 4), y + 0.08, Math.sin(a) * (h - 4) * 0.86], rot: [0, -a + Math.PI, 0] });
+      }
+      r.group.add(instance(seatPod(1.0, 0.95, 0.8),
+        this.materials.solid('crownSeat', { color: 0x39414c, roughness: 0.6 }), pods,
+        { name: 'TransferSeating', castShadow: true }));
+    });
+  },
+
+  /* ---------------- Lattice Stair / Viewing Gallery ---------------- */
+
+  /** "A glass-tread stair/gallery is suspended within the lattice void,
+      giving vertigo-inducing views straight down through the structure." */
+  roomLatticeStair(A) {
+    const P = this.palette;
+    const yBottom = SPIRE.crownTop;
+    const yTop = SPIRE.damperY - 12;
+    const room = this.room({
+      name: 'Lattice Stair / Viewing Gallery', level: 'L88 → spire',
+      center: [0, (yBottom + yTop) / 2, 0], size: [30, yTop - yBottom + 10, 30],
+      acoustic: A.MACHINE_ROOM, range: 220
+    });
+
+    room.lazy((r) => {
+      /* Landings at intervals through the lattice void. */
+      const landings = [], railParts = [];
+      const stairs = { treads: [], stringers: [] };
+      const count = 5;
+      for (let i = 0; i < count; i++) {
+        const y0 = lerp(yBottom, yTop, i / count);
+        const y1 = lerp(yBottom, yTop, (i + 1) / count);
+        const t0 = (y0 - SPIRE.crownTop) / (SPIRE.tip - SPIRE.crownTop);
+        const rad = this.latticeRadius((y0 - SPIRE.crownTop) / (SPIRE.tip - SPIRE.crownTop)) * 0.62;
+        const rOut = Math.max(rad, 4.0);
+        /* Expanded-metal-mesh gallery flooring (D.4). */
+        const g = new THREE.RingGeometry(1.6, rOut, 28, 1);
+        g.rotateX(-Math.PI / 2);
+        remapUV(g, 'xz', 0.2);
+        landings.push(xform(g, { pos: [0, y0, 0] }));
+
+        const s = glassTreadStair(1.8, rOut - 0.4, y0 + 0.1, y1 - 0.1, 1.0, 20);
+        stairs.treads.push(s.treads);
+        stairs.stringers.push(s.stringers);
+
+        const pts = [];
+        for (let k = 0; k <= 28; k++) {
+          const a = (k / 28) * TAU;
+          pts.push([Math.cos(a) * (rOut - 0.15), y0, Math.sin(a) * (rOut - 0.15)]);
+        }
+        railParts.push(balustrade(pts, 1.1, 2, 0.03, 0.045));
+      }
+      r.group.add(mesh(mergeGeometries(landings), P.mesh, { name: 'MeshGalleryFloors', receive: true }));
+      r.group.add(mesh(mergeGeometries(stairs.treads), P.glass, {
+        name: 'GlassTreads', renderOrder: 4
+      }));
+      r.group.add(mesh(mergeGeometries(stairs.stringers), P.metal, {
+        name: 'SlimSteelStringers', cast: true
+      }));
+      r.group.add(mesh(mergeGeometries(railParts.filter(Boolean)), P.metal, { name: 'GalleryRails' }));
+
+      /* Prop 1 — the rib LEDs climbing the lattice, brightening with height. */
+      const leds = [];
+      for (let i = 0; i < SPIRE.latticeRibs; i++) {
+        for (let k = 0; k < 12; k++) {
+          const t0 = k / 12, t1 = (k + 1) / 12;
+          const yy0 = lerp(yBottom, yTop, t0), yy1 = lerp(yBottom, yTop, t1);
+          const tt0 = (yy0 - SPIRE.crownTop) / (SPIRE.tip - SPIRE.crownTop);
+          const tt1 = (yy1 - SPIRE.crownTop) / (SPIRE.tip - SPIRE.crownTop);
+          const a0 = (i / SPIRE.latticeRibs) * TAU + tt0 * 0.34;
+          const a1 = (i / SPIRE.latticeRibs) * TAU + tt1 * 0.34;
+          const r0 = this.latticeRadius(tt0) * 0.93, r1 = this.latticeRadius(tt1) * 0.93;
+          const m = member([Math.cos(a0) * r0, yy0, Math.sin(a0) * r0],
+            [Math.cos(a1) * r1, yy1, Math.sin(a1) * r1], 0.14, 0.14);
+          if (m) leds.push(m);
+        }
+      }
+      r.group.add(mesh(mergeGeometries(leds.filter(Boolean)), P.ribLed, { name: 'LatticeStairLEDs' }));
+      const climbLights = [];
+      for (let i = 0; i < count; i++) {
+        climbLights.push(roomLight(r, 0x9fd0ff, 22, 30, [0, lerp(yBottom, yTop, i / count) + 2, 0]));
+      }
+      r.addProp({
+        name: 'Lattice LED climb',
+        update() {
+          const t = performance.now() * 0.0008;
+          for (let i = 0; i < climbLights.length; i++) {
+            climbLights[i].intensity = 16 + Math.max(0, Math.sin(t - i * 0.7)) * 18;
+          }
+        }
+      });
+
+      /* Prop 2 — an interpretive plaque set at each landing. */
+      const plaques = [];
+      for (let i = 0; i < count; i++) {
+        plaques.push({ pos: [2.6, lerp(yBottom, yTop, i / count), 0], rot: [0, -Math.PI / 2, 0] });
+      }
+      r.group.add(instance(plaque(0.8, 0.5, 0.9), P.metal, plaques, { name: 'GalleryPlaques' }));
+      r.addProp({
+        name: 'Gallery plaque lighting',
+        update() { P.strip.emissiveIntensity = 2.2 + Math.sin(performance.now() * 0.0006) * 0.4; }
+      });
+
+      /* Prop 3 — a maintenance hoist that runs the height of the void. */
+      const hoist = new THREE.Group();
+      hoist.name = 'LatticeHoist';
+      hoist.add(mesh(mergeGeometries([
+        box(1.2, 1.6, 1.2, [0, 0.8, 0]),
+        box(1.4, 0.12, 1.4, [0, 0.02, 0]),
+        cyl(0.05, 0.05, 30, 6, [0, 16, 0])
+      ]), P.alum, { name: 'HoistCage' }));
+      hoist.position.set(2.4, yBottom, 2.4);
+      r.group.add(hoist);
+      let ht = 0;
+      r.addProp({
+        name: 'Maintenance hoist',
+        update(dt) {
+          ht += dt;
+          const k = 0.5 - 0.5 * Math.cos((ht % 34) / 34 * TAU);
+          hoist.position.y = lerp(yBottom, yTop - 4, k);
+        }
+      });
+    });
+  },
+
+  /* ---------------- Tuned Mass Damper Chamber ---------------- */
+
+  roomDamperChamber(A) {
+    const P = this.palette;
+    const y = SPIRE.damperY;
+    const room = this.room({
+      name: 'Tuned Mass Damper Chamber', level: 'Spire, 372 m',
+      center: [0, y, 0], size: [26, 34, 26],
+      acoustic: A.MACHINE_ROOM, range: 200
+    });
+
+    room.lazy((r) => {
+      /* Chamber shell: a drum of expanded mesh grating and dark panels. */
+      const rad = 8.4;
+      const g = new THREE.RingGeometry(2.0, rad, 30, 1);
+      g.rotateX(-Math.PI / 2);
+      remapUV(g, 'xz', 0.2);
+      r.group.add(mesh(xform(g, { pos: [0, y - 12, 0] }), P.mesh, {
+        name: 'DamperChamberFloor', receive: true
+      }));
+      r.group.add(mesh(
+        loft(() => circleRing(rad + 0.4, 30), [y - 12, y + 12], { capTop: false }),
+        P.dark, { name: 'ChamberWall', receive: true }
+      ));
+
+      /* Reinforced glass between the gallery and the mass. */
+      r.group.add(mesh(
+        loft(() => circleRing(rad - 1.4, 30), [y - 11.6, y - 4], { capTop: false }),
+        P.glass, { name: 'ReinforcedGlassScreen', renderOrder: 4 }
+      ));
+
+      /**
+       * Prop 1 — the damper itself: a massive suspended polished-steel
+       * weight, swaying slowly behind the glass.
+       */
+      const tmd = tunedMassDamper(3.6, 14);
+      tmd.pivot.position.set(0, y + 11, 0);
+      tmd.pivot.add(mesh(tmd.cables, P.metal, { name: 'DamperCables' }));
+      tmd.pivot.add(mesh(tmd.sphere, P.polished, { name: 'DamperMass', cast: true }));
+      r.group.add(tmd.pivot);
+      r.addProp({
+        name: 'Tuned mass damper',
+        update(dt) { tmd.update(dt, performance.now() * 0.001); }
+      });
+
+      /* Viscous dampers restraining the mass, arranged radially. */
+      const restraints = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * TAU;
+        restraints.push(cyl(0.3, 0.3, 4.6, 12,
+          [Math.cos(a) * 5.6, y - 3.2, Math.sin(a) * 5.6], [0, -a, Math.PI / 2.4]));
+        restraints.push(cyl(0.44, 0.44, 0.6, 12, [Math.cos(a) * 7.6, y - 2.0, Math.sin(a) * 7.6], [0, -a, 0]));
+      }
+      r.group.add(mesh(mergeGeometries(restraints), P.metal, { name: 'ViscousRestraints' }));
+
+      /* Prop 2 — one dramatic spotlight on the damper sphere (D.4). */
+      const spot = new THREE.SpotLight(0xffffff, 900, 60, 0.42, 0.55, 2);
+      spot.position.set(6.2, y + 8, 4.0);
+      spot.target.position.set(0, y - 3, 0);
+      r.group.add(spot, spot.target);
+      r.lights.push(spot);
+      r.addProp({
+        name: 'Damper spotlight',
+        update() { spot.intensity = 820 + Math.sin(performance.now() * 0.0007) * 140; }
+      });
+
+      /* Prop 3 — the explanatory plaques and a status panel that ticks. */
+      const plaques = [];
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * TAU + 0.5;
+        plaques.push({ pos: [Math.cos(a) * (rad - 2.2), y - 12, Math.sin(a) * (rad - 2.2)], rot: [0, -a + Math.PI, 0] });
+      }
+      r.group.add(instance(plaque(1.0, 0.62, 1.0), P.metal, plaques, { name: 'DamperPlaques' }));
+      const panelMat = this.materials.solid('crownDamperPanel', {
+        color: 0x0a0f16, roughness: 0.4, emissive: 0x6fe8b0, emissiveIntensity: 1.6
+      });
+      this.materials.registerInterior(panelMat);
+      r.group.add(mesh(box(3.2, 1.2, 0.1, [0, y - 9.4, -(rad - 0.6)]), panelMat, { name: 'DamperStatusPanel' }));
+      r.addProp({
+        name: 'Damper status panel',
+        update() {
+          const p = performance.now() * 0.001;
+          panelMat.emissiveIntensity = 1.3 + Math.abs(Math.sin(p * 1.1)) * 0.7;
+        }
+      });
+    });
+  },
+
+  /* ---------------- Broadcast & Beacon Room ---------------- */
+
+  /** "Utilitarian — brushed aluminium, exposed conduit — dominated by the
+      mechanical beacon-light apparatus." */
+  roomBeaconRoom(A) {
+    const P = this.palette;
+    const y = SPIRE.beaconY;
+    const room = this.room({
+      name: 'Broadcast & Beacon Room', level: 'Spire, 612 m',
+      center: [0, y + 3.5, 0], size: [12, 12, 12],
+      acoustic: A.MACHINE_ROOM, range: 200
+    });
+
+    room.lazy((r) => {
+      const rad = 3.0;
+      const g = new THREE.CircleGeometry(rad, 20);
+      g.rotateX(-Math.PI / 2);
+      remapUV(g, 'xz', 0.3);
+      r.group.add(mesh(xform(g, { pos: [0, y + 0.06, 0] }), P.mesh, {
+        name: 'BeaconRoomFloor', receive: true
+      }));
+      r.group.add(mesh(
+        loft(() => circleRing(rad, 20), [y, y + 6.6], { capTop: true }),
+        P.alum, { name: 'BeaconRoomShell', receive: true }
+      ));
+
+      /* Exposed conduit runs, as the brief specifies. */
+      const conduit = [];
+      const rr = rng(919);
+      for (let i = 0; i < 14; i++) {
+        const a = rr() * TAU;
+        const h0 = 0.4 + rr() * 4.4;
+        conduit.push(cyl(0.045 + rr() * 0.03, 0.045, 5.4, 6,
+          [Math.cos(a) * (rad - 0.16), y + 3.2, Math.sin(a) * (rad - 0.16)]));
+        conduit.push(cyl(0.05, 0.05, rad * 1.4, 6,
+          [Math.cos(a) * (rad * 0.3), y + h0, Math.sin(a) * (rad * 0.3)], [0, -a, Math.PI / 2]));
+      }
+      // Junction boxes.
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * TAU;
+        conduit.push(box(0.34, 0.42, 0.18, [Math.cos(a) * (rad - 0.2), y + 1.6, Math.sin(a) * (rad - 0.2)], [0, -a, 0]));
+      }
+      r.group.add(mesh(mergeGeometries(conduit), P.metal, { name: 'ExposedConduit' }));
+
+      /* Prop 1 — the beacon mechanism: a rotating optic in a housing. */
+      const optic = new THREE.Group();
+      optic.name = 'BeaconOptic';
+      optic.add(mesh(mergeGeometries([
+        cyl(0.9, 0.9, 1.4, 16, [0, 0, 0], null, true),
+        box(0.28, 1.4, 1.8, [0.9, 0, 0])
+      ]), P.metal, { name: 'OpticBody' }));
+      const opticGlow = this.materials.solid('crownBeaconOptic', {
+        color: 0x2a0d08, roughness: 0.3, emissive: 0xff5533, emissiveIntensity: 3.0
+      });
+      this.materials.registerInterior(opticGlow);
+      optic.add(mesh(cyl(0.62, 0.62, 1.5, 16, [0, 0, 0]), opticGlow, { name: 'OpticLamp' }));
+      optic.position.set(0, y + 4.2, 0);
+      r.group.add(optic);
+      r.group.add(mesh(mergeGeometries([
+        cyl(1.5, 1.5, 0.3, 18, [0, y + 3.2, 0]),
+        cyl(0.2, 0.2, 2.6, 8, [0, y + 1.9, 0])
+      ]), P.alum, { name: 'BeaconPedestal' }));
+      const beaconLight = roomLight(r, 0xff6a44, 90, 30, [0, y + 4.2, 0]);
+      r.addProp({
+        name: 'Beacon optic',
+        update(dt) {
+          optic.rotation.y += dt * 1.15;
+          const p = (performance.now() * 0.001) % 3;
+          const pulse = Math.exp(-Math.pow((p - 0.25) / 0.16, 2)) + Math.exp(-Math.pow((p - 0.75) / 0.16, 2));
+          opticGlow.emissiveIntensity = 2.0 + pulse * 6;
+          beaconLight.intensity = 40 + pulse * 140;
+        }
+      });
+
+      /* Prop 2 — a ventilation fan in the wall. */
+      const fan = ventFan(0.62, 5);
+      fan.rotor.add(mesh(fan.geometry, P.alum, { name: 'FanBlades' }));
+      fan.rotor.position.set(0, y + 2.2, -(rad - 0.1));
+      fan.rotor.rotation.x = Math.PI / 2;
+      r.group.add(fan.rotor);
+      r.group.add(mesh(fan.housing, P.metal, {
+        name: 'FanHousing', pos: [0, y + 2.2, -(rad - 0.12)], rot: [Math.PI / 2, 0, 0]
+      }));
+      r.addProp({ name: 'Ventilation fan', update: (dt) => fan.update(dt) });
+
+      /* Prop 3 — utilitarian strip lighting and a rack of blinking gear. */
+      const strips = [];
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * TAU;
+        strips.push(box(0.1, 0.06, 2.4, [Math.cos(a) * 1.4, y + 6.3, Math.sin(a) * 1.4], [0, -a, 0]));
+      }
+      r.group.add(mesh(mergeGeometries(strips), P.strip, { name: 'StripLighting' }));
+      const rackMat = this.materials.solid('crownRack', {
+        color: 0x14181e, roughness: 0.5, emissive: 0x33ff88, emissiveIntensity: 0.9
+      });
+      this.materials.registerInterior(rackMat);
+      const rack = mesh(mergeGeometries([
+        box(1.0, 2.0, 0.6, [0, 1.0, 0]),
+        box(0.9, 0.08, 0.05, [0, 1.7, 0.32]),
+        box(0.9, 0.08, 0.05, [0, 1.4, 0.32]),
+        box(0.9, 0.08, 0.05, [0, 1.1, 0.32])
+      ]), rackMat, { name: 'BroadcastRack', pos: [1.6, y, 1.2] });
+      r.group.add(rack);
+      const roomStrip = roomLight(r, 0xe8f2ff, 22, 16, [0, y + 5.6, 0]);
+      r.addProp({
+        name: 'Broadcast rack',
+        update() {
+          const p = performance.now() * 0.001;
+          rackMat.emissiveIntensity = 0.6 + (Math.sin(p * 7.3) > 0.4 ? 0.8 : 0.1);
+          roomStrip.intensity = 22;
+        }
+      });
+    });
   }
 });

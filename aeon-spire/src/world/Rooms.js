@@ -116,11 +116,21 @@ export class InteriorManager {
   byName(name) { return this.rooms.find(r => r.name === name); }
   byZone(zone) { return this.rooms.filter(r => r.zone === zone); }
 
-  /** Force every room built and visible — used by the QA walkthrough. */
-  revealAll() {
+  /**
+   * Force every room built and visible, and keep them that way — used by
+   * the QA walkthrough, which must exercise interiors the camera never
+   * approaches. Without the latch, the next distance evaluation would
+   * simply hide them again.
+   */
+  revealAll(latch = true) {
+    this.forceAll = latch;
     for (const r of this.rooms) { this._ensureBuilt(r); r.setVisible(true); }
     this.visibleCount = this.rooms.length;
+    return this.rooms.length;
   }
+
+  /** Release the QA latch and return to normal distance-based culling. */
+  releaseAll() { this.forceAll = false; }
 
   _ensureBuilt(room) {
     if (room._built) return;
@@ -144,6 +154,17 @@ export class InteriorManager {
     this._acc += dt;
     if (this._acc < this._interval) return;
     this._acc = 0;
+
+    if (this.forceAll) {
+      // Still track which room the camera occupies, but leave all visible.
+      let occ = null;
+      for (const r of this.rooms) { r.occupied = r.contains(cameraPos); if (r.occupied) occ = r; }
+      if (occ !== this.current) {
+        this.previous = this.current; this.current = occ;
+        if (this.onRoomChange) this.onRoomChange(occ, this.previous);
+      }
+      return;
+    }
 
     let occupied = null;
     let bestD = Infinity;
