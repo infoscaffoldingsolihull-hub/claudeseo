@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>AEON SPIRE — City of Wonders (single-file build)</title>
+<title>AEON SPIRE — City of Wonders</title>
 <meta name="description" content="AEON SPIRE: a 700m fictional supertall and entertainment campus, explorable in 3D, with a scrubbable 700-day construction timeline and a project-management HUD.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%230b1220'/><path d='M16 3 L21 26 H11 Z' fill='%23e8c07a'/></svg>">
 <style>
@@ -87,7 +87,7 @@
   <div id="fatal"><div class="card">
     <h2>AEON SPIRE could not start</h2>
     <p id="fatalmsg">An unexpected error occurred.</p>
-    <p>This build needs a browser with <b>WebGL 2</b> — Chrome, Edge, Firefox, or Safari 15 or newer. Everything else it needs is already inside this file.</p>
+    <p>This build needs a browser with <b>WebGL 2</b> — Chrome, Edge, Firefox, or Safari 15 or newer. Everything else it needs is already inside this file: there is nothing to install and nothing to download.</p>
     <pre id="fataldetail"></pre>
   </div></div>
 
@@ -82118,17 +82118,17 @@ class Lighting {
     scene.add(this.sun, this.sunTarget);
     this.sun.target = this.sunTarget;
 
-    const size = 260;
+    const size = 340;
     const cam = this.sun.shadow.camera;
     cam.left = -size; cam.right = size;
     cam.top = size; cam.bottom = -size;
-    cam.near = 1; cam.far = 1400;
+    cam.near = 1; cam.far = 2600;
     this.shadowSize = size;
     const map = tier ? tier.shadowMap : 2048;
     this.sun.shadow.mapSize.set(map, map);
-    this.sun.shadow.bias = -0.0006;
-    this.sun.shadow.normalBias = 0.55;
-    this.sun.shadow.radius = 2.2;
+    this.sun.shadow.bias = -0.0004;
+    this.sun.shadow.normalBias = 0.9;
+    this.sun.shadow.radius = 1.6;
 
     /* A cool bounce light from the opposite side — this is what stops the
        shadow side of a supertall reading as a black cut-out. */
@@ -82183,14 +82183,24 @@ class Lighting {
    */
   update(camera) {
     const d = this.sunDirection;
-    const focus = camera.position;
+
+    /* Centre the shadow frustum on what the camera is *looking at*, not on
+       where it is standing. Anchoring it to the camera position left the
+       subject outside the frustum whenever the viewer stood back from the
+       tower — which is exactly the default view, and why nothing cast a
+       shadow there. */
+    camera.getWorldDirection(this._fwd || (this._fwd = new THREE.Vector3()));
+    const ahead = this.shadowSize * 0.55;
+    const focus = this._focus || (this._focus = new THREE.Vector3());
+    focus.copy(camera.position).addScaledVector(this._fwd, ahead);
+
     const texel = (this.shadowSize * 2) / this.sun.shadow.mapSize.x;
     const fx = Math.round(focus.x / texel) * texel;
     const fz = Math.round(focus.z / texel) * texel;
     const fy = clamp(focus.y, 0, 420);
 
     this.sunTarget.position.set(fx, fy, fz);
-    this.sun.position.set(fx + d.x * 900, fy + d.y * 900, fz + d.z * 900);
+    this.sun.position.set(fx + d.x * 1500, fy + d.y * 1500, fz + d.z * 1500);
     this.sun.shadow.camera.updateProjectionMatrix();
   }
 
@@ -82249,7 +82259,7 @@ const TOD_PRESETS = [
     zenith: C(0x2c4a80), horizon: C(0xe0a878), ground: C(0x2a2c33),
     cloudColor: C(0xf0c8a8), cloud: 0.42, haze: 0.62, stars: 0.18,
     sunDiscIntensity: 0.85,
-    fogColor: C(0xc8b0a0), fogNear: 320, fogFar: 3000,
+    fogColor: C(0xc8b0a0), fogNear: 900, fogFar: 5200,
     exposure: 1.05, grade: C(0xffe8dc), lift: C(0x0a0c14), contrast: 1.06,
     saturation: 1.10, vignette: 0.46, bloomStrength: 0.72, bloomThreshold: 0.78,
     nightMix: 0.55, interiorEnv: 0.30, envIntensity: 0.52
@@ -82257,31 +82267,31 @@ const TOD_PRESETS = [
   {
     id: 'day', name: 'Day', key: 'Day',
     sunAzimuth: 140 * DEG, sunElevation: 62 * DEG,
-    sunColor: C(0xfff6e6), sunIntensity: 3.4,
-    fillColor: C(0xa8c4e8), fillIntensity: 0.55,
-    hemiSky: C(0xc6dcf0), hemiGround: C(0x5a5346), hemiIntensity: 1.15,
-    ambientIntensity: 0.09,
+    sunColor: C(0xfff6e6), sunIntensity: 4.2,
+    fillColor: C(0x9ab8e0), fillIntensity: 0.34,
+    hemiSky: C(0xbcd6ee), hemiGround: C(0x60584a), hemiIntensity: 0.78,
+    ambientIntensity: 0.05,
     zenith: C(0x2f6bb5), horizon: C(0xc2d8ea), ground: C(0x33363c),
     cloudColor: C(0xffffff), cloud: 0.34, haze: 0.30, stars: 0.0,
     sunDiscIntensity: 1.0,
-    fogColor: C(0xc8dcec), fogNear: 620, fogFar: 4200,
-    exposure: 1.0, grade: C(0xffffff), lift: C(0x000000), contrast: 1.04,
-    saturation: 1.05, vignette: 0.36, bloomStrength: 0.5, bloomThreshold: 0.92,
+    fogColor: C(0xbcd2e4), fogNear: 1400, fogFar: 6400,
+    exposure: 1.0, grade: C(0xffffff), lift: C(0x000000), contrast: 1.12,
+    saturation: 1.10, vignette: 0.40, bloomStrength: 0.42, bloomThreshold: 0.95,
     nightMix: 0.0, interiorEnv: 0.55, envIntensity: 0.85
   },
   {
     id: 'golden', name: 'Golden Hour', key: 'Golden',
     sunAzimuth: 205 * DEG, sunElevation: 11 * DEG,
-    sunColor: C(0xffc077), sunIntensity: 2.7,
+    sunColor: C(0xffc077), sunIntensity: 3.4,
     fillColor: C(0x8ba8d8), fillIntensity: 0.45,
     hemiSky: C(0xd8c0a0), hemiGround: C(0x5e4a36), hemiIntensity: 1.0,
     ambientIntensity: 0.09,
     zenith: C(0x3f6faa), horizon: C(0xf0b070), ground: C(0x33302e),
     cloudColor: C(0xffd8b0), cloud: 0.48, haze: 0.55, stars: 0.0,
     sunDiscIntensity: 1.15,
-    fogColor: C(0xe0b487), fogNear: 420, fogFar: 3400,
-    exposure: 1.08, grade: C(0xfff0d8), lift: C(0x0c0a06), contrast: 1.08,
-    saturation: 1.16, vignette: 0.44, bloomStrength: 0.86, bloomThreshold: 0.72,
+    fogColor: C(0xdcb188), fogNear: 1100, fogFar: 5600,
+    exposure: 0.94, grade: C(0xfff2dc), lift: C(0x0c0a06), contrast: 1.14,
+    saturation: 1.14, vignette: 0.46, bloomStrength: 0.55, bloomThreshold: 0.88,
     nightMix: 0.18, interiorEnv: 0.44, envIntensity: 0.62
   },
   {
@@ -82294,7 +82304,7 @@ const TOD_PRESETS = [
     zenith: C(0x1e2a56), horizon: C(0xc76a58), ground: C(0x22242a),
     cloudColor: C(0xb87f88), cloud: 0.5, haze: 0.7, stars: 0.4,
     sunDiscIntensity: 0.7,
-    fogColor: C(0x6f6478), fogNear: 300, fogFar: 2800,
+    fogColor: C(0x6f6478), fogNear: 800, fogFar: 4600,
     exposure: 1.10, grade: C(0xeae6f2), lift: C(0x0e0f1c), contrast: 1.07,
     saturation: 1.02, vignette: 0.5, bloomStrength: 1.0, bloomThreshold: 0.62,
     nightMix: 0.88, interiorEnv: 0.26, envIntensity: 0.34
@@ -82311,7 +82321,7 @@ const TOD_PRESETS = [
     zenith: C(0x060a18), horizon: C(0x1c2b45), ground: C(0x121419),
     cloudColor: C(0x27324a), cloud: 0.3, haze: 0.4, stars: 1.0,
     sunDiscIntensity: 0.40,
-    fogColor: C(0x151a28), fogNear: 260, fogFar: 2600,
+    fogColor: C(0x141a2a), fogNear: 700, fogFar: 4200,
     exposure: 1.25, grade: C(0xdce6ff), lift: C(0x0a0e1a), contrast: 1.12,
     saturation: 1.02, vignette: 0.58, bloomStrength: 1.35, bloomThreshold: 0.46,
     nightMix: 1.0, interiorEnv: 0.20, envIntensity: 0.26
@@ -84309,30 +84319,33 @@ const LEVELS = {
   L1: 0.0,
   L2: 6.2,
   L3: 12.0,
-  podiumTop: 18.0,
+  podiumTop: 24.0,
 
   /* Zone 2 — Sail Atrium (L4 … L30) */
-  L4: 18.0,
-  L7: 32.4,
-  L30: 142.0,
-  sailTop: 142.0,
+  L4: 24.0,
+  L7: 40.0,
+  L30: 178.0,
+  sailTop: 178.0,
 
-  /* Zone 3 — Ring Deck (L31 … L55) */
-  L31: 142.0,
-  ringMid: 197.0,
-  L55: 252.0,
-  ringTop: 252.0,
+  /* Zone 3 — Ring Deck (L31 … L55). The disc is 80 m in elevation, so it
+     reads as a disc rather than a bulge on a stem. */
+  L31: 178.0,
+  ringMid: 230.0,
+  L55: 282.0,
+  ringTop: 282.0,
 
-  /* Zone 4 — Spire Crown (L56 … L88, then the lattice spire) */
-  L56: 252.0,
-  L88: 400.0,
-  crownTop: 400.0,
+  /* Zone 4 — Spire Crown (L56 … L88, then the lattice spire).
+     The occupied crown is a real tower body of 164 m, and the spire above it
+     is a 270 m needle at roughly 30:1 slenderness — not a cone. */
+  L56: 282.0,
+  L88: 440.0,
+  crownTop: 440.0,
   spireTip: 700.0,
   /** The tuned-mass-damper chamber sits inside the lattice spire, above the
-      last occupied floor at 400 m — not below it. */
-  damperFloor: 452.0,
+      last occupied floor at 430 m — not below it. */
+  damperFloor: 492.0,
   /** The beacon room caps the habitable part of the mast. */
-  beaconFloor: 612.0,
+  beaconFloor: 626.0,
 
   /** Nominal floor-to-floor used when generating repeating plates. */
   floorHeight: 4.55
@@ -84383,18 +84396,18 @@ const SAIL = {
   base: LEVELS.L4,
   top: LEVELS.sailTop,
   /** Tower plan at the base of the sail (half-extents, X × Z). */
-  baseHalfX: 39,
-  baseHalfZ: 31,
+  baseHalfX: 44,
+  baseHalfZ: 35,
   /** Plan at the top of the sail. */
-  topHalfX: 30,
-  topHalfZ: 24,
+  topHalfX: 33,
+  topHalfZ: 27,
   /** The sail shell springs from the +X face and leans over the atrium. */
   sailFace: 1,
-  sailChord: 92,
-  sailMaxOffset: 46,
+  sailChord: 104,
+  sailMaxOffset: 54,
   /** The full-height atrium void sits between the core and the sail skin. */
-  atriumHalfX: 26,
-  atriumHalfZ: 21,
+  atriumHalfX: 29,
+  atriumHalfZ: 23,
   /** Structural diagrid module. */
   diagridBays: 12,
   diagridCourses: 9,
@@ -84417,14 +84430,17 @@ const RING = {
    * plan. That is the Aldar HQ engineering idea — a circular diagrid disc —
    * rather than the bulging solid a radius-varying loft would produce.
    */
-  discRadius: 55,
-  discThickHalf: 22,
-  discCentreY: 197.0,
-  discInner: 19,
+  /* 104 m across in elevation against a 48-66 m tower, but only 30 m thick:
+     the disc must out-reach the shaft from every bearing, or it reads as a
+     bulge on a stem rather than a disc standing on edge. */
+  discRadius: 52,
+  discThickHalf: 15,
+  discCentreY: 230.0,
+  discInner: 15,
   /** The cantilevered, glass-bottomed halo walkway, clear of the disc. */
-  haloRadius: 74,
-  haloWidth: 7.6,
-  haloLevel: 197.0,
+  haloRadius: 70,
+  haloWidth: 7.2,
+  haloLevel: 230.0,
   /** Perimeter truss follows the disc's circular rim in elevation. */
   trussBays: 40,
   rakerCount: 20,
@@ -84445,15 +84461,18 @@ const SPIRE = {
   crownTop: LEVELS.crownTop,
   tip: LEVELS.spireTip,
   /** Occupied crown tapers from this half-width to this one. */
-  baseHalf: 26,
-  topHalf: 13,
-  /** Lattice spire above the crown. */
-  latticeBase: 13,
-  latticeTip: 1.1,
+  baseHalf: 24,
+  topHalf: 11,
+  /** The lattice spire: a needle, not a cone. */
+  latticeBase: 9,
+  latticeTip: 0.4,
   latticeRibs: 8,
-  latticeRings: 22,
+  latticeRings: 30,
+  /** Only the lowest fraction of the spire is enclosed; above that it is an
+      open mast, which is what keeps the silhouette slender. */
+  glazedFraction: 0.22,
   /** Floor plates modelled inside the crown. */
-  floors: [56, 62, 68, 74, 80, 86, 88],
+  floors: [56, 61, 66, 71, 76, 81, 86, 88],
   damperY: LEVELS.damperFloor,
   beaconY: LEVELS.beaconFloor
 };
@@ -91860,9 +91879,13 @@ class SpireCrown extends Zone {
    * A power curve keeps the taper reading as a spire rather than a cone.
    */
   latticeRadius(t) {
-    // Clamped: a fractional power of a negative t is NaN, which silently
-    // poisons every merged geometry downstream.
-    return lerp(SPIRE.latticeBase, SPIRE.latticeTip, Math.pow(clamp(t, 0, 1), 0.62));
+    /* A fast initial taper followed by a long, near-parallel mast. A gentle
+       power curve here is what made the first version read as a traffic cone
+       rather than a spire: it kept the section fat for most of its height.
+       Clamped, because a fractional power of a negative t is NaN and would
+       silently poison every merged geometry downstream. */
+    const k = Math.pow(clamp(t, 0, 1), 0.34);
+    return lerp(SPIRE.latticeBase, SPIRE.latticeTip, k);
   }
 
   massing() {
@@ -92094,10 +92117,12 @@ Object.assign(SpireCrown.prototype, {
     });
     const yBase = SPIRE.crownTop, yTip = SPIRE.tip;
     const ribs = SPIRE.latticeRibs;
-    // Only glaze the lower two-thirds; above that the lattice is open mast.
-    const n = 16;
+    /* Only the lowest fraction is enclosed. Above that the spire is an open
+       mast — which is what keeps the silhouette a needle rather than a cone. */
+    const n = 12;
+    const top = lerp(yBase, yTip, SPIRE.glazedFraction);
     const heights = [];
-    for (let i = 0; i <= n; i++) heights.push(lerp(yBase, lerp(yBase, yTip, 0.62), i / n));
+    for (let i = 0; i <= n; i++) heights.push(lerp(yBase, top, i / n));
     const skin = loft((t, y) => {
       const tt = (y - yBase) / (yTip - yBase);
       const r = this.latticeRadius(tt) * 0.965;
@@ -92646,6 +92671,8 @@ class LeaningObservatory extends Zone {
     const M = this.materials;
     const R = OBSERVATORY.radius;
     const H = OBSERVATORY.height;
+    // Queue the wonder pass to run after the base massing exists.
+    this._runWonder = true;
 
     /* --- Foundation: an asymmetric caisson, offset against the lean --- */
     const concrete = M.surface('obsCaisson', 'polishedConcrete', {
@@ -92789,6 +92816,7 @@ Object.assign(LeaningObservatory.prototype, {
   facade() {
     this.buildOpenings();
     this.buildEntryPortal();
+    if (this._runWonder) this.wonderPass();
   },
 
   /** Arched window openings, one band per storey, following the arcades. */
@@ -93322,6 +93350,282 @@ Object.assign(LeaningObservatory.prototype, {
         }
       });
     });
+  }
+});
+
+/* ==================================================================== */
+/* Wonder pass — the engineering that makes this annex a 1/1            */
+/*                                                                      */
+/* A drum that leans is not, on its own, remarkable: Pisa leans by       */
+/* accident. What makes this one a marvel is that the lean is deliberate */
+/* and the structure that permits it is put on show — a counterweight    */
+/* mass slung on the up-slope side, a stay-cable fan carrying it, and a  */
+/* glazed helix winding the full height so you read the tilt as you      */
+/* climb. Every element below is load-bearing in the narrative sense:    */
+/* it explains how an 8° building stands up.                            */
+/* ==================================================================== */
+
+Object.assign(LeaningObservatory.prototype, {
+
+  wonderPass() {
+    this.buildCounterweight();
+    this.buildStayFan();
+    this.buildHelix();
+    this.buildCantileverDeck();
+    this.buildTiltDatum();
+  },
+
+  /**
+   * The counterweight: a 900-tonne mass slung outboard on the up-slope side,
+   * on a visible truss outrigger. It is the reason the tower does not simply
+   * topple, and it is deliberately the most conspicuous object on the annex.
+   */
+  buildCounterweight() {
+    const M = this.materials;
+    const steel = M.surface('obsCwSteel', 'paintedSteel', {
+      repeat: 2, roughness: 0.42, metalness: 0.7, exterior: true,
+      color: 0xd8dde3, opts: { hex: 0x9aa2ab }
+    });
+    const massMat = M.solid('obsCwMass', {
+      color: 0x3a3f47, roughness: 0.36, metalness: 0.86, exterior: true
+    });
+
+    const R = OBSERVATORY.radius;
+    const y = OBSERVATORY.height * 0.62;
+    // Outboard on the side the tower leans away from.
+    const a = OBSERVATORY.tiltAzimuth + Math.PI / 2;
+    const reach = R + 15;
+
+    const parts = [];
+    /* A triangulated outrigger, not a cantilevered stick. */
+    const root = [Math.cos(a) * (R - 1), y, Math.sin(a) * (R - 1)];
+    const tip = [Math.cos(a) * reach, y + 2.5, Math.sin(a) * reach];
+    const below = [Math.cos(a) * (R - 1), y - 11, Math.sin(a) * (R - 1)];
+    for (const off of [-4.2, 4.2]) {
+      const sx = -Math.sin(a) * off, sz = Math.cos(a) * off;
+      const o = (p) => [p[0] + sx, p[1], p[2] + sz];
+      parts.push(member(o(root), o(tip), 0.62, 0.62));
+      parts.push(member(o(below), o(tip), 0.5, 0.5));
+      parts.push(member(o(root), o(below), 0.42, 0.42));
+      // Web bracing along the outrigger.
+      for (let i = 1; i < 4; i++) {
+        const t = i / 4;
+        const up = [lerp(root[0], tip[0], t), lerp(root[1], tip[1], t), lerp(root[2], tip[2], t)];
+        const dn = [lerp(below[0], tip[0], t), lerp(below[1], tip[1], t), lerp(below[2], tip[2], t)];
+        parts.push(member(o(up), o(dn), 0.26, 0.26));
+      }
+    }
+    parts.push(member(
+      [tip[0] - Math.sin(a) * 4.2, tip[1], tip[2] + Math.cos(a) * 4.2],
+      [tip[0] + Math.sin(a) * 4.2, tip[1], tip[2] - Math.cos(a) * 4.2], 0.42, 0.42));
+    this.shell.add(mesh(mergeGeometries(parts.filter(Boolean)), steel, {
+      name: 'CounterweightOutrigger', cast: true
+    }));
+
+    /* The mass itself: stacked steel plates on a pin, so it reads as
+       weight rather than decoration. */
+    const mass = new THREE.Group();
+    mass.name = 'CounterweightMass';
+    mass.position.set(tip[0], tip[1], tip[2]);
+    mass.rotation.y = -a;
+    const plates = [];
+    for (let i = 0; i < 9; i++) {
+      const w = 7.4 - Math.abs(i - 4) * 0.28;
+      plates.push(box(w, 0.85, 5.2, [0, -2.2 - i * 0.92, 0]));
+    }
+    plates.push(cyl(0.42, 0.42, 3.0, 12, [0, -0.9, 0]));
+    plates.push(box(8.4, 0.6, 6.0, [0, -11.2, 0]));
+    mass.add(mesh(mergeGeometries(plates), massMat, { name: 'Plates', cast: true }));
+    this.shell.add(mass);
+    this.counterweight = mass;
+
+    /* It swings, very slightly, as a real pendulum mass does. */
+    this.addAnimator((dt, t) => {
+      mass.rotation.z = Math.sin(t * 0.21) * 0.012 + Math.sin(t * 0.07) * 0.006;
+    });
+  },
+
+  /**
+   * A fan of stay cables from a masthead down to the drum — the tension side
+   * of the same couple the counterweight resolves in compression.
+   */
+  buildStayFan() {
+    const M = this.materials;
+    const cableMat = M.solid('obsStay', {
+      color: 0x596068, roughness: 0.34, metalness: 0.92, exterior: true
+    });
+    const mastMat = M.surface('obsMast', 'brushedMetal', {
+      repeat: 2, roughness: 0.3, metalness: 0.84, exterior: true, color: 0xd0d6dd
+    });
+
+    const R = OBSERVATORY.radius;
+    const H = OBSERVATORY.height;
+    const a = OBSERVATORY.tiltAzimuth + Math.PI / 2;
+
+    /* The mast leans back against the tower's lean — an honest expression of
+       the force it resists. */
+    const mastFoot = [Math.cos(a) * (R + 4), 0, Math.sin(a) * (R + 4)];
+    const mastHead = [Math.cos(a) * (R + 16), H + 22, Math.sin(a) * (R + 16)];
+    const mast = [];
+    mast.push(member(mastFoot, mastHead, 1.5, 1.5));
+    mast.push(cyl(2.6, 3.2, 2.4, 14, [mastFoot[0], 1.2, mastFoot[2]]));
+    mast.push(new THREE.SphereGeometry(1.6, 14, 10).translate(mastHead[0], mastHead[1], mastHead[2]));
+    this.shell.add(mesh(mergeGeometries(mast.filter(Boolean)), mastMat, {
+      name: 'StayMast', cast: true
+    }));
+
+    /* Cables fan from the head to anchor points up the drum, and back down
+       to ground anchors behind the mast. */
+    const cables = [];
+    const q = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(0, OBSERVATORY.tiltAzimuth, OBSERVATORY.tiltDegrees * DEG, 'YZX'));
+    for (let i = 0; i < 7; i++) {
+      const t = i / 6;
+      const localY = lerp(H * 0.28, H * 0.98, t);
+      const spread = (i - 3) * 0.16;
+      const local = new THREE.Vector3(
+        Math.cos(a + spread) * (R + 0.4), localY, Math.sin(a + spread) * (R + 0.4));
+      const world = local.clone().applyQuaternion(q)
+        .add(new THREE.Vector3(OBSERVATORY.x, 0, OBSERVATORY.z));
+      const c = tube(mastHead, [world.x - OBSERVATORY.x, world.y, world.z - OBSERVATORY.z], 0.13, 6);
+      if (c) cables.push(c);
+    }
+    for (let i = 0; i < 4; i++) {
+      const spread = (i - 1.5) * 0.34;
+      const gx = Math.cos(a + spread) * (R + 44);
+      const gz = Math.sin(a + spread) * (R + 44);
+      const c = tube(mastHead, [gx, 1.4, gz], 0.15, 6);
+      if (c) cables.push(c);
+      cables.push(box(3.8, 2.2, 3.8, [gx, 0.7, gz], [0, -a, 0]));
+    }
+    this.shell.add(mesh(mergeGeometries(cables.filter(Boolean)), cableMat, {
+      name: 'StayCableFan', cast: true
+    }));
+  },
+
+  /**
+   * A glazed helix winding the drum's full height. Because it is a true helix
+   * on a leaning cylinder, its pitch reads as visibly uneven from outside —
+   * the tilt made legible by geometry rather than by signage.
+   */
+  buildHelix() {
+    const M = this.materials;
+    const glass = M.glass('obsHelixGlass', {
+      color: 0xbfe0ee, opacity: 0.24, roughness: 0.06, metalness: 0.08,
+      side: THREE.DoubleSide, envMapIntensity: 2.4
+    });
+    const frameMat = M.surface('obsHelixFrame', 'brushedMetal', {
+      repeat: 3, roughness: 0.28, metalness: 0.84, exterior: true, color: 0xc8cfd7
+    });
+
+    const R = OBSERVATORY.radius;
+    const H = OBSERVATORY.height;
+    const turns = 2.4;
+    const steps = 150;
+
+    const soffit = [], frames = [], glazing = [];
+    for (let i = 0; i < steps; i++) {
+      const t0 = i / steps, t1 = (i + 1) / steps;
+      const a0 = t0 * turns * TAU, a1 = t1 * turns * TAU;
+      const y0 = 3 + t0 * (H - 6), y1 = 3 + t1 * (H - 6);
+      const rr = R + 2.6;
+      const p0 = [Math.cos(a0) * rr, y0, Math.sin(a0) * rr];
+      const p1 = [Math.cos(a1) * rr, y1, Math.sin(a1) * rr];
+      const m = member(p0, p1, 3.2, 0.34);
+      if (m) soffit.push(m);
+      if (i % 4 === 0) {
+        const inner = [Math.cos(a0) * (R + 0.4), y0, Math.sin(a0) * (R + 0.4)];
+        const b = member(inner, [p0[0], p0[1] - 1.6, p0[2]], 0.2, 0.2);
+        if (b) frames.push(b);
+        const post = member(p0, [p0[0], p0[1] + 2.6, p0[2]], 0.14, 0.14);
+        if (post) frames.push(post);
+      }
+      const g = member([p0[0], p0[1] + 0.2, p0[2]], [p1[0], p1[1] + 0.2, p1[2]], 2.9, 2.4);
+      if (g) glazing.push(g);
+    }
+    this.tiltShell.add(mesh(mergeGeometries(soffit.filter(Boolean)), frameMat, {
+      name: 'HelixSoffit', cast: true, receive: true
+    }));
+    this.tiltShell.add(mesh(mergeGeometries(frames.filter(Boolean)), frameMat, {
+      name: 'HelixFrames', cast: true
+    }));
+    this.tiltShell.add(mesh(mergeGeometries(glazing.filter(Boolean)), glass, {
+      name: 'HelixGlazing', renderOrder: 4
+    }));
+  },
+
+  /** A glass-floored deck cantilevered off the high side, over nothing. */
+  buildCantileverDeck() {
+    const M = this.materials;
+    const steel = M.surface('obsDeckSteel', 'paintedSteel', {
+      repeat: 2, roughness: 0.4, metalness: 0.68, exterior: true,
+      color: 0xe0e5ea, opts: { hex: 0xb0b8c0 }
+    });
+    const glass = M.glass('obsDeckGlass', {
+      color: 0xb8d8e8, opacity: 0.3, roughness: 0.05, side: THREE.DoubleSide
+    });
+
+    const R = OBSERVATORY.radius;
+    const y = OBSERVATORY.height - 7;
+    // Project from the *down-slope* side, so the deck hangs out over the lean.
+    const a = OBSERVATORY.tiltAzimuth - Math.PI / 2;
+    const reach = 17;
+
+    const g = new THREE.Group();
+    g.position.set(0, y, 0);
+    g.rotation.y = -a;
+    const ribs = [];
+    for (let i = -3; i <= 3; i++) {
+      const off = i * 2.4;
+      ribs.push(member([R - 2, 0, off], [R + reach, -1.2, off * 0.55], 0.24, 0.62));
+      ribs.push(tube([R + reach, -1.0, off * 0.55], [R - 3, 9.5, off * 0.75], 0.07, 5));
+    }
+    ribs.push(member([R + reach, -1.3, -4.4], [R + reach, -1.3, 4.4], 0.3, 0.5));
+    g.add(mesh(mergeGeometries(ribs.filter(Boolean)), steel, { name: 'DeckRibs', cast: true }));
+
+    const floor = new THREE.PlaneGeometry(reach, 15, 6, 6);
+    floor.rotateX(-Math.PI / 2);
+    g.add(mesh(xform(floor, { pos: [R + reach / 2, 0.05, 0] }), glass, {
+      name: 'DeckGlassFloor', renderOrder: 5
+    }));
+    const rail = [];
+    for (let i = 0; i <= 12; i++) {
+      const t = i / 12;
+      rail.push([R + reach * (0.06 + t * 0.94), 0.05, lerp(-7.4, 7.4, t)]);
+    }
+    g.add(mesh(balustrade(rail, 1.15, 2, 0.035, 0.05), steel, { name: 'DeckRail' }));
+    this.tiltShell.add(g);
+  },
+
+  /**
+   * A vertical datum column standing beside the tower, dead plumb. Reading
+   * the two against each other is the whole point — the marvel is legible
+   * only by comparison.
+   */
+  buildTiltDatum() {
+    const M = this.materials;
+    const stone = M.surface('obsDatum', 'limestone', {
+      repeat: 3, roughness: 0.56, exterior: true, color: 0xf0e9da
+    });
+    const brass = M.solid('obsDatumBrass', {
+      color: 0xc9a04b, roughness: 0.28, metalness: 0.9, exterior: true
+    });
+    const a = OBSERVATORY.tiltAzimuth - Math.PI * 0.75;
+    const d = OBSERVATORY.radius + 22;
+    const x = Math.cos(a) * d, z = Math.sin(a) * d;
+
+    const parts = [
+      cyl(1.5, 1.9, 1.2, 20, [x, 0.6, z]),
+      cyl(0.62, 0.72, 26, 16, [x, 13.6, z]),
+      cyl(1.0, 0.5, 1.6, 16, [x, 27.2, z])
+    ];
+    this.shell.add(mesh(mergeGeometries(parts), stone, {
+      name: 'PlumbDatumColumn', cast: true, receive: true
+    }));
+    /* Graduated bands so the divergence can be measured by eye. */
+    const bands = [];
+    for (let i = 1; i <= 8; i++) bands.push(cyl(0.66, 0.66, 0.16, 16, [x, i * 3.0, z]));
+    this.shell.add(mesh(mergeGeometries(bands), brass, { name: 'DatumGraduations' }));
   }
 });
 
@@ -95365,9 +95669,14 @@ const { SITE, CANAL, COURT, ANNEX, ZONE_PRESETS } = M19;
 
 const { Room, InteriorManager, ACOUSTIC } = M15;
 
-const { mergeGeometries, xform, box, mesh, instance, tree } = M21;
+const { mergeGeometries, xform, box, cyl, mesh, instance, tree } = M21;
 
-const { TAU, rng } = M5;
+const { TAU, rng, clamp, lerp } = M5;
+
+const { ValueNoise } = M8;
+
+/** Terrain relief field — shared so the ground and the hills agree. */
+const noiseField = new ValueNoise(90210);
 const { CanalConcourse } = M27;
 
 const { SailAtrium } = M30;
@@ -95448,31 +95757,130 @@ class SceneManager {
     return this;
   }
 
-  /** The ground plane, plaza and approach roads. */
+  /**
+   * The ground: a tessellated, gently undulating terrain rather than a flat
+   * grey plate. The first version was a single unlit-looking disc, which is
+   * what made every building on it read as a box sitting on nothing.
+   */
   buildSite() {
     const M = this.materials;
 
-    /* Distant terrain, as a ring so it never intrudes on the campus. */
-    const farMat = M.solid('siteFar', { color: 0x5f6357, roughness: 0.96, exterior: true });
-    const far = new THREE.RingGeometry(SITE.plazaRadius - 2, SITE.extent / 2, 64, 2);
+    /* --- Distant terrain: a large disc with real relief and material --- */
+    const farMat = M.surface('siteFar', 'siteGround', {
+      repeat: 140, roughness: 0.97, exterior: true, color: 0x9a9482
+    });
+    const far = new THREE.CircleGeometry(SITE.extent / 2, 96, 0, TAU);
     far.rotateX(-Math.PI / 2);
-    this.scene.add(mesh(xform(far, { pos: [0, -0.4, 0] }), farMat, {
-      name: 'DistantGround', receive: true
+    {
+      const pos = far.attributes.position;
+      const uv = far.attributes.uv;
+      const n = noiseField;
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i), z = pos.getZ(i);
+        const r = Math.hypot(x, z);
+        // Flat where the campus sits, rolling beyond it.
+        const k = clamp((r - SITE.plazaRadius) / 900, 0, 1);
+        const h = (n.fbm(x * 0.0016 + 40, z * 0.0016 + 40, 5) - 0.5) * 150 * k * k;
+        pos.setY(i, -0.6 + h);
+        uv.setXY(i, x * 0.0025, z * 0.0025);
+      }
+      far.computeVertexNormals();
+    }
+    this.scene.add(mesh(far, farMat, { name: 'DistantGround', receive: true }));
+
+    /* --- Horizon relief: noise-displaced, heavily squashed domes in three
+       depth bands. Cones read as a child's drawing of mountains; a distorted
+       dome reads as land. --- */
+    const hillMat = M.surface('siteHills', 'siteGround', {
+      repeat: 60, roughness: 0.99, exterior: true, color: 0x8b8f79
+    });
+    const hills = [];
+    const hr = rng(2024);
+    const bands = [
+      { dist: 1500, n: 44, w: 260, h: 90, jitter: 340 },
+      { dist: 2350, n: 38, w: 420, h: 170, jitter: 520 },
+      { dist: 3300, n: 30, w: 620, h: 260, jitter: 700 }
+    ];
+    for (const band of bands) {
+      for (let i = 0; i < band.n; i++) {
+        const a = (i / band.n) * TAU + (hr() - 0.5) * 0.14;
+        const dist = band.dist + (hr() - 0.5) * band.jitter;
+        const w = band.w * (0.55 + hr() * 1.1);
+        const h = band.h * (0.4 + hr() * 1.2);
+        const g = new THREE.SphereGeometry(1, 14, 8, 0, TAU, 0, Math.PI / 2);
+        const pos = g.attributes.position;
+        const seed = Math.floor(hr() * 999);
+        for (let k = 0; k < pos.count; k++) {
+          const x = pos.getX(k), y = pos.getY(k), z = pos.getZ(k);
+          const d2 = noiseField.fbm(x * 1.7 + seed, z * 1.7 + seed, 4);
+          const f = 0.62 + d2 * 0.8;
+          pos.setXYZ(k, x * f, y * (0.5 + d2 * 0.9), z * f);
+        }
+        g.computeVertexNormals();
+        g.scale(w, h, w * (0.6 + hr() * 0.8));
+        hills.push(xform(g, {
+          pos: [Math.cos(a) * dist, -24, Math.sin(a) * dist],
+          rot: [0, hr() * TAU, 0]
+        }));
+      }
+    }
+    this.scene.add(mesh(mergeGeometries(hills), hillMat, {
+      name: 'HorizonRelief', receive: true
     }));
 
-    /* The paved campus plaza: an annulus, because the canal ring is a void
-       in the ground plane and a filled disc would roof the water over. */
+    /* --- The paved campus plaza: an annulus, because the canal ring is a
+       void in the ground plane and a filled disc would roof the water over --- */
     const plazaMat = M.surface('sitePlaza', 'paving', {
-      repeat: 110, roughness: 0.7, exterior: true, color: 0xa9a79f
+      repeat: 150, roughness: 0.68, exterior: true, color: 0xb4b0a6
     });
-    const plaza = new THREE.RingGeometry(CANAL.outerRadius + 1.6, SITE.plazaRadius, 96, 8);
+    const plaza = new THREE.RingGeometry(CANAL.outerRadius + 1.6, SITE.plazaRadius, 128, 24);
     plaza.rotateX(-Math.PI / 2);
-    const uv = plaza.attributes.uv, pos = plaza.attributes.position;
-    for (let i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i) * 0.012, pos.getZ(i) * 0.012);
+    {
+      const uv = plaza.attributes.uv, pos = plaza.attributes.position;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i) * 0.012, pos.getZ(i) * 0.012);
+    }
     this.scene.add(mesh(xform(plaza, { pos: [0, CANAL.copingLevel - 0.02, 0] }), plazaMat, {
       name: 'CampusPlaza', receive: true
     }));
     this.plaza = plazaMat;
+
+    /* --- Radial paving bands and an inlaid compass, so the plaza has a
+       geometry of its own instead of reading as a blank sheet --- */
+    const inlayMat = M.solid('plazaInlay', {
+      color: 0xd8d2c2, roughness: 0.5, exterior: true
+    });
+    const inlay = [];
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * TAU;
+      const r0 = CANAL.outerRadius + 6, r1 = SITE.plazaRadius - 8;
+      inlay.push(box(r1 - r0, 0.05, i % 6 === 0 ? 2.4 : 0.9,
+        [Math.cos(a) * (r0 + r1) / 2, CANAL.copingLevel + 0.03, Math.sin(a) * (r0 + r1) / 2],
+        [0, -a, 0]));
+    }
+    for (const rad of [CANAL.outerRadius + 40, CANAL.outerRadius + 130, SITE.plazaRadius - 30]) {
+      const ring = new THREE.RingGeometry(rad - 0.7, rad + 0.7, 128, 1);
+      ring.rotateX(-Math.PI / 2);
+      inlay.push(xform(ring, { pos: [0, CANAL.copingLevel + 0.03, 0] }));
+    }
+    this.scene.add(mesh(mergeGeometries(inlay), inlayMat, {
+      name: 'PlazaInlay', receive: true
+    }));
+
+    /* --- Approach causeways on the cardinal axes --- */
+    const roadMat = M.surface('siteApproach', 'paving', {
+      repeat: 40, roughness: 0.72, exterior: true, color: 0x8e8c86
+    });
+    const roads = [];
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * TAU + Math.PI / 4;
+      const r0 = SITE.plazaRadius - 10, r1 = SITE.plazaRadius + 620;
+      roads.push(box(r1 - r0, 0.5, 34,
+        [Math.cos(a) * (r0 + r1) / 2, CANAL.copingLevel - 0.2, Math.sin(a) * (r0 + r1) / 2],
+        [0, -a, 0]));
+    }
+    this.scene.add(mesh(mergeGeometries(roads), roadMat, {
+      name: 'ApproachCauseways', receive: true
+    }));
   }
 
   /** Street trees, planters and the approach avenue. */

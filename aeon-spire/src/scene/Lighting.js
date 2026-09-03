@@ -25,17 +25,17 @@ export class Lighting {
     scene.add(this.sun, this.sunTarget);
     this.sun.target = this.sunTarget;
 
-    const size = 260;
+    const size = 340;
     const cam = this.sun.shadow.camera;
     cam.left = -size; cam.right = size;
     cam.top = size; cam.bottom = -size;
-    cam.near = 1; cam.far = 1400;
+    cam.near = 1; cam.far = 2600;
     this.shadowSize = size;
     const map = tier ? tier.shadowMap : 2048;
     this.sun.shadow.mapSize.set(map, map);
-    this.sun.shadow.bias = -0.0006;
-    this.sun.shadow.normalBias = 0.55;
-    this.sun.shadow.radius = 2.2;
+    this.sun.shadow.bias = -0.0004;
+    this.sun.shadow.normalBias = 0.9;
+    this.sun.shadow.radius = 1.6;
 
     /* A cool bounce light from the opposite side — this is what stops the
        shadow side of a supertall reading as a black cut-out. */
@@ -90,14 +90,24 @@ export class Lighting {
    */
   update(camera) {
     const d = this.sunDirection;
-    const focus = camera.position;
+
+    /* Centre the shadow frustum on what the camera is *looking at*, not on
+       where it is standing. Anchoring it to the camera position left the
+       subject outside the frustum whenever the viewer stood back from the
+       tower — which is exactly the default view, and why nothing cast a
+       shadow there. */
+    camera.getWorldDirection(this._fwd || (this._fwd = new THREE.Vector3()));
+    const ahead = this.shadowSize * 0.55;
+    const focus = this._focus || (this._focus = new THREE.Vector3());
+    focus.copy(camera.position).addScaledVector(this._fwd, ahead);
+
     const texel = (this.shadowSize * 2) / this.sun.shadow.mapSize.x;
     const fx = Math.round(focus.x / texel) * texel;
     const fz = Math.round(focus.z / texel) * texel;
     const fy = clamp(focus.y, 0, 420);
 
     this.sunTarget.position.set(fx, fy, fz);
-    this.sun.position.set(fx + d.x * 900, fy + d.y * 900, fz + d.z * 900);
+    this.sun.position.set(fx + d.x * 1500, fy + d.y * 1500, fz + d.z * 1500);
     this.sun.shadow.camera.updateProjectionMatrix();
   }
 

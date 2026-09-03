@@ -34,7 +34,7 @@ const TYPES = {
 function serve() {
   const s = http.createServer((req, res) => {
     let rel = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-    if (rel.endsWith('/')) rel += 'index.html';
+    if (rel.endsWith('/')) rel += 'dev.html';
     const file = path.join(ROOT, path.normalize(rel).replace(/^(\.\.[/\\])+/, ''));
     fs.readFile(file, (e, d) => {
       if (e) { res.writeHead(404).end('404'); return; }
@@ -85,7 +85,7 @@ page.on('requestfailed', r => {
 
 // Boot at the low tier: SwiftShader cannot sustain the high tier, and the
 // gate here is liveness plus the CPU/draw-call budgets, not GPU throughput.
-const url = TARGET || `http://localhost:${PORT}/index.html?quality=low`;
+const url = TARGET || `http://localhost:${PORT}/dev.html?quality=low`;
 console.log(`\nAEON SPIRE verification → ${url}\n`);
 
 await page.goto(url, { waitUntil: 'load', timeout: 60000 });

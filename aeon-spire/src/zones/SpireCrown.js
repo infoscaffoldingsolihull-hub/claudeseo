@@ -36,9 +36,13 @@ export class SpireCrown extends Zone {
    * A power curve keeps the taper reading as a spire rather than a cone.
    */
   latticeRadius(t) {
-    // Clamped: a fractional power of a negative t is NaN, which silently
-    // poisons every merged geometry downstream.
-    return lerp(SPIRE.latticeBase, SPIRE.latticeTip, Math.pow(clamp(t, 0, 1), 0.62));
+    /* A fast initial taper followed by a long, near-parallel mast. A gentle
+       power curve here is what made the first version read as a traffic cone
+       rather than a spire: it kept the section fat for most of its height.
+       Clamped, because a fractional power of a negative t is NaN and would
+       silently poison every merged geometry downstream. */
+    const k = Math.pow(clamp(t, 0, 1), 0.34);
+    return lerp(SPIRE.latticeBase, SPIRE.latticeTip, k);
   }
 
   massing() {
@@ -270,10 +274,12 @@ Object.assign(SpireCrown.prototype, {
     });
     const yBase = SPIRE.crownTop, yTip = SPIRE.tip;
     const ribs = SPIRE.latticeRibs;
-    // Only glaze the lower two-thirds; above that the lattice is open mast.
-    const n = 16;
+    /* Only the lowest fraction is enclosed. Above that the spire is an open
+       mast — which is what keeps the silhouette a needle rather than a cone. */
+    const n = 12;
+    const top = lerp(yBase, yTip, SPIRE.glazedFraction);
     const heights = [];
-    for (let i = 0; i <= n; i++) heights.push(lerp(yBase, lerp(yBase, yTip, 0.62), i / n));
+    for (let i = 0; i <= n; i++) heights.push(lerp(yBase, top, i / n));
     const skin = loft((t, y) => {
       const tt = (y - yBase) / (yTip - yBase);
       const r = this.latticeRadius(tt) * 0.965;

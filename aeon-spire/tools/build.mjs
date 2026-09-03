@@ -17,7 +17,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const OUT = path.join(ROOT, 'dist', 'AeonSpire.html');
+/* Two identical outputs: the project root's index.html, so that double-
+   clicking the folder's obvious entry point simply works, and a copy under
+   dist/ for archiving. The module-based development entry lives at dev.html
+   and needs a server. */
+const OUT = path.join(ROOT, 'index.html');
+const OUT_DIST = path.join(ROOT, 'dist', 'AeonSpire.html');
 
 /* ------------------------------------------------------------------ */
 /* Module graph                                                        */
@@ -222,11 +227,11 @@ const bundle = chunks.join('\n\n');
 
 /* The page shell: index.html with its module bootstrap replaced by the
    inlined bundle, so the single file needs no import map and no network. */
-let html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+let html = fs.readFileSync(path.join(ROOT, 'dev.html'), 'utf8');
 
 const bootStart = html.indexOf('<script>\n/* ------------------------------------------------------------------');
 const bootEnd = html.lastIndexOf('</script>');
-if (bootStart < 0 || bootEnd < 0) throw new Error('Could not locate the bootstrap script in index.html');
+if (bootStart < 0 || bootEnd < 0) throw new Error('Could not locate the bootstrap script in dev.html');
 
 const replacement =
   '<script>\n' +
@@ -266,18 +271,20 @@ html = html.slice(0, bootStart) + replacement + html.slice(bootEnd + '</script>'
 
 /* The fatal-error panel's advice about servers does not apply to this build. */
 html = html.replace(
-  /<p>This build needs a browser[\s\S]*?<\/p>/,
+  /<p>This is the <b>development<\/b> entry[\s\S]*?<\/p>\s*<p style="color:#e8c07a">[\s\S]*?<\/p>/,
   '<p>This build needs a browser with <b>WebGL 2</b> — Chrome, Edge, Firefox, or Safari 15 or newer. ' +
-  'Everything else it needs is already inside this file.</p>'
+  'Everything else it needs is already inside this file: there is nothing to install and nothing to download.</p>'
 );
 html = html.replace(
-  '<title>AEON SPIRE — City of Wonders</title>',
-  '<title>AEON SPIRE — City of Wonders (single-file build)</title>'
+  '<title>AEON SPIRE — development build</title>',
+  '<title>AEON SPIRE — City of Wonders</title>'
 );
 
-fs.mkdirSync(path.dirname(OUT), { recursive: true });
 fs.writeFileSync(OUT, html);
+fs.mkdirSync(path.dirname(OUT_DIST), { recursive: true });
+fs.writeFileSync(OUT_DIST, html);
 
 const kb = (fs.statSync(OUT).size / 1024).toFixed(0);
-console.log(`  → ${path.relative(ROOT, OUT)}  (${kb} KB)`);
-console.log('  Open it directly in a browser — no server needed.');
+console.log(`  → ${path.relative(ROOT, OUT)}  (${kb} KB)   ← double-click this`);
+console.log(`  → ${path.relative(ROOT, OUT_DIST)}  (archive copy)`);
+console.log('  Self-contained: no server, no network, nothing to install.');

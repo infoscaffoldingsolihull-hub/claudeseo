@@ -34,30 +34,33 @@ export const LEVELS = {
   L1: 0.0,
   L2: 6.2,
   L3: 12.0,
-  podiumTop: 18.0,
+  podiumTop: 24.0,
 
   /* Zone 2 — Sail Atrium (L4 … L30) */
-  L4: 18.0,
-  L7: 32.4,
-  L30: 142.0,
-  sailTop: 142.0,
+  L4: 24.0,
+  L7: 40.0,
+  L30: 178.0,
+  sailTop: 178.0,
 
-  /* Zone 3 — Ring Deck (L31 … L55) */
-  L31: 142.0,
-  ringMid: 197.0,
-  L55: 252.0,
-  ringTop: 252.0,
+  /* Zone 3 — Ring Deck (L31 … L55). The disc is 80 m in elevation, so it
+     reads as a disc rather than a bulge on a stem. */
+  L31: 178.0,
+  ringMid: 230.0,
+  L55: 282.0,
+  ringTop: 282.0,
 
-  /* Zone 4 — Spire Crown (L56 … L88, then the lattice spire) */
-  L56: 252.0,
-  L88: 400.0,
-  crownTop: 400.0,
+  /* Zone 4 — Spire Crown (L56 … L88, then the lattice spire).
+     The occupied crown is a real tower body of 164 m, and the spire above it
+     is a 270 m needle at roughly 30:1 slenderness — not a cone. */
+  L56: 282.0,
+  L88: 440.0,
+  crownTop: 440.0,
   spireTip: 700.0,
   /** The tuned-mass-damper chamber sits inside the lattice spire, above the
-      last occupied floor at 400 m — not below it. */
-  damperFloor: 452.0,
+      last occupied floor at 430 m — not below it. */
+  damperFloor: 492.0,
   /** The beacon room caps the habitable part of the mast. */
-  beaconFloor: 612.0,
+  beaconFloor: 626.0,
 
   /** Nominal floor-to-floor used when generating repeating plates. */
   floorHeight: 4.55
@@ -108,18 +111,18 @@ export const SAIL = {
   base: LEVELS.L4,
   top: LEVELS.sailTop,
   /** Tower plan at the base of the sail (half-extents, X × Z). */
-  baseHalfX: 39,
-  baseHalfZ: 31,
+  baseHalfX: 44,
+  baseHalfZ: 35,
   /** Plan at the top of the sail. */
-  topHalfX: 30,
-  topHalfZ: 24,
+  topHalfX: 33,
+  topHalfZ: 27,
   /** The sail shell springs from the +X face and leans over the atrium. */
   sailFace: 1,
-  sailChord: 92,
-  sailMaxOffset: 46,
+  sailChord: 104,
+  sailMaxOffset: 54,
   /** The full-height atrium void sits between the core and the sail skin. */
-  atriumHalfX: 26,
-  atriumHalfZ: 21,
+  atriumHalfX: 29,
+  atriumHalfZ: 23,
   /** Structural diagrid module. */
   diagridBays: 12,
   diagridCourses: 9,
@@ -142,14 +145,17 @@ export const RING = {
    * plan. That is the Aldar HQ engineering idea — a circular diagrid disc —
    * rather than the bulging solid a radius-varying loft would produce.
    */
-  discRadius: 55,
-  discThickHalf: 22,
-  discCentreY: 197.0,
-  discInner: 19,
+  /* 104 m across in elevation against a 48-66 m tower, but only 30 m thick:
+     the disc must out-reach the shaft from every bearing, or it reads as a
+     bulge on a stem rather than a disc standing on edge. */
+  discRadius: 52,
+  discThickHalf: 15,
+  discCentreY: 230.0,
+  discInner: 15,
   /** The cantilevered, glass-bottomed halo walkway, clear of the disc. */
-  haloRadius: 74,
-  haloWidth: 7.6,
-  haloLevel: 197.0,
+  haloRadius: 70,
+  haloWidth: 7.2,
+  haloLevel: 230.0,
   /** Perimeter truss follows the disc's circular rim in elevation. */
   trussBays: 40,
   rakerCount: 20,
@@ -170,15 +176,18 @@ export const SPIRE = {
   crownTop: LEVELS.crownTop,
   tip: LEVELS.spireTip,
   /** Occupied crown tapers from this half-width to this one. */
-  baseHalf: 26,
-  topHalf: 13,
-  /** Lattice spire above the crown. */
-  latticeBase: 13,
-  latticeTip: 1.1,
+  baseHalf: 24,
+  topHalf: 11,
+  /** The lattice spire: a needle, not a cone. */
+  latticeBase: 9,
+  latticeTip: 0.4,
   latticeRibs: 8,
-  latticeRings: 22,
+  latticeRings: 30,
+  /** Only the lowest fraction of the spire is enclosed; above that it is an
+      open mast, which is what keeps the silhouette slender. */
+  glazedFraction: 0.22,
   /** Floor plates modelled inside the crown. */
-  floors: [56, 62, 68, 74, 80, 86, 88],
+  floors: [56, 61, 66, 71, 76, 81, 86, 88],
   damperY: LEVELS.damperFloor,
   beaconY: LEVELS.beaconFloor
 };

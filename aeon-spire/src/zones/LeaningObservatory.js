@@ -66,6 +66,8 @@ export class LeaningObservatory extends Zone {
     const M = this.materials;
     const R = OBSERVATORY.radius;
     const H = OBSERVATORY.height;
+    // Queue the wonder pass to run after the base massing exists.
+    this._runWonder = true;
 
     /* --- Foundation: an asymmetric caisson, offset against the lean --- */
     const concrete = M.surface('obsCaisson', 'polishedConcrete', {
@@ -209,6 +211,7 @@ Object.assign(LeaningObservatory.prototype, {
   facade() {
     this.buildOpenings();
     this.buildEntryPortal();
+    if (this._runWonder) this.wonderPass();
   },
 
   /** Arched window openings, one band per storey, following the arcades. */
@@ -742,5 +745,281 @@ Object.assign(LeaningObservatory.prototype, {
         }
       });
     });
+  }
+});
+
+/* ==================================================================== */
+/* Wonder pass — the engineering that makes this annex a 1/1            */
+/*                                                                      */
+/* A drum that leans is not, on its own, remarkable: Pisa leans by       */
+/* accident. What makes this one a marvel is that the lean is deliberate */
+/* and the structure that permits it is put on show — a counterweight    */
+/* mass slung on the up-slope side, a stay-cable fan carrying it, and a  */
+/* glazed helix winding the full height so you read the tilt as you      */
+/* climb. Every element below is load-bearing in the narrative sense:    */
+/* it explains how an 8° building stands up.                            */
+/* ==================================================================== */
+
+Object.assign(LeaningObservatory.prototype, {
+
+  wonderPass() {
+    this.buildCounterweight();
+    this.buildStayFan();
+    this.buildHelix();
+    this.buildCantileverDeck();
+    this.buildTiltDatum();
+  },
+
+  /**
+   * The counterweight: a 900-tonne mass slung outboard on the up-slope side,
+   * on a visible truss outrigger. It is the reason the tower does not simply
+   * topple, and it is deliberately the most conspicuous object on the annex.
+   */
+  buildCounterweight() {
+    const M = this.materials;
+    const steel = M.surface('obsCwSteel', 'paintedSteel', {
+      repeat: 2, roughness: 0.42, metalness: 0.7, exterior: true,
+      color: 0xd8dde3, opts: { hex: 0x9aa2ab }
+    });
+    const massMat = M.solid('obsCwMass', {
+      color: 0x3a3f47, roughness: 0.36, metalness: 0.86, exterior: true
+    });
+
+    const R = OBSERVATORY.radius;
+    const y = OBSERVATORY.height * 0.62;
+    // Outboard on the side the tower leans away from.
+    const a = OBSERVATORY.tiltAzimuth + Math.PI / 2;
+    const reach = R + 15;
+
+    const parts = [];
+    /* A triangulated outrigger, not a cantilevered stick. */
+    const root = [Math.cos(a) * (R - 1), y, Math.sin(a) * (R - 1)];
+    const tip = [Math.cos(a) * reach, y + 2.5, Math.sin(a) * reach];
+    const below = [Math.cos(a) * (R - 1), y - 11, Math.sin(a) * (R - 1)];
+    for (const off of [-4.2, 4.2]) {
+      const sx = -Math.sin(a) * off, sz = Math.cos(a) * off;
+      const o = (p) => [p[0] + sx, p[1], p[2] + sz];
+      parts.push(member(o(root), o(tip), 0.62, 0.62));
+      parts.push(member(o(below), o(tip), 0.5, 0.5));
+      parts.push(member(o(root), o(below), 0.42, 0.42));
+      // Web bracing along the outrigger.
+      for (let i = 1; i < 4; i++) {
+        const t = i / 4;
+        const up = [lerp(root[0], tip[0], t), lerp(root[1], tip[1], t), lerp(root[2], tip[2], t)];
+        const dn = [lerp(below[0], tip[0], t), lerp(below[1], tip[1], t), lerp(below[2], tip[2], t)];
+        parts.push(member(o(up), o(dn), 0.26, 0.26));
+      }
+    }
+    parts.push(member(
+      [tip[0] - Math.sin(a) * 4.2, tip[1], tip[2] + Math.cos(a) * 4.2],
+      [tip[0] + Math.sin(a) * 4.2, tip[1], tip[2] - Math.cos(a) * 4.2], 0.42, 0.42));
+    this.shell.add(mesh(mergeGeometries(parts.filter(Boolean)), steel, {
+      name: 'CounterweightOutrigger', cast: true
+    }));
+
+    /* The mass itself: stacked steel plates on a pin, so it reads as
+       weight rather than decoration. */
+    const mass = new THREE.Group();
+    mass.name = 'CounterweightMass';
+    mass.position.set(tip[0], tip[1], tip[2]);
+    mass.rotation.y = -a;
+    const plates = [];
+    for (let i = 0; i < 9; i++) {
+      const w = 7.4 - Math.abs(i - 4) * 0.28;
+      plates.push(box(w, 0.85, 5.2, [0, -2.2 - i * 0.92, 0]));
+    }
+    plates.push(cyl(0.42, 0.42, 3.0, 12, [0, -0.9, 0]));
+    plates.push(box(8.4, 0.6, 6.0, [0, -11.2, 0]));
+    mass.add(mesh(mergeGeometries(plates), massMat, { name: 'Plates', cast: true }));
+    this.shell.add(mass);
+    this.counterweight = mass;
+
+    /* It swings, very slightly, as a real pendulum mass does. */
+    this.addAnimator((dt, t) => {
+      mass.rotation.z = Math.sin(t * 0.21) * 0.012 + Math.sin(t * 0.07) * 0.006;
+    });
+  },
+
+  /**
+   * A fan of stay cables from a masthead down to the drum — the tension side
+   * of the same couple the counterweight resolves in compression.
+   */
+  buildStayFan() {
+    const M = this.materials;
+    const cableMat = M.solid('obsStay', {
+      color: 0x596068, roughness: 0.34, metalness: 0.92, exterior: true
+    });
+    const mastMat = M.surface('obsMast', 'brushedMetal', {
+      repeat: 2, roughness: 0.3, metalness: 0.84, exterior: true, color: 0xd0d6dd
+    });
+
+    const R = OBSERVATORY.radius;
+    const H = OBSERVATORY.height;
+    const a = OBSERVATORY.tiltAzimuth + Math.PI / 2;
+
+    /* The mast leans back against the tower's lean — an honest expression of
+       the force it resists. */
+    const mastFoot = [Math.cos(a) * (R + 4), 0, Math.sin(a) * (R + 4)];
+    const mastHead = [Math.cos(a) * (R + 16), H + 22, Math.sin(a) * (R + 16)];
+    const mast = [];
+    mast.push(member(mastFoot, mastHead, 1.5, 1.5));
+    mast.push(cyl(2.6, 3.2, 2.4, 14, [mastFoot[0], 1.2, mastFoot[2]]));
+    mast.push(new THREE.SphereGeometry(1.6, 14, 10).translate(mastHead[0], mastHead[1], mastHead[2]));
+    this.shell.add(mesh(mergeGeometries(mast.filter(Boolean)), mastMat, {
+      name: 'StayMast', cast: true
+    }));
+
+    /* Cables fan from the head to anchor points up the drum, and back down
+       to ground anchors behind the mast. */
+    const cables = [];
+    const q = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(0, OBSERVATORY.tiltAzimuth, OBSERVATORY.tiltDegrees * DEG, 'YZX'));
+    for (let i = 0; i < 7; i++) {
+      const t = i / 6;
+      const localY = lerp(H * 0.28, H * 0.98, t);
+      const spread = (i - 3) * 0.16;
+      const local = new THREE.Vector3(
+        Math.cos(a + spread) * (R + 0.4), localY, Math.sin(a + spread) * (R + 0.4));
+      const world = local.clone().applyQuaternion(q)
+        .add(new THREE.Vector3(OBSERVATORY.x, 0, OBSERVATORY.z));
+      const c = tube(mastHead, [world.x - OBSERVATORY.x, world.y, world.z - OBSERVATORY.z], 0.13, 6);
+      if (c) cables.push(c);
+    }
+    for (let i = 0; i < 4; i++) {
+      const spread = (i - 1.5) * 0.34;
+      const gx = Math.cos(a + spread) * (R + 44);
+      const gz = Math.sin(a + spread) * (R + 44);
+      const c = tube(mastHead, [gx, 1.4, gz], 0.15, 6);
+      if (c) cables.push(c);
+      cables.push(box(3.8, 2.2, 3.8, [gx, 0.7, gz], [0, -a, 0]));
+    }
+    this.shell.add(mesh(mergeGeometries(cables.filter(Boolean)), cableMat, {
+      name: 'StayCableFan', cast: true
+    }));
+  },
+
+  /**
+   * A glazed helix winding the drum's full height. Because it is a true helix
+   * on a leaning cylinder, its pitch reads as visibly uneven from outside —
+   * the tilt made legible by geometry rather than by signage.
+   */
+  buildHelix() {
+    const M = this.materials;
+    const glass = M.glass('obsHelixGlass', {
+      color: 0xbfe0ee, opacity: 0.24, roughness: 0.06, metalness: 0.08,
+      side: THREE.DoubleSide, envMapIntensity: 2.4
+    });
+    const frameMat = M.surface('obsHelixFrame', 'brushedMetal', {
+      repeat: 3, roughness: 0.28, metalness: 0.84, exterior: true, color: 0xc8cfd7
+    });
+
+    const R = OBSERVATORY.radius;
+    const H = OBSERVATORY.height;
+    const turns = 2.4;
+    const steps = 150;
+
+    const soffit = [], frames = [], glazing = [];
+    for (let i = 0; i < steps; i++) {
+      const t0 = i / steps, t1 = (i + 1) / steps;
+      const a0 = t0 * turns * TAU, a1 = t1 * turns * TAU;
+      const y0 = 3 + t0 * (H - 6), y1 = 3 + t1 * (H - 6);
+      const rr = R + 2.6;
+      const p0 = [Math.cos(a0) * rr, y0, Math.sin(a0) * rr];
+      const p1 = [Math.cos(a1) * rr, y1, Math.sin(a1) * rr];
+      const m = member(p0, p1, 3.2, 0.34);
+      if (m) soffit.push(m);
+      if (i % 4 === 0) {
+        const inner = [Math.cos(a0) * (R + 0.4), y0, Math.sin(a0) * (R + 0.4)];
+        const b = member(inner, [p0[0], p0[1] - 1.6, p0[2]], 0.2, 0.2);
+        if (b) frames.push(b);
+        const post = member(p0, [p0[0], p0[1] + 2.6, p0[2]], 0.14, 0.14);
+        if (post) frames.push(post);
+      }
+      const g = member([p0[0], p0[1] + 0.2, p0[2]], [p1[0], p1[1] + 0.2, p1[2]], 2.9, 2.4);
+      if (g) glazing.push(g);
+    }
+    this.tiltShell.add(mesh(mergeGeometries(soffit.filter(Boolean)), frameMat, {
+      name: 'HelixSoffit', cast: true, receive: true
+    }));
+    this.tiltShell.add(mesh(mergeGeometries(frames.filter(Boolean)), frameMat, {
+      name: 'HelixFrames', cast: true
+    }));
+    this.tiltShell.add(mesh(mergeGeometries(glazing.filter(Boolean)), glass, {
+      name: 'HelixGlazing', renderOrder: 4
+    }));
+  },
+
+  /** A glass-floored deck cantilevered off the high side, over nothing. */
+  buildCantileverDeck() {
+    const M = this.materials;
+    const steel = M.surface('obsDeckSteel', 'paintedSteel', {
+      repeat: 2, roughness: 0.4, metalness: 0.68, exterior: true,
+      color: 0xe0e5ea, opts: { hex: 0xb0b8c0 }
+    });
+    const glass = M.glass('obsDeckGlass', {
+      color: 0xb8d8e8, opacity: 0.3, roughness: 0.05, side: THREE.DoubleSide
+    });
+
+    const R = OBSERVATORY.radius;
+    const y = OBSERVATORY.height - 7;
+    // Project from the *down-slope* side, so the deck hangs out over the lean.
+    const a = OBSERVATORY.tiltAzimuth - Math.PI / 2;
+    const reach = 17;
+
+    const g = new THREE.Group();
+    g.position.set(0, y, 0);
+    g.rotation.y = -a;
+    const ribs = [];
+    for (let i = -3; i <= 3; i++) {
+      const off = i * 2.4;
+      ribs.push(member([R - 2, 0, off], [R + reach, -1.2, off * 0.55], 0.24, 0.62));
+      ribs.push(tube([R + reach, -1.0, off * 0.55], [R - 3, 9.5, off * 0.75], 0.07, 5));
+    }
+    ribs.push(member([R + reach, -1.3, -4.4], [R + reach, -1.3, 4.4], 0.3, 0.5));
+    g.add(mesh(mergeGeometries(ribs.filter(Boolean)), steel, { name: 'DeckRibs', cast: true }));
+
+    const floor = new THREE.PlaneGeometry(reach, 15, 6, 6);
+    floor.rotateX(-Math.PI / 2);
+    g.add(mesh(xform(floor, { pos: [R + reach / 2, 0.05, 0] }), glass, {
+      name: 'DeckGlassFloor', renderOrder: 5
+    }));
+    const rail = [];
+    for (let i = 0; i <= 12; i++) {
+      const t = i / 12;
+      rail.push([R + reach * (0.06 + t * 0.94), 0.05, lerp(-7.4, 7.4, t)]);
+    }
+    g.add(mesh(balustrade(rail, 1.15, 2, 0.035, 0.05), steel, { name: 'DeckRail' }));
+    this.tiltShell.add(g);
+  },
+
+  /**
+   * A vertical datum column standing beside the tower, dead plumb. Reading
+   * the two against each other is the whole point — the marvel is legible
+   * only by comparison.
+   */
+  buildTiltDatum() {
+    const M = this.materials;
+    const stone = M.surface('obsDatum', 'limestone', {
+      repeat: 3, roughness: 0.56, exterior: true, color: 0xf0e9da
+    });
+    const brass = M.solid('obsDatumBrass', {
+      color: 0xc9a04b, roughness: 0.28, metalness: 0.9, exterior: true
+    });
+    const a = OBSERVATORY.tiltAzimuth - Math.PI * 0.75;
+    const d = OBSERVATORY.radius + 22;
+    const x = Math.cos(a) * d, z = Math.sin(a) * d;
+
+    const parts = [
+      cyl(1.5, 1.9, 1.2, 20, [x, 0.6, z]),
+      cyl(0.62, 0.72, 26, 16, [x, 13.6, z]),
+      cyl(1.0, 0.5, 1.6, 16, [x, 27.2, z])
+    ];
+    this.shell.add(mesh(mergeGeometries(parts), stone, {
+      name: 'PlumbDatumColumn', cast: true, receive: true
+    }));
+    /* Graduated bands so the divergence can be measured by eye. */
+    const bands = [];
+    for (let i = 1; i <= 8; i++) bands.push(cyl(0.66, 0.66, 0.16, 16, [x, i * 3.0, z]));
+    this.shell.add(mesh(mergeGeometries(bands), brass, { name: 'DatumGraduations' }));
   }
 });

@@ -26,7 +26,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
 const server = await new Promise(r => {
   const s = http.createServer((req, res) => {
     let rel = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-    if (rel.endsWith('/')) rel += 'index.html';
+    if (rel.endsWith('/')) rel += 'dev.html';
     const f = path.join(ROOT, path.normalize(rel).replace(/^(\.\.[/\\])+/, ''));
     fs.readFile(f, (e, d) => {
       if (e) return res.writeHead(404).end('404');
@@ -63,7 +63,7 @@ const page = await browser.newPage({ viewport: { width: W, height: H } });
 page.on('pageerror', e => console.error('  page error:', e.message));
 page.on('console', m => { if (m.type() === 'error' && !/jsdelivr|Failed to load resource/.test(m.text())) console.error('  console:', m.text()); });
 
-await page.goto(`http://localhost:${PORT}/index.html?quality=high`, { waitUntil: 'load', timeout: 60000 });
+await page.goto(`http://localhost:${PORT}/dev.html?quality=high`, { waitUntil: 'load', timeout: 60000 });
 await page.waitForFunction(() => window.AEON_STARTED === true || window.AEON_FATAL, { timeout: 120000 });
 await page.waitForTimeout(1200);
 if (process.env.SHOT_INTERIORS) {
