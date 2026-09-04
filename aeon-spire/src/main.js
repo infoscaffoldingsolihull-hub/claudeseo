@@ -116,6 +116,15 @@ class AeonSpire {
       this.lighting.setShadowsEnabled(t.shadows, t.shadowMap);
     };
 
+    /* Say something when the driver resets the context, rather than leaving
+       a frozen picture and no explanation. */
+    this.engine.onContextLost = () => {
+      if (this.hud) this.hud.toast('Graphics context lost — recovering…');
+    };
+    this.engine.onContextRestored = () => {
+      if (this.hud) this.hud.toast('Graphics restored at reduced quality');
+    };
+
     this.camera.position.set(START_VIEW.position[0], START_VIEW.position[1], START_VIEW.position[2]);
     this.camera.lookAt(START_VIEW.look[0], START_VIEW.look[1], START_VIEW.look[2]);
 
@@ -123,6 +132,24 @@ class AeonSpire {
     this.photoMode = false;
     this.helpVisible = false;
     this.hud = new HUD(this);
+
+    /* Hand the interior streamer the renderer, so it can warm each room's
+       shaders and textures off the critical path instead of paying for them
+       inside the frame that first draws the room. */
+    this.world.interiors.attach(this.renderer, this.scene, this.camera, this.engine.postfx);
+
+    /* Compile every exterior program before the first frame. This is the one
+       place a stall is acceptable — the loading screen is still up — and it
+       means the opening fly-around never pays a driver compile. */
+    BOOT.progress(0.99, 'Compiling shaders…');
+    if (this.renderer.compileAsync) {
+      try {
+        await this.engine.postfx.scenePassState(
+          () => this.renderer.compileAsync(this.scene, this.camera));
+      } catch (err) {
+        console.warn('Shader pre-compile skipped:', err && err.message);
+      }
+    }
 
     this.engine.onUpdate((dt, t) => this.update(dt, t));
     this.engine.start(this.scene);

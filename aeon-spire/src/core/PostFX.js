@@ -283,6 +283,32 @@ export class PostFX {
     this.dofB = rt(Math.max(1, w >> 1), Math.max(1, h >> 1));
   }
 
+  /**
+   * Run `fn` with the renderer in exactly the state the scene pass uses.
+   *
+   * Shader programs are cached per tone-mapping and output colour space, and
+   * the scene pass runs with neither of the renderer's defaults. A warm-up
+   * compile performed outside this state therefore builds variants the real
+   * render never asks for: it costs the time and leaves the stall in place.
+   */
+  scenePassState(fn) {
+    const r = this.renderer;
+    if (!this.enabled || !this.sceneRT) return fn();
+    const prevTone = r.toneMapping;
+    const prevOut = r.outputColorSpace;
+    const prevRT = r.getRenderTarget();
+    r.toneMapping = THREE.NoToneMapping;
+    r.outputColorSpace = THREE.LinearSRGBColorSpace;
+    r.setRenderTarget(this.sceneRT);
+    try {
+      return fn();
+    } finally {
+      r.toneMapping = prevTone;
+      r.outputColorSpace = prevOut;
+      r.setRenderTarget(prevRT);
+    }
+  }
+
   /** Render `scene` through `camera` and composite to the screen. */
   render(scene, camera, dt = 0.016) {
     const r = this.renderer;

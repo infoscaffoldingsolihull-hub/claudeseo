@@ -75,6 +75,27 @@ export class Engine {
     this.canvas = this.renderer.domElement;
     this.canvas.setAttribute('tabindex', '0');
 
+    /* A lost WebGL context is recoverable, and saying so beats a page that
+       silently stops moving. Preventing the default on `webglcontextlost`
+       is what lets the browser send `webglcontextrestored` at all; three.js
+       re-uploads its own resources when it does. The tier is also dropped a
+       step, because the most common reason a driver resets a context is
+       that it was asked for more than it had. */
+    this.contextLost = false;
+    this.canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      this.contextLost = true;
+      this.stop();
+      if (this.onContextLost) this.onContextLost();
+    }, false);
+    this.canvas.addEventListener('webglcontextrestored', () => {
+      this.contextLost = false;
+      const i = ORDER.indexOf(this.tierName);
+      if (i > 0) this.setTier(ORDER[i - 1]);
+      if (this.scene) this.start(this.scene);
+      if (this.onContextRestored) this.onContextRestored();
+    }, false);
+
     this.camera = new THREE.PerspectiveCamera(
       62,
       (container.clientWidth || window.innerWidth) / (container.clientHeight || window.innerHeight),
