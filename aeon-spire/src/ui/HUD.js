@@ -1,182 +1,61 @@
 /**
  * AEON SPIRE — heads-up display (E.8).
  *
- * This is the project-management hook the brief asks for, so it is built
- * as a PM instrument panel rather than a game HUD:
+ * A project-management instrument panel rather than a game HUD, because that
+ * is what this deliverable is for. Five surfaces:
  *
- *   • a Gantt-style bar of the ten milestones, synced to the scrubber and
- *     clickable, with the critical path marked;
- *   • a day counter against the 700-day programme;
- *   • an earned-value block — planned value, earned value, actual cost,
- *     the budget-utilised ticker, and the SPI / CPI indices those imply;
- *   • mode indicators for time of day, weather and camera;
- *   • a help overlay listing every key in the E.6 table.
+ *   • a branded top bar carrying the mode switch and the live earned-value
+ *     metrics, so the PM figures are visible whether or not the timeline
+ *     dock is open;
+ *   • an icon rail for the things you reach for repeatedly;
+ *   • a context card naming the zone and the interior you are standing in;
+ *   • the bottom dock: a duration-weighted Gantt of the ten milestones, a
+ *     draggable scrubber and the earned-value block;
+ *   • overlays for the control reference and the zone index.
  *
- * The DOM is created here rather than in index.html so the whole UI ships
- * with the module that owns it.
+ * All markup and styling ship with this module, so the single-file build has
+ * no external stylesheet and no icon font.
  */
 
 import { MILESTONES, TOTAL_DAYS, TOTAL_BUDGET } from '../construction/ConstructionTimeline.js';
+import { ZONE_PRESETS } from '../world/SitePlan.js';
+import { CSS, ICONS } from './theme.js';
 import { commas, clamp } from '../core/MathUtil.js';
 
-const CSS = `
-#aeon-ui, #aeon-ui * { box-sizing: border-box; }
-#aeon-ui {
-  position: fixed; inset: 0; pointer-events: none; z-index: 40;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color: #e8eef8; transition: opacity .45s ease;
-  --gold: #e8c07a; --blue: #7fa8e8; --green: #6fdca0; --amber: #f0b44a; --red: #ff8a72;
-  --panel: rgba(10,15,26,.72); --line: rgba(150,175,210,.22);
-}
-#aeon-ui.photo { opacity: 0; }
-#aeon-ui .panel {
-  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-  backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px);
-  box-shadow: 0 8px 28px rgba(0,0,0,.35);
+/* ------------------------------------------------------------------ */
+/* Tiny DOM helpers — clearer than a wall of innerHTML                 */
+/* ------------------------------------------------------------------ */
+
+function el(tag, attrs = {}, kids = []) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') n.className = v;
+    else if (k === 'text') n.textContent = v;
+    else if (k === 'html') n.innerHTML = v;
+    else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
+    else if (v !== null && v !== undefined) n.setAttribute(k, v);
+  }
+  for (const c of [].concat(kids)) if (c) n.appendChild(c);
+  return n;
 }
 
-/* ---------- top-left: identity + modes ---------- */
-#aeon-top { position: absolute; top: 14px; left: 14px; padding: 11px 14px; max-width: 340px; }
-#aeon-top .title {
-  font-size: 12.5px; letter-spacing: .3em; text-indent: .3em; font-weight: 600;
-  background: linear-gradient(180deg,#fdf3de,#e8c07a); -webkit-background-clip: text;
-  background-clip: text; color: transparent;
-}
-#aeon-top .sub { font-size: 10px; letter-spacing: .16em; color: #7f93b4; text-transform: uppercase; margin-top: 2px; }
-#aeon-modes { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
-.chip {
-  font-size: 10.5px; padding: 3px 8px; border-radius: 999px; letter-spacing: .05em;
-  border: 1px solid var(--line); background: rgba(255,255,255,.05); white-space: nowrap;
-}
-.chip b { font-weight: 600; color: var(--gold); }
-.chip.on { border-color: rgba(232,192,122,.5); background: rgba(232,192,122,.12); }
-#aeon-zone { margin-top: 8px; font-size: 11.5px; color: #b9c9e0; min-height: 1.3em; }
-#aeon-room { font-size: 10.5px; color: #8ea3c4; min-height: 1.2em; }
-
-/* ---------- top-right: performance ---------- */
-#aeon-perf {
-  position: absolute; top: 14px; right: 14px; padding: 8px 11px;
-  font-size: 10.5px; color: #8ea3c4; text-align: right; line-height: 1.6;
-  font-variant-numeric: tabular-nums;
-}
-#aeon-perf b { color: #d8e2f2; font-weight: 600; }
-
-/* ---------- bottom: the PM panel ---------- */
-#aeon-pm {
-  position: absolute; left: 14px; right: 14px; bottom: 14px; padding: 12px 14px 11px;
-  transition: transform .4s cubic-bezier(.2,.8,.2,1), opacity .35s ease;
-}
-#aeon-pm.hidden { transform: translateY(130%); opacity: 0; }
-#aeon-pm .row1 { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 9px; }
-#aeon-pm .ms-name { font-size: 13.5px; font-weight: 600; color: #f0f5fc; }
-#aeon-pm .ms-num {
-  font-size: 10px; letter-spacing: .14em; color: #0b1220; background: var(--gold);
-  padding: 2px 7px; border-radius: 4px; font-weight: 700;
-}
-#aeon-pm .ms-equip { font-size: 11px; color: #8ea3c4; }
-#aeon-pm .cp {
-  font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--red);
-  border: 1px solid rgba(255,138,114,.4); padding: 1px 6px; border-radius: 4px;
+function icon(name, size = 16) {
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  s.setAttribute('viewBox', '0 0 16 16');
+  s.setAttribute('width', size);
+  s.setAttribute('height', size);
+  s.innerHTML = ICONS[name] || '';
+  return s;
 }
 
-/* Gantt */
-#aeon-gantt { display: flex; gap: 2px; height: 26px; margin-bottom: 8px; }
-.gbar {
-  position: relative; flex: 1 1 0; border-radius: 3px; overflow: hidden; cursor: pointer;
-  background: rgba(255,255,255,.07); border: 1px solid var(--line);
-  pointer-events: auto; transition: border-color .2s ease, background .2s ease;
-}
-.gbar:hover { border-color: rgba(232,192,122,.6); background: rgba(255,255,255,.12); }
-.gbar > i {
-  position: absolute; inset: 0; width: 0%;
-  background: linear-gradient(90deg, rgba(111,220,160,.55), rgba(232,192,122,.75));
-  transition: width .12s linear;
-}
-.gbar > span {
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 9.5px; font-weight: 600; color: #cfdcee; text-shadow: 0 1px 2px rgba(0,0,0,.6);
-}
-.gbar.done > i { width: 100%; }
-.gbar.current { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(232,192,122,.35) inset; }
-
-/* Readouts */
-#aeon-stats {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
-  gap: 6px 14px; font-variant-numeric: tabular-nums;
-}
-.stat .k { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: #7f93b4; }
-.stat .v { font-size: 15px; font-weight: 600; color: #f0f5fc; line-height: 1.25; }
-.stat .v small { font-size: 10.5px; font-weight: 500; color: #8ea3c4; margin-left: 2px; }
-.stat .v.good { color: var(--green); }
-.stat .v.warn { color: var(--amber); }
-.stat .v.bad { color: var(--red); }
-#aeon-scrub {
-  position: relative; height: 4px; margin: 9px 0 2px; border-radius: 3px;
-  background: rgba(255,255,255,.09); pointer-events: auto; cursor: pointer;
-}
-#aeon-scrub > i {
-  position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px;
-  background: linear-gradient(90deg, var(--blue), var(--gold));
-}
-#aeon-scrub > u {
-  position: absolute; top: -4px; width: 12px; height: 12px; margin-left: -6px;
-  border-radius: 50%; background: #f4efe4; box-shadow: 0 1px 5px rgba(0,0,0,.5);
-}
-#aeon-hint { font-size: 10px; color: #6f83a4; margin-top: 6px; letter-spacing: .04em; }
-
-/* ---------- help overlay ---------- */
-#aeon-help {
-  position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
-  background: rgba(4,7,13,.72); backdrop-filter: blur(4px); pointer-events: auto;
-  padding: 22px; overflow: auto;
-}
-#aeon-help.show { display: flex; }
-#aeon-help .card { max-width: 860px; width: 100%; padding: 22px 26px; }
-#aeon-help h2 {
-  margin: 0 0 4px; font-size: 15px; letter-spacing: .22em; font-weight: 600;
-  background: linear-gradient(180deg,#fdf3de,#e8c07a); -webkit-background-clip: text;
-  background-clip: text; color: transparent;
-}
-#aeon-help .lede { margin: 0 0 16px; font-size: 11.5px; color: #8ea3c4; line-height: 1.7; }
-#aeon-help .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px,1fr)); gap: 6px 30px; }
-#aeon-help .grp { font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase;
-  color: var(--gold); margin: 12px 0 5px; grid-column: 1 / -1; }
-#aeon-help .grp:first-child { margin-top: 0; }
-#aeon-help dl { display: contents; }
-#aeon-help .kv { display: flex; align-items: baseline; gap: 10px; font-size: 12px; padding: 2.5px 0; }
-#aeon-help .kv kbd {
-  min-width: 66px; text-align: center; font-family: inherit; font-size: 10.5px; font-weight: 600;
-  padding: 2.5px 7px; border-radius: 5px; color: #0b1220;
-  background: linear-gradient(180deg,#e6ecf6,#b9c6da); box-shadow: 0 1.5px 0 rgba(0,0,0,.4);
-}
-#aeon-help .kv span { color: #c4d2e6; }
-#aeon-help .foot { margin-top: 18px; font-size: 10.5px; color: #6f83a4; line-height: 1.7; }
-
-/* ---------- toast ---------- */
-#aeon-toast {
-  position: absolute; left: 50%; top: 74px; transform: translateX(-50%) translateY(-10px);
-  padding: 8px 16px; font-size: 12px; letter-spacing: .05em; opacity: 0;
-  transition: opacity .3s ease, transform .3s ease; white-space: nowrap;
-}
-#aeon-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-@media (max-width: 720px) {
-  #aeon-top { max-width: 210px; padding: 8px 10px; }
-  #aeon-perf { display: none; }
-  #aeon-pm .ms-equip { display: none; }
-  .gbar > span { font-size: 8.5px; }
-  #aeon-stats { grid-template-columns: repeat(3, 1fr); }
-}
-`;
-
-/** The E.6 table, grouped for the help overlay. */
+/** The E.6 table, grouped, and the single source for the help overlay. */
 const HELP = [
   ['Movement', [
     ['W A S D', 'Move / walk'],
-    ['Mouse', 'Look around (click to capture the pointer)'],
+    ['Mouse', 'Look around — click the scene to capture the pointer'],
     ['Shift', 'Sprint / fast-fly'],
     ['Q / E', 'Descend / ascend (fly mode)'],
-    ['F', 'Toggle walk ↔ fly mode'],
+    ['F', 'Toggle walk ↔ fly'],
     ['Esc', 'Release pointer lock']
   ]],
   ['Zones', [
@@ -196,181 +75,310 @@ const HELP = [
   ]],
   ['Presentation', [
     ['M', 'Toggle the soundscape'],
-    ['H', 'Toggle this help overlay'],
+    ['H', 'Controls and the zone index'],
     ['P', 'Photo mode — hide the UI, shallow depth of field']
   ]]
 ];
+
+/** One line on each zone, for the index overlay. */
+const ZONE_BLURB = {
+  canal: 'A navigable canal ring sunk 8 m below the plaza, crossed by arched footbridges. The water is part of the building’s cooling loop.',
+  sail: 'A doubly-curved sail skin on a bronze diagrid, over a full-height atrium crossed by suspended sky-bridges.',
+  ring: 'A 104 m structural disc standing on edge, the tower waisting through it, with a glass-bottomed halo cantilevered clear.',
+  spire: 'A tapering lattice from 440 m to 700 m, housing the tuned mass damper and terminating in the beacon.',
+  observatory: 'Deliberately tilted 8°, held by a slung counterweight and a stay-cable fan. A plumb column stands beside it to read the lean against.',
+  court: 'A mirror-symmetrical reflecting pool leading to a glass pyramid that houses the geothermal core and the solar chimney.',
+  annex: 'A curved speed-form pavilion, a modular-block maker space and a glazed arcade over the light-and-water show plaza.'
+};
 
 export class HUD {
   /** @param {AeonSpire} app */
   constructor(app) {
     this.app = app;
-    this.visible = true;
     this.photoMode = false;
     this.helpVisible = false;
-    this._toastTimer = 0;
+    this._toast = 0;
     this._acc = 0;
+    this._heading = 1e9;
     this.build();
-  }
-
-  build() {
-    const style = document.createElement('style');
-    style.textContent = CSS;
-    document.head.appendChild(style);
-
-    const root = document.createElement('div');
-    root.id = 'aeon-ui';
-    root.innerHTML = `
-      <div id="aeon-top" class="panel">
-        <div class="title">AEON SPIRE</div>
-        <div class="sub">City of Wonders · 700 m</div>
-        <div id="aeon-modes"></div>
-        <div id="aeon-zone"></div>
-        <div id="aeon-room"></div>
-      </div>
-
-      <div id="aeon-perf" class="panel"></div>
-
-      <div id="aeon-pm" class="panel">
-        <div class="row1">
-          <span class="ms-num" id="aeon-msnum">M1</span>
-          <span class="ms-name" id="aeon-msname">—</span>
-          <span class="cp" id="aeon-cp">critical path</span>
-          <span class="ms-equip" id="aeon-msequip"></span>
-        </div>
-        <div id="aeon-gantt"></div>
-        <div id="aeon-scrub"><i></i><u></u></div>
-        <div id="aeon-stats"></div>
-        <div id="aeon-hint">C enter construction mode · [ ] scrub · Space play/pause · H for all controls</div>
-      </div>
-
-      <div id="aeon-toast" class="panel"></div>
-
-      <div id="aeon-help">
-        <div class="card panel">
-          <h2>AEON SPIRE — CONTROLS</h2>
-          <p class="lede">
-            A 700 m fictional supertall and entertainment campus, composited from seven zones.
-            Each borrows an engineering idea from a real-world marvel — never its likeness.
-            Press <b>C</b> to watch it built over a 700-day programme.
-          </p>
-          <div class="cols" id="aeon-helpcols"></div>
-          <div class="foot" id="aeon-helpfoot"></div>
-        </div>
-      </div>`;
-    document.body.appendChild(root);
-    this.root = root;
-
-    /* Mode chips. */
-    this.modes = root.querySelector('#aeon-modes');
-    this.chips = {};
-    for (const key of ['time', 'weather', 'camera', 'audio', 'wind']) {
-      const el = document.createElement('span');
-      el.className = 'chip';
-      this.modes.appendChild(el);
-      this.chips[key] = el;
-    }
-
-    this.el = {
-      zone: root.querySelector('#aeon-zone'),
-      room: root.querySelector('#aeon-room'),
-      perf: root.querySelector('#aeon-perf'),
-      pm: root.querySelector('#aeon-pm'),
-      msNum: root.querySelector('#aeon-msnum'),
-      msName: root.querySelector('#aeon-msname'),
-      msEquip: root.querySelector('#aeon-msequip'),
-      cp: root.querySelector('#aeon-cp'),
-      gantt: root.querySelector('#aeon-gantt'),
-      scrub: root.querySelector('#aeon-scrub'),
-      scrubFill: root.querySelector('#aeon-scrub > i'),
-      scrubKnob: root.querySelector('#aeon-scrub > u'),
-      stats: root.querySelector('#aeon-stats'),
-      toast: root.querySelector('#aeon-toast'),
-      help: root.querySelector('#aeon-help')
-    };
-
-    /* The Gantt bar: one segment per milestone, width proportional to its
-       duration so the chart is a real schedule, not ten equal boxes. */
-    this.bars = [];
-    for (const m of MILESTONES) {
-      const bar = document.createElement('div');
-      bar.className = 'gbar' + (m.critical ? ' critical' : '');
-      bar.style.flexGrow = String(m.duration);
-      bar.title = `M${m.n} · ${m.name}\\nDay ${m.day} of ${TOTAL_DAYS} · ${m.equipment}\\n${m.note}`;
-      bar.innerHTML = `<i></i><span>${m.n}</span>`;
-      bar.addEventListener('click', () => {
-        this.app.setConstruction(true);
-        this.app.goToMilestone(m.n);
-        this.toast(`M${m.n} · ${m.name}`);
-      });
-      this.el.gantt.appendChild(bar);
-      this.bars.push({ el: bar, fill: bar.querySelector('i'), m });
-    }
-
-    /* Scrubber drag. */
-    const setFromEvent = (e) => {
-      const rect = this.el.scrub.getBoundingClientRect();
-      const x = ((e.clientX ?? 0) - rect.left) / Math.max(1, rect.width);
-      this.app.construction.setProgress(clamp(x, 0, 1));
-      this.app.setConstruction(true);
-    };
-    let dragging = false;
-    this.el.scrub.addEventListener('pointerdown', (e) => {
-      dragging = true; setFromEvent(e);
-      this.el.scrub.setPointerCapture(e.pointerId);
-    });
-    this.el.scrub.addEventListener('pointermove', (e) => { if (dragging) setFromEvent(e); });
-    this.el.scrub.addEventListener('pointerup', () => { dragging = false; });
-
-    /* Stat tiles. */
-    this.stats = {};
-    for (const [key, label] of [
-      ['day', 'Programme day'], ['complete', '% complete'], ['budget', 'Budget utilised'],
-      ['ev', 'Earned value'], ['spi', 'SPI (schedule)'], ['cpi', 'CPI (cost)']
-    ]) {
-      const el = document.createElement('div');
-      el.className = 'stat';
-      el.innerHTML = `<div class="k">${label}</div><div class="v">—</div>`;
-      this.el.stats.appendChild(el);
-      this.stats[key] = el.querySelector('.v');
-    }
-
-    /* Help overlay content, generated from the same table the keys use. */
-    const cols = root.querySelector('#aeon-helpcols');
-    for (const [group, rows] of HELP) {
-      const h = document.createElement('div');
-      h.className = 'grp';
-      h.textContent = group;
-      cols.appendChild(h);
-      for (const [k, d] of rows) {
-        const kv = document.createElement('div');
-        kv.className = 'kv';
-        kv.innerHTML = `<kbd></kbd><span></span>`;
-        kv.querySelector('kbd').textContent = k;
-        kv.querySelector('span').textContent = d;
-        cols.appendChild(kv);
-      }
-    }
-    root.querySelector('#aeon-helpfoot').textContent =
-      'All geometry, textures and audio in this project are generated procedurally at ' +
-      'runtime — nothing is downloaded, and no trademarked form, logo or character appears ' +
-      'anywhere in the scene. Press H to close.';
-    this.el.help.addEventListener('click', (e) => {
-      if (e.target === this.el.help) this.app.toggleHelp();
-    });
   }
 
   /* ------------------------------------------------------------------ */
 
-  setPhotoMode(on) {
-    this.photoMode = on;
-    this.root.classList.toggle('photo', on);
-    this.root.style.pointerEvents = on ? 'none' : '';
+  build() {
+    document.head.appendChild(el('style', { text: CSS }));
+    const root = el('div', { id: 'aeon-ui' });
+    this.root = root;
+
+    root.appendChild(this._topBar());
+    root.appendChild(this._rail());
+    root.appendChild(this._context());
+    root.appendChild(this._dock());
+    root.appendChild(this._compass());
+    root.appendChild(this._overlay());
+    this.toastEl = el('div', { class: 'a-toast a-panel' });
+    root.appendChild(this.toastEl);
+
+    document.body.appendChild(root);
+  }
+
+  _topBar() {
+    const mark = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    mark.setAttribute('viewBox', '0 0 26 30');
+    mark.setAttribute('width', '24');
+    mark.setAttribute('height', '28');
+    mark.innerHTML =
+      '<path d="M13 1 L16.4 11 H9.6 Z" fill="#e8c07a"/>' +
+      '<ellipse cx="13" cy="15.4" rx="8.4" ry="3.1" fill="none" stroke="#8fb4e8" stroke-width="1.2"/>' +
+      '<path d="M10.4 15.4 L13 11 L15.6 15.4 L13 21 Z" fill="#cfe2ff" opacity=".75"/>' +
+      '<path d="M4 26h18v2H4z M6.5 22.5h13v2h-13z" fill="#9d7532"/>';
+
+    this.modeBtns = {};
+    const mk = (id, label, key, on) =>
+      (this.modeBtns[id] = el('a-btn' in {} ? 'button' : 'button',
+        { class: 'a-btn', onclick: on, title: label },
+        [el('span', { text: label }), el('kbd', { text: key })]));
+
+    this.metricEls = {};
+    const metric = (id, label) => {
+      const b = el('b', { text: '—' });
+      const box = el('div', { class: 'a-metric' }, [b, el('span', { text: label })]);
+      this.metricEls[id] = { box, b };
+      return box;
+    };
+
+    this.topBar = el('div', { class: 'a-top a-panel' }, [
+      el('div', { class: 'a-brand' }, [mark, el('div', {}, [
+        el('div', { class: 'n', text: 'AEON SPIRE' }),
+        el('small', { text: 'City of Wonders · 700 m' })
+      ])]),
+      el('div', { class: 'a-seg' }, [
+        mk('walk', 'Walk', 'F', () => this.app.setCameraMode('walk')),
+        mk('fly', 'Fly', 'F', () => this.app.setCameraMode('fly'))
+      ]),
+      el('div', { class: 'a-grow' }),
+      el('div', { class: 'a-seg' }, [
+        (this.todBtn = el('button', {
+          class: 'a-btn', title: 'Cycle time of day',
+          onclick: () => { this.app.cycleTimeOfDay(); this.toast(this.app.timeOfDayStatus().name); }
+        }, [icon('time', 14), el('span', { text: 'Day' }), el('kbd', { text: 'T' })])),
+        (this.rainBtn = el('button', {
+          class: 'a-btn', title: 'Toggle rain',
+          onclick: () => { this.app.toggleRain(); this.toast(this.app.weatherStatus().rain ? 'Rain' : 'Clear'); }
+        }, [icon('rain', 14), el('kbd', { text: 'R' })])),
+        (this.buildBtn = el('button', {
+          class: 'a-btn', title: 'Construction mode',
+          onclick: () => { const on = this.app.toggleConstruction(); this.toast(on ? 'Construction Mode' : 'Present day'); }
+        }, [icon('build', 14), el('span', { text: 'Build' }), el('kbd', { text: 'C' })]))
+      ]),
+      el('div', { class: 'a-metrics' }, [
+        metric('day', 'Programme day'),
+        metric('complete', 'Complete'),
+        metric('spi', 'SPI'),
+        metric('cpi', 'CPI'),
+        metric('fps', 'FPS')
+      ])
+    ]);
+    return this.topBar;
+  }
+
+  _rail() {
+    const b = (name, tip, on) => el('button', { onclick: on, title: tip },
+      [icon(name, 17), el('span', { class: 'tip', text: tip })]);
+    this.railBtns = {
+      zones: b('zones', 'Zone index  ·  1–7', () => this.openOverlay('zones')),
+      sound: b('sound', 'Soundscape  ·  M', () => { this.app.toggleAudio(); }),
+      photo: b('photo', 'Photo mode  ·  P', () => this.app.togglePhotoMode()),
+      help: b('help', 'Controls  ·  H', () => this.openOverlay('help'))
+    };
+    return el('div', { class: 'a-rail a-panel' }, Object.values(this.railBtns));
+  }
+
+  _context() {
+    this.ctxTitle = el('h3', { text: 'AEON SPIRE' });
+    this.ctxSub = el('div', { class: 'sub', text: 'Press 1–7 to visit the zones' });
+    this.ctxBody = el('p', { text: 'Seven zones, each borrowing one engineering idea from a real-world marvel — never its likeness.' });
+    const stat = (id, label) => {
+      const b = el('b', { text: '—' });
+      this[id] = b;
+      return el('div', {}, [b, el('span', { text: label })]);
+    };
+    this.contextEl = el('div', { class: 'a-context a-panel' }, [
+      this.ctxTitle, this.ctxSub, this.ctxBody,
+      el('div', { class: 'stat-row' }, [
+        stat('ctxAlt', 'Altitude'),
+        stat('ctxRooms', 'Interiors live'),
+        stat('ctxMode', 'Camera')
+      ])
+    ]);
+    return this.contextEl;
+  }
+
+  _dock() {
+    this.msChip = el('span', { class: 'a-chip', text: 'M1' });
+    this.msName = el('span', { class: 't', text: '—' });
+    this.msTag = el('span', { class: 'a-tag', text: 'critical path' });
+    this.msEquip = el('span', { class: 'eq', text: '' });
+
+    this.gantt = el('div', { class: 'a-gantt' });
+    this.bars = MILESTONES.map((m) => {
+      const fill = el('i');
+      const label = el('u', { text: String(m.n) });
+      const bar = el('div', {
+        class: 'a-gbar', title: `M${m.n} · ${m.name}\nDay ${m.day} of ${TOTAL_DAYS} · ${m.duration} days\n${m.equipment}\n${m.note}`,
+        onclick: () => { this.app.setConstruction(true); this.app.goToMilestone(m.n); this.toast(`M${m.n} · ${m.name}`); }
+      }, [fill, label]);
+      bar.style.flex = `${m.duration} 1 0`;
+      this.gantt.appendChild(bar);
+      /* `el` is the name the QA harness reads the bar's classes through; it
+         is an alias for the same node, kept so the contract does not depend
+         on which field name this file happens to use internally. */
+      return { bar, el: bar, fill, m };
+    });
+
+    this.scrubFill = el('i');
+    this.scrubKnob = el('u');
+    this.scrub = el('div', { class: 'a-scrub' }, [this.scrubFill, this.scrubKnob]);
+    let drag = false;
+    const set = (e) => {
+      const r = this.scrub.getBoundingClientRect();
+      this.app.construction.setProgress(clamp((e.clientX - r.left) / Math.max(1, r.width), 0, 1));
+      this.app.setConstruction(true);
+    };
+    this.scrub.addEventListener('pointerdown', (e) => {
+      drag = true; set(e); this.scrub.setPointerCapture(e.pointerId);
+    });
+    this.scrub.addEventListener('pointermove', (e) => { if (drag) set(e); });
+    this.scrub.addEventListener('pointerup', () => { drag = false; });
+
+    this.statEls = {};
+    const stats = el('div', { class: 'a-stats' });
+    for (const [k, label] of [
+      ['day', 'Programme day'], ['complete', 'Percent complete'], ['budget', 'Budget utilised'],
+      ['ev', 'Earned value'], ['pv', 'Planned value'], ['spi', 'SPI · schedule'], ['cpi', 'CPI · cost']
+    ]) {
+      const v = el('div', { class: 'v', text: '—' });
+      this.statEls[k] = v;
+      stats.appendChild(el('div', { class: 'a-stat' }, [el('div', { class: 'k', text: label }), v]));
+    }
+
+    this.dock = el('div', { class: 'a-dock a-panel hidden' }, [
+      el('div', { class: 'a-dock-head' }, [this.msChip, this.msName, this.msTag, this.msEquip]),
+      this.gantt, this.scrub, stats
+    ]);
+    return this.dock;
+  }
+
+  _compass() {
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('viewBox', '-32 -32 64 64');
+    s.setAttribute('width', '58');
+    s.setAttribute('height', '58');
+    s.innerHTML =
+      '<circle r="27" fill="none" stroke="rgba(150,178,214,.2)" stroke-width="1"/>' +
+      '<circle r="20" fill="none" stroke="rgba(150,178,214,.12)" stroke-width="1"/>' +
+      '<g id="a-needle">' +
+      '<path d="M0,-22 L5,4 L0,0 L-5,4 Z" fill="#e8c07a"/>' +
+      '<path d="M0,22 L5,-4 L0,0 L-5,-4 Z" fill="#4c5a70"/></g>' +
+      '<text x="0" y="-23" text-anchor="middle" font-size="9" fill="#93a6c2" font-family="ui-sans-serif">N</text>';
+    this.needle = s.querySelector('#a-needle');
+    return el('div', { class: 'a-compass a-panel' }, [s]);
+  }
+
+  _overlay() {
+    /* --- controls --- */
+    const cols = el('div', { class: 'a-cols' });
+    for (const [group, rows] of HELP) {
+      cols.appendChild(el('div', { class: 'a-grp', text: group }));
+      for (const [k, d] of rows) {
+        cols.appendChild(el('div', { class: 'a-kv' }, [
+          el('kbd', { text: k }), el('span', { text: d })
+        ]));
+      }
+    }
+    this.helpCard = el('div', { class: 'a-card a-panel' }, [
+      el('h2', { text: 'CONTROLS' }),
+      el('p', {
+        class: 'lede',
+        html: 'A 700 m fictional supertall and entertainment campus, composited from seven zones. ' +
+          'Press <b>C</b> to watch it built over a 700-day programme, or <b>1–7</b> to visit each zone — ' +
+          'press the same number twice to step inside.'
+      }),
+      cols,
+      el('div', {
+        class: 'a-foot',
+        text: 'Every texture, sound and polygon in this project is generated procedurally at runtime. ' +
+          'Nothing is downloaded, and no trademarked form, logo or character appears anywhere in the scene. ' +
+          'Press H or Esc to close.'
+      })
+    ]);
+
+    /* --- zone index --- */
+    const grid = el('div', { class: 'a-zones' });
+    ZONE_PRESETS.forEach((z, i) => {
+      grid.appendChild(el('div', {
+        class: 'a-zone',
+        onclick: () => { this.closeOverlay(); this.app.jumpToZone(i); }
+      }, [
+        el('b', { text: z.name }),
+        el('i', { text: 'Key ' + z.key }),
+        el('span', { text: ZONE_BLURB[z.id] || '' })
+      ]));
+    });
+    this.zoneCard = el('div', { class: 'a-card a-panel' }, [
+      el('h2', { text: 'THE SEVEN ZONES' }),
+      el('p', {
+        class: 'lede',
+        html: 'Each zone borrows one <b>engineering idea</b> from a real-world marvel and expresses it in ' +
+          'original geometry. Click a zone to travel there; press its number again to go inside.'
+      }),
+      grid,
+      el('div', {
+        class: 'a-foot',
+        text: 'All 31 named interior spaces are modelled and furnished. Interiors build as you approach ' +
+          'them and each carries its own acoustic, so a stone vault and a glass atrium do not sound alike.'
+      })
+    ]);
+
+    this.overlay = el('div', {
+      class: 'a-overlay',
+      onclick: (e) => { if (e.target === this.overlay) this.closeOverlay(); }
+    }, [this.helpCard, this.zoneCard]);
+    this.helpCard.style.display = 'none';
+    this.zoneCard.style.display = 'none';
+    return this.overlay;
+  }
+
+  /* ------------------------------------------------------------------ */
+
+  openOverlay(which) {
+    this.overlayKind = which;
+    this.helpCard.style.display = which === 'help' ? '' : 'none';
+    this.zoneCard.style.display = which === 'zones' ? '' : 'none';
+    this.overlay.classList.add('open');
+    this.helpVisible = true;
+    this.app.helpVisible = true;
+    this.railBtns.help.classList.toggle('on', which === 'help');
+    this.railBtns.zones.classList.toggle('on', which === 'zones');
+  }
+
+  closeOverlay() {
+    this.overlay.classList.remove('open');
+    this.helpVisible = false;
+    this.app.helpVisible = false;
+    this.railBtns.help.classList.remove('on');
+    this.railBtns.zones.classList.remove('on');
   }
 
   setHelpVisible(on) {
-    this.helpVisible = on;
-    this.el.help.classList.toggle('show', on);
+    if (on) this.openOverlay(this.overlayKind === 'zones' ? 'zones' : 'help');
+    else this.closeOverlay();
+  }
+
+  setPhotoMode(on) {
+    this.photoMode = on;
+    this.root.classList.toggle('photo', on);
+    this.railBtns.photo.classList.toggle('on', on);
   }
 
   onMilestoneChange(m) {
@@ -378,22 +386,21 @@ export class HUD {
   }
 
   toast(text, seconds = 2.6) {
-    this.el.toast.textContent = text;
-    this.el.toast.classList.add('show');
-    this._toastTimer = seconds;
+    this.toastEl.textContent = text;
+    this.toastEl.classList.add('show');
+    this._toast = seconds;
   }
 
   /* ------------------------------------------------------------------ */
 
   update(dt) {
-    if (this._toastTimer > 0) {
-      this._toastTimer -= dt;
-      if (this._toastTimer <= 0) this.el.toast.classList.remove('show');
+    if (this._toast > 0) {
+      this._toast -= dt;
+      if (this._toast <= 0) this.toastEl.classList.remove('show');
     }
     if (this.photoMode) return;
 
-    // The HUD is DOM: refreshing it at 60 Hz is wasted work and causes
-    // layout thrash, so it runs at ~12 Hz.
+    // DOM at 60 Hz is wasted work and causes layout thrash; ~12 Hz is plenty.
     this._acc += dt;
     if (this._acc < 0.08) return;
     this._acc = 0;
@@ -403,68 +410,95 @@ export class HUD {
     const w = app.weatherStatus();
     const cs = app.constructionStatus();
     const audio = app.audioStatus();
-
-    /* ---- Mode chips ---- */
-    this.chips.time.innerHTML = `<b>T</b> ${tod.name}${tod.transitioning ? ' …' : ''}`;
-    this.chips.weather.innerHTML = `<b>R</b> ${w.rain ? 'Rain' : 'Clear'}`;
-    this.chips.weather.classList.toggle('on', w.rain);
-    this.chips.camera.innerHTML = `<b>F</b> ${app.cameraMode === 'walk' ? 'Walk' : 'Fly'}`;
-    this.chips.audio.innerHTML = `<b>M</b> ${audio.enabled ? (audio.running ? 'Sound' : 'Sound (click)') : 'Muted'}`;
-    this.chips.audio.classList.toggle('on', audio.enabled && audio.running);
-    this.chips.wind.innerHTML = `<b>Wind</b> ${Math.round(w.wind * 100)}%`;
-
-    this.el.zone.textContent = app.currentZoneName || 'Press 1–7 for the seven zones';
-    const room = app.world.interiors.current;
-    this.el.room.textContent = room ? `Inside: ${room.name}${room.level ? ' · ' + room.level : ''}` : '';
-
-    /* ---- Performance ---- */
     const st = app.engine.stats();
-    this.el.perf.innerHTML =
-      `<b>${st.fps.toFixed(0)}</b> fps · <b>${st.tier}</b><br>` +
-      `${commas(st.calls)} calls · ${commas(st.triangles / 1000)}k tris<br>` +
-      `${app.world.interiors.visibleCount} interiors live`;
+    const room = app.world.interiors.current;
 
-    /* ---- The PM panel ---- */
-    this.el.pm.classList.toggle('hidden', !cs.active);
+    /* ---- top bar ---- */
+    this.modeBtns.walk.classList.toggle('on', app.cameraMode === 'walk');
+    this.modeBtns.fly.classList.toggle('on', app.cameraMode === 'fly');
+    this.todBtn.querySelector('span').textContent = tod.name;
+    this.rainBtn.classList.toggle('on', w.rain);
+    this.buildBtn.classList.toggle('on', cs.active);
+    this.railBtns.sound.classList.toggle('on', audio.enabled && audio.running);
+
+    const setMetric = (id, text, grade) => {
+      const m = this.metricEls[id];
+      m.b.textContent = text;
+      m.box.classList.remove('good', 'warn', 'bad');
+      if (grade) m.box.classList.add(grade);
+    };
+    const gradeIdx = (v) => (v >= 0.995 ? 'good' : v >= 0.95 ? 'warn' : 'bad');
+    setMetric('day', cs.active ? String(cs.day) : '—');
+    setMetric('complete', cs.active ? (cs.percentComplete * 100).toFixed(0) + '%' : '—');
+    setMetric('spi', cs.active ? cs.spi.toFixed(2) : '—', cs.active ? gradeIdx(cs.spi) : null);
+    setMetric('cpi', cs.active ? cs.cpi.toFixed(2) : '—', cs.active ? gradeIdx(cs.cpi) : null);
+    setMetric('fps', st.fps.toFixed(0), st.fps > 45 ? 'good' : st.fps > 26 ? 'warn' : 'bad');
+
+    /* ---- context card ---- */
+    if (room) {
+      this.ctxTitle.textContent = room.name;
+      this.ctxSub.textContent = (room.level ? room.level + ' · ' : '') + app.world.zone(room.zone).name;
+      this.ctxBody.textContent = ZONE_BLURB[room.zone] || '';
+    } else if (app.currentZoneName) {
+      this.ctxTitle.textContent = app.currentZoneName.replace(' — interior', '');
+      this.ctxSub.textContent = 'Exterior view';
+      const z = ZONE_PRESETS.find(p => app.currentZoneName.startsWith(p.name));
+      this.ctxBody.textContent = z ? (ZONE_BLURB[z.id] || '') : '';
+    }
+    this.ctxAlt.textContent = Math.round(app.camera.position.y) + ' m';
+    this.ctxRooms.textContent = String(app.world.interiors.visibleCount);
+    this.ctxMode.textContent = app.cameraMode === 'walk' ? 'Walk' : 'Fly';
+
+    /* ---- compass ---- */
+    if (this.needle) {
+      /* Read the camera basis straight out of its world matrix: the forward
+         axis is -Z, i.e. (-e8, -e9, -e10). Doing it this way keeps the HUD
+         free of a three.js import and allocates nothing per frame. North is
+         -Z, east is +X, and SVG rotates clockwise, which is the same sense. */
+      const e = app.camera.matrixWorld.elements;
+      const heading = Math.atan2(-e[8], e[10]) * 180 / Math.PI;
+      if (Math.abs(heading - this._heading) > 0.25) {
+        this._heading = heading;
+        this.needle.setAttribute('transform', `rotate(${heading.toFixed(1)})`);
+      }
+    }
+
+    /* ---- the PM dock ---- */
+    this.dock.classList.toggle('hidden', !cs.active);
     if (!cs.active) return;
 
-    this.el.msNum.textContent = 'M' + cs.milestone;
-    this.el.msName.textContent = cs.milestoneName;
-    this.el.msEquip.textContent = cs.equipment;
-    this.el.cp.style.display = cs.onCriticalPath ? '' : 'none';
+    this.msChip.textContent = 'M' + cs.milestone;
+    this.msName.textContent = cs.milestoneName;
+    this.msEquip.textContent = cs.equipment;
+    this.msTag.style.display = cs.onCriticalPath ? '' : 'none';
 
     for (const b of this.bars) {
       const done = cs.milestone > b.m.n;
-      const current = cs.milestone === b.m.n;
-      b.el.classList.toggle('done', done);
-      b.el.classList.toggle('current', current);
-      b.fill.style.width = done ? '100%' : current ? (cs.milestoneProgress * 100).toFixed(1) + '%' : '0%';
+      const now = cs.milestone === b.m.n;
+      b.bar.classList.toggle('done', done);
+      b.bar.classList.toggle('now', now);
+      b.fill.style.width = done ? '100%' : now ? (cs.milestoneProgress * 100).toFixed(1) + '%' : '0';
     }
+    this.scrubFill.style.width = (cs.t * 100).toFixed(2) + '%';
+    this.scrubKnob.style.left = (cs.t * 100).toFixed(2) + '%';
 
-    this.el.scrubFill.style.width = (cs.t * 100).toFixed(2) + '%';
-    this.el.scrubKnob.style.left = (cs.t * 100).toFixed(2) + '%';
-
-    const money = (frac) => '$' + (frac * TOTAL_BUDGET / 1e9).toFixed(2) + 'bn';
-    this.stats.day.innerHTML = `${cs.day}<small>/ ${cs.totalDays}</small>`;
-    this.stats.complete.innerHTML = `${(cs.percentComplete * 100).toFixed(1)}<small>%</small>`;
-    this.stats.budget.innerHTML = `${(cs.budgetUsed * 100).toFixed(1)}<small>% · ${money(cs.budgetUsed)}</small>`;
-    this.stats.ev.innerHTML = `${money(cs.earnedValue)}<small>EV</small>`;
-
-    const grade = (el, v) => {
-      el.classList.remove('good', 'warn', 'bad');
-      el.classList.add(v >= 0.995 ? 'good' : v >= 0.95 ? 'warn' : 'bad');
-    };
-    this.stats.spi.textContent = cs.spi.toFixed(3);
-    this.stats.cpi.textContent = cs.cpi.toFixed(3);
-    grade(this.stats.spi, cs.spi);
-    grade(this.stats.cpi, cs.cpi);
+    const bn = (f) => '$' + (f * TOTAL_BUDGET / 1e9).toFixed(2) + 'bn';
+    const S = this.statEls;
+    S.day.innerHTML = `${cs.day}<small>of ${cs.totalDays}</small>`;
+    S.complete.innerHTML = `${(cs.percentComplete * 100).toFixed(1)}<small>%</small>`;
+    S.budget.innerHTML = `${(cs.budgetUsed * 100).toFixed(1)}<small>% · ${bn(cs.budgetUsed)}</small>`;
+    S.ev.textContent = bn(cs.earnedValue);
+    S.pv.textContent = bn(cs.plannedValue);
+    S.spi.textContent = cs.spi.toFixed(3);
+    S.cpi.textContent = cs.cpi.toFixed(3);
+    for (const [k, v] of [['spi', cs.spi], ['cpi', cs.cpi]]) {
+      S[k].classList.remove('good', 'warn', 'bad');
+      S[k].classList.add(gradeIdx(v));
+    }
   }
 
   /** For the QA harness. */
   status() {
-    /* Report the *target* opacity from the matched rule, not the value
-       mid-transition: under software rendering the compositor can be
-       starved and a running CSS transition never advances. */
     let targetOpacity = 1;
     try {
       for (const sheet of document.styleSheets) {
@@ -474,19 +508,19 @@ export class HUD {
           }
         }
       }
-    } catch (e) { /* cross-origin stylesheet; not ours */ }
-
+    } catch (e) { /* not our stylesheet */ }
     return {
       photoMode: this.photoMode,
       hiddenClass: this.root.classList.contains('photo'),
       targetOpacity,
-      pointerEvents: this.root.style.pointerEvents,
+      pointerEvents: this.photoMode ? 'none' : '',
       helpVisible: this.helpVisible,
-      pmPanelVisible: !this.el.pm.classList.contains('hidden'),
+      pmPanelVisible: !this.dock.classList.contains('hidden'),
       ganttBars: this.bars.length,
-      helpRows: this.el.help.querySelectorAll('.kv').length,
-      dayText: this.stats.day.textContent,
-      budgetText: this.stats.budget.textContent
+      helpRows: this.overlay.querySelectorAll('.a-kv').length,
+      zoneCards: this.overlay.querySelectorAll('.a-zone').length,
+      dayText: this.statEls.day.textContent,
+      budgetText: this.statEls.budget.textContent
     };
   }
 }

@@ -63,7 +63,7 @@ const page = await browser.newPage({ viewport: { width: W, height: H } });
 page.on('pageerror', e => console.error('  page error:', e.message));
 page.on('console', m => { if (m.type() === 'error' && !/jsdelivr|Failed to load resource/.test(m.text())) console.error('  console:', m.text()); });
 
-await page.goto(`http://localhost:${PORT}/dev.html?quality=high`, { waitUntil: 'load', timeout: 60000 });
+await page.goto(`http://localhost:${PORT}/dev.html?quality=${process.env.SHOT_QUALITY || 'high'}`, { waitUntil: 'load', timeout: 60000 });
 await page.waitForFunction(() => window.AEON_STARTED === true || window.AEON_FATAL, { timeout: 120000 });
 await page.waitForTimeout(1200);
 if (process.env.SHOT_INTERIORS) {
@@ -110,7 +110,7 @@ for (const [name, pos, look] of shots) {
   // A few frames so culling, lazy rooms and the sky settle.
   await page.waitForTimeout(2600);
   const file = path.join(OUT, name + '.jpg');
-  await page.screenshot({ path: file, type: 'jpeg', quality: 86 });
+  await page.screenshot({ path: file, type: 'jpeg', quality: 86, timeout: 180000 });
   console.log('  →', path.relative(ROOT, file));
 }
 
