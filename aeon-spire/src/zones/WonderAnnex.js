@@ -338,8 +338,8 @@ export class WonderAnnex extends Zone {
     const set = M.tex.get('waterNormal');
     const uniforms = { uTime: { value: 0 }, uRipple: { value: 0.6 } };
     const waterMat = new THREE.MeshStandardMaterial({
-      color: 0x16323d, roughness: 0.06, metalness: 0.28,
-      transparent: true, opacity: 0.9, normalMap: set.normalMap, envMapIntensity: 1.55
+      color: 0x0d2530, roughness: 0.035, metalness: 0.0,
+      transparent: true, opacity: 0.94, normalMap: set.normalMap, envMapIntensity: 1.5
     });
     waterMat.normalScale = new THREE.Vector2(0.6, 0.6);
     waterMat.onBeforeCompile = (sh) => {
@@ -358,6 +358,7 @@ export class WonderAnnex extends Zone {
           normal = normalize(tbn * normalize(mn));`);
     };
     waterMat.customProgramCacheKey = () => 'aeon-showwater';
+    M.adopt(waterMat, { exterior: true, key: 'showPlazaWater' });
     this.showWaterMaterial = waterMat;
     this.showWaterUniforms = uniforms;
 

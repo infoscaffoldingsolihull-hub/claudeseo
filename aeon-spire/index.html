@@ -81587,7 +81587,11 @@ function makeWeatherReactive(mat) {
       .replace('#include <map_fragment>', '#include <map_fragment>\n' + WET_FRAG)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n' + WET_ROUGH);
   };
-  mat.customProgramCacheKey = () => 'aeon-wet';
+  /* Compose rather than replace: the water surfaces already carry their own
+     cache key, and collapsing them all onto 'aeon-wet' would have three.js
+     reuse one compiled program for three different shaders. */
+  const base = mat.customProgramCacheKey ? mat.customProgramCacheKey() : '';
+  mat.customProgramCacheKey = () => 'aeon-wet' + base;
   mat.needsUpdate = true;
   return mat;
 }
@@ -81949,12 +81953,33 @@ class MaterialLibrary {
   setWind(v) { globalUniforms.uWind.value = clamp(v, 0, 1); }
   setTime(t) { globalUniforms.uTime.value = t; }
 
+  /**
+   * Adopt a material built by hand rather than through this library.
+   *
+   * The water surfaces each carry a bespoke shader patch, so they are
+   * constructed directly — and were therefore missing from the cache that
+   * setEnvMap() walks. A mirror-smooth surface with no environment map
+   * reflects nothing but the lights, which is why every pool and canal on
+   * the campus rendered as flat grey paint.
+   */
+  adopt(mat, { exterior = false, clip = true, key = null } = {}) {
+    if (key && !this.cache.has(key)) this.cache.set(key, mat);
+    if (this.envMap && 'envMap' in mat) { mat.envMap = this.envMap; mat.needsUpdate = true; }
+    if (exterior && !this.exterior.includes(mat)) { makeWeatherReactive(mat); this.exterior.push(mat); }
+    if (clip && !this.clippable.includes(mat)) this.clippable.push(mat);
+    if (!this.adopted) this.adopted = [];
+    if (!this.adopted.includes(mat)) this.adopted.push(mat);
+    return mat;
+  }
+
   /** Push a freshly generated environment map onto every cached material. */
   setEnvMap(env) {
     this.envMap = env;
-    for (const m of this.cache.values()) {
+    const apply = (m) => {
       if ('envMap' in m) { m.envMap = env; m.needsUpdate = true; }
-    }
+    };
+    for (const m of this.cache.values()) apply(m);
+    for (const m of (this.adopted || [])) apply(m);
   }
 
   dispose() {
@@ -89482,9 +89507,9 @@ class CanalConcourse extends Zone {
     this.waterUniforms = uniforms;
 
     const mat = new THREE.MeshStandardMaterial({
-      color: 0x2c5a63,
-      roughness: 0.09,
-      metalness: 0.16,
+      color: 0x143138,
+      roughness: 0.055,
+      metalness: 0.0,
       transparent: true,
       opacity: 0.88,
       normalMap: set.normalMap,
@@ -89514,6 +89539,7 @@ class CanalConcourse extends Zone {
           uniform float uTime; uniform float uRipple;`);
     };
     mat.customProgramCacheKey = () => 'aeon-water';
+    M.adopt(mat, { exterior: true, key: 'canalWater' });
     this.waterMaterial = mat;
 
     const geo = waterAnnulus(CANAL.innerRadius + 0.1, CANAL.outerRadius - 0.1, 128, 12);
@@ -94346,18 +94372,23 @@ class ReflectionCourt extends Zone {
     });
     /* The court is paved as a shape with the reflecting pool punched out of
        it — otherwise the paving would simply cover the water. */
+    /* rotateX(-90 deg) sends the shape's +Y to -Z, so a shape drawn with
+       world Z values lands mirrored: the court's paving was being laid 300 m
+       away on the far side of the campus, leaving the pool with no cut-out
+       and the site plaza covering the water. Draw the shape in -Z so the
+       rotation puts it back where it belongs, winding and normal intact. */
     const shape = new THREE.Shape();
-    shape.moveTo(-COURT.halfWidth, COURT.startZ);
-    shape.lineTo(COURT.halfWidth, COURT.startZ);
-    shape.lineTo(COURT.halfWidth, COURT.endZ);
-    shape.lineTo(-COURT.halfWidth, COURT.endZ);
+    shape.moveTo(-COURT.halfWidth, -COURT.startZ);
+    shape.lineTo(-COURT.halfWidth, -COURT.endZ);
+    shape.lineTo(COURT.halfWidth, -COURT.endZ);
+    shape.lineTo(COURT.halfWidth, -COURT.startZ);
     shape.closePath();
     const poolHole = new THREE.Path();
     const ph = COURT.poolHalfX;
-    poolHole.moveTo(-ph, COURT.poolStartZ);
-    poolHole.lineTo(-ph, COURT.poolEndZ);
-    poolHole.lineTo(ph, COURT.poolEndZ);
-    poolHole.lineTo(ph, COURT.poolStartZ);
+    poolHole.moveTo(-ph, -COURT.poolStartZ);
+    poolHole.lineTo(ph, -COURT.poolStartZ);
+    poolHole.lineTo(ph, -COURT.poolEndZ);
+    poolHole.lineTo(-ph, -COURT.poolEndZ);
     poolHole.closePath();
     shape.holes.push(poolHole);
     const g = new THREE.ShapeGeometry(shape, 2);
@@ -94421,10 +94452,10 @@ class ReflectionCourt extends Zone {
     const set = M.tex.get('waterNormal');
     const uniforms = { uTime: { value: 0 }, uRipple: { value: 0.25 } };
     const mat = new THREE.MeshStandardMaterial({
-      color: 0x1e3d4a, roughness: 0.045, metalness: 0.3,
-      transparent: true, opacity: 0.94, normalMap: set.normalMap, envMapIntensity: 1.55
+      color: 0x0f2731, roughness: 0.028, metalness: 0.0,
+      transparent: true, opacity: 0.96, normalMap: set.normalMap, envMapIntensity: 1.5
     });
-    mat.normalScale = new THREE.Vector2(0.35, 0.35);
+    mat.normalScale = new THREE.Vector2(0.5, 0.5);
     mat.onBeforeCompile = (sh) => {
       sh.uniforms.uTime = uniforms.uTime;
       sh.uniforms.uRipple = uniforms.uRipple;
@@ -94441,6 +94472,7 @@ class ReflectionCourt extends Zone {
           normal = normalize(tbn * normalize(mn));`);
     };
     mat.customProgramCacheKey = () => 'aeon-poolwater';
+    M.adopt(mat, { exterior: true, key: 'courtPoolWater' });
     this.poolMaterial = mat;
     this.poolUniforms = uniforms;
 
@@ -94467,8 +94499,8 @@ class ReflectionCourt extends Zone {
       repeat: 3, roughness: 0.62, exterior: true, color: 0xe2dac6
     });
     const rillMat = M.glass('courtRill', {
-      color: 0xbcd2d4, opacity: 0.5, roughness: 0.04, metalness: 0.1,
-      side: THREE.FrontSide, envMapIntensity: 0.9
+      color: 0x39555c, opacity: 0.8, roughness: 0.03, metalness: 0.0,
+      side: THREE.FrontSide, envMapIntensity: 1.3
     });
     const palmMat = M.surface('courtPalm', 'foliage', {
       repeat: 1, roughness: 0.86, exterior: true, wind: true,
@@ -95663,8 +95695,8 @@ class WonderAnnex extends Zone {
     const set = M.tex.get('waterNormal');
     const uniforms = { uTime: { value: 0 }, uRipple: { value: 0.6 } };
     const waterMat = new THREE.MeshStandardMaterial({
-      color: 0x16323d, roughness: 0.06, metalness: 0.28,
-      transparent: true, opacity: 0.9, normalMap: set.normalMap, envMapIntensity: 1.55
+      color: 0x0d2530, roughness: 0.035, metalness: 0.0,
+      transparent: true, opacity: 0.94, normalMap: set.normalMap, envMapIntensity: 1.5
     });
     waterMat.normalScale = new THREE.Vector2(0.6, 0.6);
     waterMat.onBeforeCompile = (sh) => {
@@ -95683,6 +95715,7 @@ class WonderAnnex extends Zone {
           normal = normalize(tbn * normalize(mn));`);
     };
     waterMat.customProgramCacheKey = () => 'aeon-showwater';
+    M.adopt(waterMat, { exterior: true, key: 'showPlazaWater' });
     this.showWaterMaterial = waterMat;
     this.showWaterUniforms = uniforms;
 
@@ -96613,12 +96646,28 @@ class SceneManager {
       name: 'HorizonRelief', receive: true
     }));
 
-    /* --- The paved campus plaza: an annulus, because the canal ring is a
-       void in the ground plane and a filled disc would roof the water over --- */
+    /* --- The paved campus plaza. Punched twice: once for the canal ring,
+       which is a void in the ground plane, and once for the Reflection
+       Court, whose own paving carries the cut-out for the reflecting pool.
+       Without the second hole the plaza simply roofed the pool over. --- */
     const plazaMat = M.surface('sitePlaza', 'paving', {
       repeat: 150, roughness: 0.68, exterior: true, color: 0xb4b0a6
     });
-    const plaza = new THREE.RingGeometry(CANAL.outerRadius + 1.6, SITE.plazaRadius, 128, 24);
+    const plazaShape = new THREE.Shape();
+    plazaShape.absarc(0, 0, SITE.plazaRadius, 0, TAU, false);
+    const canalHole = new THREE.Path();
+    canalHole.absarc(0, 0, CANAL.outerRadius + 1.6, 0, TAU, true);
+    plazaShape.holes.push(canalHole);
+    /* rotateX(-90 deg) sends +Y to -Z, so the court's hole is drawn in -Z. */
+    const courtHole = new THREE.Path();
+    const chx = COURT.halfWidth + 1.2;
+    courtHole.moveTo(-chx, -(COURT.startZ - 1.2));
+    courtHole.lineTo(chx, -(COURT.startZ - 1.2));
+    courtHole.lineTo(chx, -(COURT.endZ + 1.2));
+    courtHole.lineTo(-chx, -(COURT.endZ + 1.2));
+    courtHole.closePath();
+    plazaShape.holes.push(courtHole);
+    const plaza = new THREE.ShapeGeometry(plazaShape, 128);
     plaza.rotateX(-Math.PI / 2);
     {
       const uv = plaza.attributes.uv, pos = plaza.attributes.position;

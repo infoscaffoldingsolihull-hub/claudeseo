@@ -190,12 +190,28 @@ export class SceneManager {
       name: 'HorizonRelief', receive: true
     }));
 
-    /* --- The paved campus plaza: an annulus, because the canal ring is a
-       void in the ground plane and a filled disc would roof the water over --- */
+    /* --- The paved campus plaza. Punched twice: once for the canal ring,
+       which is a void in the ground plane, and once for the Reflection
+       Court, whose own paving carries the cut-out for the reflecting pool.
+       Without the second hole the plaza simply roofed the pool over. --- */
     const plazaMat = M.surface('sitePlaza', 'paving', {
       repeat: 150, roughness: 0.68, exterior: true, color: 0xb4b0a6
     });
-    const plaza = new THREE.RingGeometry(CANAL.outerRadius + 1.6, SITE.plazaRadius, 128, 24);
+    const plazaShape = new THREE.Shape();
+    plazaShape.absarc(0, 0, SITE.plazaRadius, 0, TAU, false);
+    const canalHole = new THREE.Path();
+    canalHole.absarc(0, 0, CANAL.outerRadius + 1.6, 0, TAU, true);
+    plazaShape.holes.push(canalHole);
+    /* rotateX(-90 deg) sends +Y to -Z, so the court's hole is drawn in -Z. */
+    const courtHole = new THREE.Path();
+    const chx = COURT.halfWidth + 1.2;
+    courtHole.moveTo(-chx, -(COURT.startZ - 1.2));
+    courtHole.lineTo(chx, -(COURT.startZ - 1.2));
+    courtHole.lineTo(chx, -(COURT.endZ + 1.2));
+    courtHole.lineTo(-chx, -(COURT.endZ + 1.2));
+    courtHole.closePath();
+    plazaShape.holes.push(courtHole);
+    const plaza = new THREE.ShapeGeometry(plazaShape, 128);
     plaza.rotateX(-Math.PI / 2);
     {
       const uv = plaza.attributes.uv, pos = plaza.attributes.position;

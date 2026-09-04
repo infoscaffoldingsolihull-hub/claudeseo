@@ -46,18 +46,23 @@ export class ReflectionCourt extends Zone {
     });
     /* The court is paved as a shape with the reflecting pool punched out of
        it — otherwise the paving would simply cover the water. */
+    /* rotateX(-90 deg) sends the shape's +Y to -Z, so a shape drawn with
+       world Z values lands mirrored: the court's paving was being laid 300 m
+       away on the far side of the campus, leaving the pool with no cut-out
+       and the site plaza covering the water. Draw the shape in -Z so the
+       rotation puts it back where it belongs, winding and normal intact. */
     const shape = new THREE.Shape();
-    shape.moveTo(-COURT.halfWidth, COURT.startZ);
-    shape.lineTo(COURT.halfWidth, COURT.startZ);
-    shape.lineTo(COURT.halfWidth, COURT.endZ);
-    shape.lineTo(-COURT.halfWidth, COURT.endZ);
+    shape.moveTo(-COURT.halfWidth, -COURT.startZ);
+    shape.lineTo(-COURT.halfWidth, -COURT.endZ);
+    shape.lineTo(COURT.halfWidth, -COURT.endZ);
+    shape.lineTo(COURT.halfWidth, -COURT.startZ);
     shape.closePath();
     const poolHole = new THREE.Path();
     const ph = COURT.poolHalfX;
-    poolHole.moveTo(-ph, COURT.poolStartZ);
-    poolHole.lineTo(-ph, COURT.poolEndZ);
-    poolHole.lineTo(ph, COURT.poolEndZ);
-    poolHole.lineTo(ph, COURT.poolStartZ);
+    poolHole.moveTo(-ph, -COURT.poolStartZ);
+    poolHole.lineTo(ph, -COURT.poolStartZ);
+    poolHole.lineTo(ph, -COURT.poolEndZ);
+    poolHole.lineTo(-ph, -COURT.poolEndZ);
     poolHole.closePath();
     shape.holes.push(poolHole);
     const g = new THREE.ShapeGeometry(shape, 2);
@@ -121,10 +126,10 @@ export class ReflectionCourt extends Zone {
     const set = M.tex.get('waterNormal');
     const uniforms = { uTime: { value: 0 }, uRipple: { value: 0.25 } };
     const mat = new THREE.MeshStandardMaterial({
-      color: 0x1e3d4a, roughness: 0.045, metalness: 0.3,
-      transparent: true, opacity: 0.94, normalMap: set.normalMap, envMapIntensity: 1.55
+      color: 0x0f2731, roughness: 0.028, metalness: 0.0,
+      transparent: true, opacity: 0.96, normalMap: set.normalMap, envMapIntensity: 1.5
     });
-    mat.normalScale = new THREE.Vector2(0.35, 0.35);
+    mat.normalScale = new THREE.Vector2(0.5, 0.5);
     mat.onBeforeCompile = (sh) => {
       sh.uniforms.uTime = uniforms.uTime;
       sh.uniforms.uRipple = uniforms.uRipple;
@@ -141,6 +146,7 @@ export class ReflectionCourt extends Zone {
           normal = normalize(tbn * normalize(mn));`);
     };
     mat.customProgramCacheKey = () => 'aeon-poolwater';
+    M.adopt(mat, { exterior: true, key: 'courtPoolWater' });
     this.poolMaterial = mat;
     this.poolUniforms = uniforms;
 
@@ -167,8 +173,8 @@ export class ReflectionCourt extends Zone {
       repeat: 3, roughness: 0.62, exterior: true, color: 0xe2dac6
     });
     const rillMat = M.glass('courtRill', {
-      color: 0xbcd2d4, opacity: 0.5, roughness: 0.04, metalness: 0.1,
-      side: THREE.FrontSide, envMapIntensity: 0.9
+      color: 0x39555c, opacity: 0.8, roughness: 0.03, metalness: 0.0,
+      side: THREE.FrontSide, envMapIntensity: 1.3
     });
     const palmMat = M.surface('courtPalm', 'foliage', {
       repeat: 1, roughness: 0.86, exterior: true, wind: true,

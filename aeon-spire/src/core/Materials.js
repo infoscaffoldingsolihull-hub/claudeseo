@@ -74,7 +74,11 @@ export function makeWeatherReactive(mat) {
       .replace('#include <map_fragment>', '#include <map_fragment>\n' + WET_FRAG)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n' + WET_ROUGH);
   };
-  mat.customProgramCacheKey = () => 'aeon-wet';
+  /* Compose rather than replace: the water surfaces already carry their own
+     cache key, and collapsing them all onto 'aeon-wet' would have three.js
+     reuse one compiled program for three different shaders. */
+  const base = mat.customProgramCacheKey ? mat.customProgramCacheKey() : '';
+  mat.customProgramCacheKey = () => 'aeon-wet' + base;
   mat.needsUpdate = true;
   return mat;
 }
@@ -436,12 +440,33 @@ export class MaterialLibrary {
   setWind(v) { globalUniforms.uWind.value = clamp(v, 0, 1); }
   setTime(t) { globalUniforms.uTime.value = t; }
 
+  /**
+   * Adopt a material built by hand rather than through this library.
+   *
+   * The water surfaces each carry a bespoke shader patch, so they are
+   * constructed directly — and were therefore missing from the cache that
+   * setEnvMap() walks. A mirror-smooth surface with no environment map
+   * reflects nothing but the lights, which is why every pool and canal on
+   * the campus rendered as flat grey paint.
+   */
+  adopt(mat, { exterior = false, clip = true, key = null } = {}) {
+    if (key && !this.cache.has(key)) this.cache.set(key, mat);
+    if (this.envMap && 'envMap' in mat) { mat.envMap = this.envMap; mat.needsUpdate = true; }
+    if (exterior && !this.exterior.includes(mat)) { makeWeatherReactive(mat); this.exterior.push(mat); }
+    if (clip && !this.clippable.includes(mat)) this.clippable.push(mat);
+    if (!this.adopted) this.adopted = [];
+    if (!this.adopted.includes(mat)) this.adopted.push(mat);
+    return mat;
+  }
+
   /** Push a freshly generated environment map onto every cached material. */
   setEnvMap(env) {
     this.envMap = env;
-    for (const m of this.cache.values()) {
+    const apply = (m) => {
       if ('envMap' in m) { m.envMap = env; m.needsUpdate = true; }
-    }
+    };
+    for (const m of this.cache.values()) apply(m);
+    for (const m of (this.adopted || [])) apply(m);
   }
 
   dispose() {

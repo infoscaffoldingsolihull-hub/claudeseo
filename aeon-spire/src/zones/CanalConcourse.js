@@ -165,9 +165,9 @@ export class CanalConcourse extends Zone {
     this.waterUniforms = uniforms;
 
     const mat = new THREE.MeshStandardMaterial({
-      color: 0x2c5a63,
-      roughness: 0.09,
-      metalness: 0.16,
+      color: 0x143138,
+      roughness: 0.055,
+      metalness: 0.0,
       transparent: true,
       opacity: 0.88,
       normalMap: set.normalMap,
@@ -197,6 +197,7 @@ export class CanalConcourse extends Zone {
           uniform float uTime; uniform float uRipple;`);
     };
     mat.customProgramCacheKey = () => 'aeon-water';
+    M.adopt(mat, { exterior: true, key: 'canalWater' });
     this.waterMaterial = mat;
 
     const geo = waterAnnulus(CANAL.innerRadius + 0.1, CANAL.outerRadius - 0.1, 128, 12);
