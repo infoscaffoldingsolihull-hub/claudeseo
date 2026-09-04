@@ -43,8 +43,32 @@ export function detectTier() {
   const small = Math.min(screen.width, screen.height) < 800;
 
   if (coarse && small) return 'low';
-  if (mem <= 4 || cores <= 4) return 'medium';
-  return 'high';
+
+  /* RAM and core count say nothing about the GPU, and the GPU is what this
+     scene actually taxes. Ask the driver what it is, and refuse to start a
+     software rasteriser or a known-slow integrated part at anything but the
+     bottom tier — that combination is precisely the one that stutters and
+     then loses its context. */
+  try {
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl2') || c.getContext('webgl');
+    if (!gl) return 'low';
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    const name = String(
+      (dbg && gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) || gl.getParameter(gl.RENDERER) || ''
+    ).toLowerCase();
+    if (/swiftshader|llvmpipe|software|basic render|microsoft basic/.test(name)) return 'low';
+  } catch (err) {
+    return 'medium';
+  }
+
+  if (mem <= 4 || cores <= 4) return 'low';
+  /* Never *start* at the top. The adaptive loop promotes a machine that
+     holds above 55 fps for twelve seconds, which is a far better test of a
+     GPU than anything that can be asked of it up front — and starting a
+     tier low costs a few seconds of lower resolution, while starting a tier
+     high costs a hang on the machines least able to absorb one. */
+  return 'medium';
 }
 
 export class Engine {

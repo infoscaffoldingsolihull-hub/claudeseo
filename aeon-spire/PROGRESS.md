@@ -215,3 +215,59 @@ fixed and re-verified against the same suite.
 - **UI.** Rebuilt on a design-token theme: branded top bar, live earned-value
   metrics that stand down to campus readouts outside construction mode, an
   icon rail, a context card, a compass, and a duration-weighted Gantt.
+
+---
+
+## Second post-review pass — the freezes near buildings
+
+Reported symptom: the page hangs, and sometimes crashes, when flying close
+to a building or entering one. Reproduced by flying into the Canal
+Concourse and timing each frame: **single frames of 27, 19, 16 and 12
+seconds** against a 3 ms median. A browser calls that an unresponsive page
+and may reset the WebGL context, which accounts for the crash.
+
+It was not the geometry. Building all 31 rooms costs 756 ms in total. The
+cost was shader-program compilation, from three causes, each isolated by
+timing the phases separately (build / texture upload / compile / first draw)
+and watching `renderer.info.programs.length` across the transition.
+
+| Cause | Evidence | Fix |
+|---|---|---|
+| Room lights moved the shader cache key. three.js keys every program on the scene's point- and spot-light counts, so the moment a room's lights became visible, *every material on screen* needed a new program. | Entering one 11-mesh room added **19 programs** in that frame. | Room lights are authoring data only — kept in the room, positioned by the graph, animated by its props, but permanently out of the renderer's gather. A fixed `LightPool` (8 point, 4 spot, always present) copies the nearest few in each frame, so the signature never changes. |
+| Rooms were built synchronously inside the frame that first needed them, and several could land in one tick. | Worst single builder 270 ms; three of them in one zone. | Nothing is built on demand. Rooms stream from load, nearest first, through build → texture upload → shader compile → visible, one step per frame, and none is shown until warm. |
+| The warm-up compiled the wrong variants: the scene pass runs with tone mapping and output colour space that are not the renderer's defaults, and programs are cached per that state. | `compileAsync` on a room produced **0** usable programs; the first draw still added 19. | `PostFX.scenePassState()` — every warm-up now runs in the scene pass's exact renderer state. |
+
+Result, measured over a six-leg flight through and around the campus after
+warm-up: **0 new shader programs, 0 new geometries, 0 new textures.**
+Before the light-pool fix that same flight recompiled on every room entry.
+
+Supporting fixes in the same pass:
+
+- Interior meshes are out of the sun's shadow map. The room lights do not
+  cast, so the only thing an interior mesh's `castShadow` fed was a 340 m
+  directional frustum aimed at the ground outside — while costing a
+  shadow-map draw every frame and a depth-program link on first draw,
+  which `renderer.compile()` does not cover.
+- Visibility has hysteresis (1.25×), so a camera hovering on a threshold
+  cannot thrash a room in and out.
+- The streamer times its own steps and rests for 0.75 s after any step
+  over 120 ms, so program linking — tens of milliseconds on a discrete
+  GPU, whole seconds on a software rasteriser — cannot compound a hitch.
+  A starvation escape forces a step through every two seconds so a slow
+  machine still gets its interiors rather than none.
+- Drivers without `KHR_parallel_shader_compile` link lazily and do the real
+  work at first draw, so those get an extra stage: a one-pixel render that
+  forces the compile on a frame the streamer is pacing.
+- A lost WebGL context is caught, reported, and recovered one quality tier
+  lower, instead of leaving a frozen picture and no explanation.
+
+### What this environment could not verify
+
+The sandbox has no GPU. Chromium runs on SwiftShader, which additionally
+lacks `KHR_parallel_shader_compile`, so it defers program compilation to
+first use and inflates it by roughly two orders of magnitude. Absolute
+frame times measured here are therefore meaningless, and none are claimed:
+the residual spikes still visible in this environment are pure software
+fill rate — one is 5.7 s with **zero** interiors live and 146 draw calls.
+What is verified platform-independently is that no shader programs,
+geometries or textures are created during flight any more.
