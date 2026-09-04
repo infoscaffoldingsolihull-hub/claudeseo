@@ -82421,9 +82421,9 @@ const TOD_PRESETS = [
     id: 'dawn', name: 'Dawn', key: 'Dawn',
     sunAzimuth: 78 * DEG, sunElevation: 5 * DEG,
     sunColor: C(0xffb27a), sunIntensity: 1.5,
-    fillColor: C(0x7f9fd8), fillIntensity: 0.55,
-    hemiSky: C(0x9fb6d8), hemiGround: C(0x4a4038), hemiIntensity: 0.85,
-    ambientIntensity: 0.10,
+    fillColor: C(0x88a6dc), fillIntensity: 0.8,
+    hemiSky: C(0xa8bede), hemiGround: C(0x544a40), hemiIntensity: 1.05,
+    ambientIntensity: 0.16,
     zenith: C(0x2c4a80), horizon: C(0xe0a878), ground: C(0x2a2c33),
     cloudColor: C(0xf0c8a8), cloud: 0.42, haze: 0.62, stars: 0.18,
     sunDiscIntensity: 0.85,
@@ -82435,10 +82435,10 @@ const TOD_PRESETS = [
   {
     id: 'day', name: 'Day', key: 'Day',
     sunAzimuth: 140 * DEG, sunElevation: 62 * DEG,
-    sunColor: C(0xfff6e6), sunIntensity: 4.2,
-    fillColor: C(0x9ab8e0), fillIntensity: 0.34,
-    hemiSky: C(0xbcd6ee), hemiGround: C(0x60584a), hemiIntensity: 0.78,
-    ambientIntensity: 0.05,
+    sunColor: C(0xfff6e6), sunIntensity: 3.5,
+    fillColor: C(0xa8c2e6), fillIntensity: 0.95,
+    hemiSky: C(0xc6dcf0), hemiGround: C(0x6e6552), hemiIntensity: 1.35,
+    ambientIntensity: 0.16,
     zenith: C(0x2f6bb5), horizon: C(0xc2d8ea), ground: C(0x33363c),
     cloudColor: C(0xffffff), cloud: 0.34, haze: 0.30, stars: 0.0,
     sunDiscIntensity: 1.0,
@@ -82450,10 +82450,10 @@ const TOD_PRESETS = [
   {
     id: 'golden', name: 'Golden Hour', key: 'Golden',
     sunAzimuth: 205 * DEG, sunElevation: 11 * DEG,
-    sunColor: C(0xffc077), sunIntensity: 3.4,
-    fillColor: C(0x8ba8d8), fillIntensity: 0.45,
-    hemiSky: C(0xd8c0a0), hemiGround: C(0x5e4a36), hemiIntensity: 1.0,
-    ambientIntensity: 0.09,
+    sunColor: C(0xffc077), sunIntensity: 3.0,
+    fillColor: C(0x93b0de), fillIntensity: 0.85,
+    hemiSky: C(0xdcc8ac), hemiGround: C(0x6a5640), hemiIntensity: 1.25,
+    ambientIntensity: 0.15,
     zenith: C(0x3f6faa), horizon: C(0xf0b070), ground: C(0x33302e),
     cloudColor: C(0xffd8b0), cloud: 0.48, haze: 0.55, stars: 0.0,
     sunDiscIntensity: 1.15,
@@ -95292,87 +95292,133 @@ class WonderAnnex extends Zone {
   }
 
   /**
-   * The modular-block creative pavilion. Oversized generic blocks — a
-   * rounded stud on top of a rectangular body — stacked into the facade.
+   * The Modular Block Pavilion — a corbelled cassette stack.
+   *
+   * The programme is a maker pavilion assembled from prefabricated room
+   * modules, so the building is made of its modules and says so: a broad
+   * stone hall at ground level, and above it seven whole-floor cassettes
+   * craned into place, each turned thirteen degrees and pushed further out
+   * than the one below, until the top floor stands eleven metres clear of
+   * the one it sits on. Every cassette is banded in bronze at its slab edge
+   * and fully glazed on its long faces, so the overhang is legible from the
+   * plaza: you can see there is nothing under the far end.
+   *
+   * An earlier version stacked studded primary-colour bricks, which read as
+   * a toy — and, being a particular toy's trade dress, was not ours to
+   * borrow. This is the same idea taken seriously.
    */
   buildBlockPavilion() {
     const M = this.materials;
     const P = ANNEX.blocks;
 
-    /* One reusable block: body + four studs. */
-    const unit = 5.2;
-    const blockGeo = (w, d) => {
-      const parts = [box(unit * w - 0.22, unit * 0.62, unit * d - 0.22, [0, unit * 0.31, 0])];
-      for (let i = 0; i < w; i++) {
-        for (let k = 0; k < d; k++) {
-          parts.push(cyl(unit * 0.17, unit * 0.17, unit * 0.14, 12, [
-            (i - (w - 1) / 2) * unit, unit * 0.69, (k - (d - 1) / 2) * unit
-          ]));
-        }
+    const stoneMat = M.surface('cassetteStone', 'limestone', {
+      repeat: 5, roughness: 0.66, exterior: true, color: 0xdcd5c4
+    });
+    const bronzeMat = M.surface('cassetteBronze', 'brushedMetal', {
+      repeat: 3, roughness: 0.4, metalness: 0.48, exterior: true, color: 0xb08a52
+    });
+    const glassMat = M.curtain('cassetteGlazing', {
+      repeat: [1, 1], roughness: 0.09, metalness: 0.34, envMapIntensity: 1.1,
+      side: THREE.FrontSide, maxEmissive: 2.6,
+      opts: {
+        cols: 7, rows: 1, band: 0.13, lit: 0.6, seed: 57,
+        spandrel: 0x7c8590, glassA: 0xc6d2d8, glassB: 0xa2b4c0, mullion: 0xa8b0b8
       }
-      return mergeGeometries(parts);
-    };
-    const geo2x2 = blockGeo(2, 2);
-    const geo2x1 = blockGeo(2, 1);
-    const geo1x1 = blockGeo(1, 1);
+    });
 
-    const palette = [
-      { key: 'blockRed', hex: 0xd8352a }, { key: 'blockBlue', hex: 0x1f63c4 },
-      { key: 'blockYellow', hex: 0xf0b400 }, { key: 'blockGreen', hex: 0x2f9c46 },
-      { key: 'blockWhite', hex: 0xe8e6e0 }
+    /* --- The hall: a broad stone base with a deep glazed ground floor --- */
+    const HW = P.w / 2 + 3, HD = P.d / 2 + 3, HH = P.h;
+    const stone = [
+      /* Upper stone band, sitting on the glazed ground floor. */
+      box(HW * 2, HH - 7.6, HD * 2, [P.x, 7.6 + (HH - 7.6) / 2, P.z]),
+      /* Plinth the whole thing stands on. */
+      box(HW * 2 + 11, 0.9, HD * 2 + 11, [P.x, 0.45, P.z])
     ];
-    const mats = palette.map(p => M.surface(p.key, 'primaryResin', {
-      repeat: 1, roughness: 0.34, exterior: true, opts: { hex: p.hex }, color: 0xffffff
+    /* Four corner piers carry the stone band over the glazed ground floor —
+       the hall reads as lifted rather than as a box cut with windows. */
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        stone.push(box(9, 7.6, 9, [P.x + sx * (HW - 4.5), 3.8 + 0.9, P.z + sz * (HD - 4.5)]));
+      }
+    }
+    this.shell.add(mesh(mergeGeometries(stone), stoneMat, {
+      name: 'BlockPavilionSlabs', cast: true, receive: true
     }));
 
-    const r = rng(1212);
-    const buckets = palette.map(() => ({ big: [], mid: [], small: [] }));
+    const bronze = [
+      /* Coping over the hall, and a shadow reveal above the glazing. */
+      box(HW * 2 + 2.4, 1.1, HD * 2 + 2.4, [P.x, HH + 0.55, P.z]),
+      box(HW * 2 + 0.8, 0.7, HD * 2 + 0.8, [P.x, 7.95, P.z])
+    ];
 
-    /* Stack the walls out of blocks, leaving a doorway on the +Z face. */
-    const cols = Math.round(P.w / unit);
-    const rowsH = Math.round(P.h / (unit * 0.72));
-    for (let side = 0; side < 4; side++) {
-      const ang = side * Math.PI / 2;
-      const nx = Math.cos(ang), nz = Math.sin(ang);
-      for (let row = 0; row < rowsH; row++) {
-        const y = row * unit * 0.72;
-        const stagger = (row % 2) * unit * 0.5;
-        for (let c = 0; c < cols; c++) {
-          const along = (c - (cols - 1) / 2) * unit + stagger;
-          if (Math.abs(along) > P.w / 2 - unit * 0.4) continue;
-          // Doorway on the +Z face.
-          if (side === 1 && Math.abs(along) < unit * 1.6 && row < 3) continue;
-          // Window punches.
-          if (row > 1 && row < rowsH - 1 && (c + row) % 5 === 0) continue;
-          const px = P.x + nx * (P.w / 2) - nz * along;
-          const pz = P.z + nz * (P.d / 2) + nx * along;
-          const pick = Math.floor(r() * palette.length) % palette.length;
-          const size = r();
-          const b = buckets[pick];
-          const entry = { pos: [px, y, pz], rot: [0, -ang, 0] };
-          if (size > 0.72) b.big.push(entry);
-          else if (size > 0.36) b.mid.push(entry);
-          else b.small.push(entry);
-        }
+    const hallGlass = [];
+    for (const [w, d, ox, oz] of [
+      [HW * 2 - 10, 0.4, 0, -HD], [HW * 2 - 10, 0.4, 0, HD],
+      [0.4, HD * 2 - 10, -HW, 0], [0.4, HD * 2 - 10, HW, 0]
+    ]) {
+      hallGlass.push(box(w, 6.4, d, [P.x + ox, 4.6, P.z + oz]));
+    }
+
+    /* --- The stack: seven cassettes, turning and reaching out --------- */
+    const CH = 6.4, LEVELS = 7;
+    const CW = 36, CD = 24;
+    const STEP = 13 * Math.PI / 180;
+    /* Reach grows with the square of the level, so the overhang is modest
+       at the bottom and alarming at the top — which is the point. */
+    const reach = (lv) => Math.pow(lv / (LEVELS - 1), 1.7) * 15.5;
+
+    const stack = [];
+    for (let lv = 0; lv < LEVELS; lv++) {
+      const y = HH + 1.1 + lv * CH;
+      const a = lv * STEP;
+      const off = reach(lv);
+      const px = P.x + Math.cos(a) * off;
+      const pz = P.z - Math.sin(a) * off;
+      const rot = [0, a, 0];
+      const at = (g) => xform(g, { pos: [px, y, pz], rot });
+
+      /* The cassette body, set back from its slab edge on all four sides. */
+      stack.push(at(box(CW - 1.6, CH - 1.5, CD - 1.6, [0, CH / 2, 0])));
+      /* Slab edge, expressed in bronze and running past the body. */
+      bronze.push(at(box(CW, 0.9, CD, [0, CH - 0.45, 0])));
+      if (lv === 0) bronze.push(at(box(CW, 0.9, CD, [0, -0.45, 0])));
+      /* Full-height glazing on both long faces. */
+      for (const e of [-1, 1]) {
+        hallGlass.push(at(box(CW - 3.4, CH - 2.6, 0.4, [0, CH / 2, e * (CD / 2 - 0.9)])));
+      }
+      /* A diagonal tie from the slab edge back to the level below, on the
+         cantilevering side only — the member doing the work. */
+      if (lv > 0) {
+        const back = reach(lv - 1);
+        const ba = (lv - 1) * STEP;
+        const bx = P.x + Math.cos(ba) * back, bz = P.z - Math.sin(ba) * back;
+        const tipX = px + Math.cos(a) * (CW / 2 - 1.5);
+        const tipZ = pz - Math.sin(a) * (CW / 2 - 1.5);
+        const footX = bx - Math.cos(ba) * (CW / 2 - 6);
+        const footZ = bz + Math.sin(ba) * (CW / 2 - 6);
+        const dx = tipX - footX, dy = CH - 0.6, dz = tipZ - footZ;
+        const len = Math.hypot(dx, dy, dz);
+        const g = cyl(0.5, 0.5, len, 8);
+        /* Aim the tie: pitch off vertical, then yaw onto the plan bearing. */
+        g.rotateZ(-Math.atan2(Math.hypot(dx, dz), dy));
+        g.rotateY(-Math.atan2(dz, dx));
+        g.translate((footX + tipX) / 2, y - CH / 2 + 0.3, (footZ + tipZ) / 2);
+        bronze.push(g);
       }
     }
-    for (let i = 0; i < palette.length; i++) {
-      const b = buckets[i];
-      if (b.big.length) this.shell.add(instance(geo2x2, mats[i], b.big, { name: 'Block2x2_' + i, castShadow: true, receiveShadow: true }));
-      if (b.mid.length) this.shell.add(instance(geo2x1, mats[i], b.mid, { name: 'Block2x1_' + i, castShadow: true, receiveShadow: true }));
-      if (b.small.length) this.shell.add(instance(geo1x1, mats[i], b.small, { name: 'Block1x1_' + i, castShadow: true, receiveShadow: true }));
-    }
+    this.shell.add(mesh(mergeGeometries(stack), stoneMat, {
+      name: 'CassetteStack', cast: true, receive: true
+    }));
+    this.shell.add(mesh(mergeGeometries(bronze), bronzeMat, {
+      name: 'CassetteBands', cast: true, receive: true
+    }));
+    this.shell.add(mesh(mergeGeometries(hallGlass), glassMat, {
+      name: 'CassetteGlazing', renderOrder: 4
+    }));
 
-    /* Roof and floor slabs. */
-    const slabMat = M.solid('blockSlab', { color: 0xd9d6cf, roughness: 0.7, exterior: true });
-    this.shell.add(mesh(mergeGeometries([
-      box(P.w + 2.4, 0.8, P.d + 2.4, [P.x, P.h + 0.4, P.z]),
-      box(P.w + 3.2, 0.5, P.d + 3.2, [P.x, 0.15, P.z])
-    ]), slabMat, { name: 'BlockPavilionSlabs', cast: true, receive: true }));
-
-    /* A big skylight so the maker space reads as daylit. */
+    /* A big rooflight over the hall so the maker space reads as daylit. */
     const glass = M.glass('blockSkylight', { color: 0xd6e6ee, opacity: 0.2, roughness: 0.08 });
-    this.shell.add(mesh(box(P.w * 0.5, 0.2, P.d * 0.5, [P.x, P.h + 0.85, P.z]), glass, {
+    this.shell.add(mesh(box(P.w * 0.42, 0.2, P.d * 0.42, [P.x, HH + 1.2, P.z]), glass, {
       name: 'BlockSkylight', renderOrder: 4
     }));
   }
