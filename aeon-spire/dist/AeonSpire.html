@@ -91614,8 +91614,13 @@ class RingDeck extends Zone {
         const k = Math.sin(Math.PI * clamp((y - (RING.base - 3)) / ((RING.top + 3) - (RING.base - 3)), 0, 1));
         const endX = lerp(SAIL.topHalfX, SPIRE_BASE_HALF, t);
         const endZ = lerp(SAIL.topHalfZ, SPIRE_BASE_HALF * 0.86, t);
-        const hx = lerp(endX, waist, Math.pow(k, 0.7));
-        const hz = lerp(endZ, waist * 0.94, Math.pow(k, 0.7));
+        /* Hold the waist across almost the whole disc and flare only in the
+           last few metres. At an exponent of 0.7 the shaft was back to full
+           width well inside the disc's tip, where the disc itself has
+           tapered away, so it read as a dark notch bitten out of the coin. */
+        const kk = Math.pow(k, 0.22);
+        const hx = lerp(endX, waist, kk);
+        const hz = lerp(endZ, waist * 0.94, kk);
         return roundedRectRing(hx, hz, Math.min(hx, hz) * 0.4, 30);
       }, shaftHeights, { capTop: true, uvScale: [0.03, 0.02] }),
       coreMat, { name: 'RingCoreShaft', cast: true, receive: true }
