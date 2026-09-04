@@ -81126,9 +81126,9 @@ class TextureFactory {
       const leaf = clamp((0.5 - e.d1) * 4, 0, 1);
       const tone = e.id;
       const shadow = n1.fbm(u * 8, v * 8, 4);
-      const dark = hexRGB(0x1d3a22);
-      const mid = hexRGB(0x35682f);
-      const light = hexRGB(0x6d9b3f);
+      const dark = hexRGB(0x28331d);
+      const mid = hexRGB(0x4d5c31);
+      const light = hexRGB(0x8b9455);
       let c = mix(dark, mid, tone);
       c = mix(c, light, leaf * 0.55 * tone);
       c = shade(c, 0.66 + shadow * 0.6);
@@ -81149,8 +81149,10 @@ class TextureFactory {
       const blade = n1.noise2(u * 300, v * 300);
       const patch = n2.fbm(u * 9, v * 9, 4);
       const mow = Math.sin(v * Math.PI * 16) * 0.5 + 0.5;   // mown stripes
-      let c = mix(hexRGB(0x2f5a2b), hexRGB(0x4e8438), patch);
-      c = shade(c, 0.86 + blade * 0.24 + mow * 0.1);
+      let c = mix(hexRGB(0x4c5a30), hexRGB(0x77854a), patch);
+      // Sun-bleached patches where the irrigation does not quite reach.
+      c = mix(c, hexRGB(0x9d9a68), clamp((n3.fbm(u * 3.5, v * 3.5, 3) - 0.55) * 2.6, 0, 1));
+      c = shade(c, 0.88 + blade * 0.2 + mow * 0.08);
       h[y * size + x] = blade;
       return c;
     });
@@ -85748,13 +85750,13 @@ function tree(seed = 1, scale = 1) {
   const trunk = new THREE.CylinderGeometry(0.14 * scale, 0.28 * scale, h * 0.52, 6);
   xform(trunk, { pos: [0, h * 0.26, 0] });
   parts.push(trunk);
-  const blobs = 3 + Math.floor(r() * 3);
+  const blobs = 5 + Math.floor(r() * 3);
   for (let i = 0; i < blobs; i++) {
-    const rad = (1.5 + r() * 1.5) * scale;
-    const g = new THREE.IcosahedronGeometry(rad, 0);
+    const rad = (2.4 + r() * 1.9) * scale;
+    const g = new THREE.IcosahedronGeometry(rad, 1);
     xform(g, {
-      pos: [(r() - 0.5) * 2.4 * scale, h * (0.56 + r() * 0.4), (r() - 0.5) * 2.4 * scale],
-      scale: [1, 0.82, 1]
+      pos: [(r() - 0.5) * 3.6 * scale, h * (0.6 + r() * 0.38), (r() - 0.5) * 3.6 * scale],
+      scale: [1, 0.72, 1]
     });
     parts.push(g);
   }
@@ -85763,6 +85765,93 @@ function tree(seed = 1, scale = 1) {
   const pos = merged.attributes.position;
   const sway = new Float32Array(pos.count);
   for (let i = 0; i < pos.count; i++) sway[i] = clamp((pos.getY(i) / h - 0.28) / 0.72, 0, 1) * 0.55;
+  merged.setAttribute('aSway', new THREE.BufferAttribute(sway, 1));
+  return merged;
+}
+
+/**
+ * A date palm: a slender leaning trunk with a crown of arcing fronds.
+ *
+ * The site is arid, and a low-poly broadleaf blob reads as toy broccoli at
+ * campus scale. A palm's silhouette — a bare stem and a burst of fronds —
+ * survives being 300 m away and two pixels wide, which is most of what a
+ * planting scheme has to do here.
+ *
+ * The `aSway` attribute rises from nothing at the base to full at the frond
+ * tips, so the wind shader bends the crown and leaves the trunk planted.
+ */
+function palm(seed = 1, scale = 1) {
+  const r = rng(seed);
+  const h = (9 + r() * 5) * scale;
+  const lean = (r() - 0.5) * 0.22;
+  const parts = [];
+
+  /* Trunk: stacked segments on a shallow arc, so it curves rather than
+     standing dead straight, with the ring texture of an old frond scar. */
+  const segs = 7;
+  for (let i = 0; i < segs; i++) {
+    const t0 = i / segs, t1 = (i + 1) / segs;
+    const y0 = h * t0, y1 = h * t1;
+    const r0 = lerp(0.42, 0.24, t0) * scale, r1 = lerp(0.42, 0.24, t1) * scale;
+    const g = new THREE.CylinderGeometry(r1 * 1.04, r0, y1 - y0, 7);
+    xform(g, {
+      pos: [lean * h * t0 * t0, (y0 + y1) / 2, lean * 0.4 * h * t0 * t0],
+      rot: [0, (i * 1.7) % TAU, 0]
+    });
+    parts.push(g);
+  }
+
+  const cx = lean * h, cz = lean * 0.4 * h;
+
+  /* Crown: fronds on a strip of 8 spans, arcing over and down. */
+  const fronds = 9 + Math.floor(r() * 4);
+  for (let f = 0; f < fronds; f++) {
+    const a = (f / fronds) * TAU + r() * 0.2;
+    const len = (4.6 + r() * 2.8) * scale;
+    const droop = 0.55 + r() * 0.7;
+    const n = 8;
+    const pos = [], uv = [], idx = [];
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      // Arc: rises for the first third, then falls away under its own weight.
+      const y = Math.sin(t * 2.1) * len * 0.34 - Math.pow(t, 2.2) * len * droop;
+      const x = t * len;
+      const w = Math.sin(Math.PI * Math.min(t * 1.25, 1)) * 0.42 * scale * (1 - t * 0.45);
+      pos.push(x, y, -w, x, y, w);
+      uv.push(t, 0, t, 1);
+      if (i < n) {
+        const b = i * 2;
+        idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    xform(g, { pos: [cx, h, cz], rot: [0, -a, 0.12 + r() * 0.1] });
+    parts.push(g);
+  }
+
+  /* Fruit stems under the crown, on about half the trees. */
+  if (r() < 0.5) {
+    for (let i = 0; i < 3; i++) {
+      const a = r() * TAU;
+      const g = new THREE.CylinderGeometry(0.09 * scale, 0.05 * scale, 1.9 * scale, 5);
+      xform(g, {
+        pos: [cx + Math.cos(a) * 0.7 * scale, h - 0.9 * scale, cz + Math.sin(a) * 0.7 * scale],
+        rot: [0.5, a, 0]
+      });
+      parts.push(g);
+    }
+  }
+
+  const merged = mergeGeometries(parts);
+  const p = merged.attributes.position;
+  const sway = new Float32Array(p.count);
+  for (let i = 0; i < p.count; i++) {
+    sway[i] = clamp((p.getY(i) / h - 0.15) / 0.85, 0, 1) * 0.85;
+  }
   merged.setAttribute('aSway', new THREE.BufferAttribute(sway, 1));
   return merged;
 }
@@ -85879,7 +85968,7 @@ function waterAnnulus(inner, outer, seg = 96, rings = 4) {
   return g;
 }
 
-return { mergeGeometries, xform, box, cyl, roundedRectShape, annulusShape, archShape, extrudeVertical, loft, roundedRectRing, circleRing, member, tube, circularTruss, diagrid, balustrade, glassBalustrade, spiralStair, stairRun, instance, mesh, tree, flag, surfaceGrid, thicken, sweep, waterPlane, waterAnnulus };
+return { mergeGeometries, xform, box, cyl, roundedRectShape, annulusShape, archShape, extrudeVertical, loft, roundedRectRing, circleRing, member, tube, circularTruss, diagrid, balustrade, glassBalustrade, spiralStair, stairRun, instance, mesh, tree, palm, flag, surfaceGrid, thicken, sweep, waterPlane, waterAnnulus };
 })();
 
 /* src/construction/Crane.js */
@@ -94225,7 +94314,7 @@ const { Zone } = M29;
 
 const { COURT } = M19;
 
-const { mergeGeometries, xform, box, cyl, mesh, instance, member, tube, waterPlane, balustrade, tree, loft, circleRing } = M21;
+const { mergeGeometries, xform, box, cyl, mesh, instance, member, tube, waterPlane, balustrade, tree, palm, loft, circleRing } = M21;
 
 const { TAU, lerp, clamp, rng } = M5;
 
@@ -94368,26 +94457,57 @@ class ReflectionCourt extends Zone {
     const M = this.materials;
     const lawnMat = M.surface('courtLawn', 'lawn', { repeat: 10, roughness: 0.94, exterior: true });
     const hedgeMat = M.solid('courtHedge', {
-      color: 0x2c5c2c, roughness: 0.92, exterior: true, flatShading: true
+      color: 0x39482b, roughness: 0.92, exterior: true, flatShading: true
     });
     const treeMat = M.surface('courtTree', 'foliage', {
       repeat: 2, roughness: 0.9, exterior: true, wind: true
     });
 
-    const lawns = [], hedges = [];
+    const kerbMat = M.surface('courtKerb', 'limestone', {
+      repeat: 3, roughness: 0.62, exterior: true, color: 0xe2dac6
+    });
+    const rillMat = M.glass('courtRill', {
+      color: 0xbcd2d4, opacity: 0.5, roughness: 0.04, metalness: 0.1,
+      side: THREE.FrontSide, envMapIntensity: 0.9
+    });
+    const palmMat = M.surface('courtPalm', 'foliage', {
+      repeat: 1, roughness: 0.86, exterior: true, wind: true,
+      side: THREE.DoubleSide, color: 0xcfd8b4
+    });
+
+    const lawns = [], hedges = [], kerbs = [], rills = [];
     const treeXs = [];
+    const palmXs = [];
     const r = rng(606);
     for (const q of COURT.quadrants) {
       const g = new THREE.PlaneGeometry(q.w, q.d);
       g.rotateX(-Math.PI / 2);
       lawns.push(xform(g, { pos: [q.x, 0.44, q.z] }));
-      // Clipped hedge border.
-      hedges.push(box(q.w, 0.85, 0.9, [q.x, 0.8, q.z - q.d / 2]));
-      hedges.push(box(q.w, 0.85, 0.9, [q.x, 0.8, q.z + q.d / 2]));
-      hedges.push(box(0.9, 0.85, q.d, [q.x - q.w / 2, 0.8, q.z]));
-      hedges.push(box(0.9, 0.85, q.d, [q.x + q.w / 2, 0.8, q.z]));
+
+      /* A dressed stone kerb holds the planting off the paving — without it
+         the lawn is a green rectangle laid on grey, which is what a parterre
+         must never look like. */
+      const KW = 1.4, kx = q.w / 2 + KW / 2, kz = q.d / 2 + KW / 2;
+      kerbs.push(box(q.w + KW * 2, 0.66, KW, [q.x, 0.33, q.z - kz]));
+      kerbs.push(box(q.w + KW * 2, 0.66, KW, [q.x, 0.33, q.z + kz]));
+      kerbs.push(box(KW, 0.66, q.d, [q.x - kx, 0.33, q.z]));
+      kerbs.push(box(KW, 0.66, q.d, [q.x + kx, 0.33, q.z]));
+
+      // Clipped hedge border, set inside the kerb.
+      hedges.push(box(q.w, 0.85, 0.9, [q.x, 0.85, q.z - q.d / 2]));
+      hedges.push(box(q.w, 0.85, 0.9, [q.x, 0.85, q.z + q.d / 2]));
+      hedges.push(box(0.9, 0.85, q.d, [q.x - q.w / 2, 0.85, q.z]));
+      hedges.push(box(0.9, 0.85, q.d, [q.x + q.w / 2, 0.85, q.z]));
       // A formal cross of paths splits each quadrant into four.
       hedges.push(box(q.w - 2, 0.6, 0.7, [q.x, 0.68, q.z]));
+
+      /* An irrigation rill runs the length of each quadrant on the axis,
+         sunk between two stone cheeks — the water that makes the garden
+         possible, shown rather than hidden. */
+      rills.push(box(1.7, 0.05, q.d - 3, [q.x, 0.52, q.z]));
+      kerbs.push(box(0.55, 0.5, q.d - 3, [q.x - 1.12, 0.42, q.z]));
+      kerbs.push(box(0.55, 0.5, q.d - 3, [q.x + 1.12, 0.42, q.z]));
+
       // Trees on a regular grid — symmetry is the point of this court.
       for (let i = 0; i < 3; i++) {
         for (let k = 0; k < 4; k++) {
@@ -94398,7 +94518,21 @@ class ReflectionCourt extends Zone {
           });
         }
       }
+      /* A palm at each corner of the parterre, marking the crossings. */
+      for (const sx of [-1, 1]) {
+        for (const sz of [-1, 1]) {
+          palmXs.push({
+            pos: [q.x + sx * (q.w / 2 + 3.4), 0.4, q.z + sz * (q.d / 2 + 3.4)],
+            rot: [0, r() * TAU, 0], scale: 0.9 + r() * 0.25
+          });
+        }
+      }
     }
+    this.shell.add(mesh(mergeGeometries(kerbs), kerbMat, { name: 'CourtKerbs', cast: true, receive: true }));
+    this.shell.add(mesh(mergeGeometries(rills), rillMat, { name: 'CourtRills', renderOrder: 3 }));
+    this.shell.add(instance(palm(3030, 1.0), palmMat, palmXs, {
+      name: 'CourtPalms', castShadow: true, receiveShadow: true
+    }));
     this.shell.add(mesh(mergeGeometries(lawns), lawnMat, { name: 'CourtLawns', receive: true }));
     this.shell.add(mesh(mergeGeometries(hedges), hedgeMat, { name: 'CourtHedges', cast: true, receive: true }));
     this.shell.add(instance(tree(909, 1.0), treeMat, treeXs, {
@@ -96291,7 +96425,7 @@ const { SITE, CANAL, COURT, ANNEX, ZONE_PRESETS } = M19;
 
 const { Room, InteriorManager, ACOUSTIC } = M15;
 
-const { mergeGeometries, xform, box, cyl, mesh, instance, tree } = M21;
+const { mergeGeometries, xform, box, cyl, mesh, instance, tree, palm } = M21;
 
 const { TAU, rng, clamp, lerp } = M5;
 
@@ -96387,25 +96521,54 @@ class SceneManager {
   buildSite() {
     const M = this.materials;
 
-    /* --- Distant terrain: a large disc with real relief and material --- */
+    /* --- Distant terrain: a large annulus with real relief and material ---
+       This was a CircleGeometry, which is a triangle fan: 97 vertices, all
+       but one of them on the rim. Every line of displacement below was
+       being applied to a mesh that had no interior vertices to displace,
+       which is why the desert read as a flat brown plate. A ring with 72
+       radial divisions gives the relief somewhere to happen, and vertex
+       colours give the ground large-scale variation — sand drifts, gravel
+       pans, scrub — that a 43 m texture tile can never provide. --- */
     const farMat = M.surface('siteFar', 'siteGround', {
-      repeat: 140, roughness: 0.97, exterior: true, color: 0x9a9482
+      repeat: 140, roughness: 0.97, exterior: true, color: 0xffffff
     });
-    const far = new THREE.CircleGeometry(SITE.extent / 2, 96, 0, TAU);
+    farMat.vertexColors = true;
+    const far = new THREE.RingGeometry(2, SITE.extent / 2, 168, 72);
     far.rotateX(-Math.PI / 2);
     {
       const pos = far.attributes.position;
       const uv = far.attributes.uv;
       const n = noiseField;
+      const col = new Float32Array(pos.count * 3);
+      const SAND = [0.76, 0.68, 0.51];
+      const GRAVEL = [0.55, 0.53, 0.46];
+      const PAN = [0.85, 0.82, 0.72];
+      const SCRUB = [0.42, 0.42, 0.31];
       for (let i = 0; i < pos.count; i++) {
         const x = pos.getX(i), z = pos.getZ(i);
         const r = Math.hypot(x, z);
         // Flat where the campus sits, rolling beyond it.
         const k = clamp((r - SITE.plazaRadius) / 900, 0, 1);
-        const h = (n.fbm(x * 0.0016 + 40, z * 0.0016 + 40, 5) - 0.5) * 150 * k * k;
-        pos.setY(i, -0.6 + h);
+        const dune = n.fbm(x * 0.0016 + 40, z * 0.0016 + 40, 5) - 0.5;
+        const ripple = n.fbm(x * 0.011 + 7, z * 0.011 + 7, 3) - 0.5;
+        pos.setY(i, -0.6 + dune * 150 * k * k + ripple * 5.5 * k);
         uv.setXY(i, x * 0.0025, z * 0.0025);
+
+        /* Two independent fields decide the surface: one broad (which
+           basin you are in), one fine (whether scrub has taken hold). */
+        const broad = n.fbm(x * 0.00085 - 11, z * 0.00085 - 11, 4);
+        const fine = n.fbm(x * 0.0065 + 91, z * 0.0065 + 91, 3);
+        let c = broad < 0.44 ? SAND : (broad < 0.62 ? GRAVEL : PAN);
+        const g = clamp((fine - 0.56) * 4.5, 0, 1) * clamp(k * 2.2, 0, 1);
+        const near = 1 - clamp((r - SITE.plazaRadius) / 260, 0, 1);
+        for (let j = 0; j < 3; j++) {
+          // Blend toward scrub where the fine field is high, and toward the
+          // paved campus tone as the ground approaches the plaza edge.
+          const v = c[j] * (1 - g) + SCRUB[j] * g;
+          col[i * 3 + j] = v * (1 - near * 0.45) + PAN[j] * near * 0.45;
+        }
       }
+      far.setAttribute('color', new THREE.BufferAttribute(col, 3));
       far.computeVertexNormals();
     }
     this.scene.add(mesh(far, farMat, { name: 'DistantGround', receive: true }));
@@ -96505,39 +96668,79 @@ class SceneManager {
     }));
   }
 
-  /** Street trees, planters and the approach avenue. */
+  /** Street planting: date palms on the avenues, broadleaf in the groves. */
   buildLandscape() {
     const M = this.materials;
     const treeMat = M.surface('siteTree', 'foliage', {
       repeat: 2, roughness: 0.9, exterior: true, wind: true
     });
+    /* Fronds are single strips, so they need both faces drawn. */
+    const palmMat = M.surface('sitePalm', 'foliage', {
+      repeat: 1, roughness: 0.86, exterior: true, wind: true,
+      side: THREE.DoubleSide, color: 0xcfd8b4
+    });
+    const trunkMat = M.surface('sitePalmTrunk', 'vaultStone', {
+      repeat: 2, roughness: 0.86, exterior: true, color: 0xa08a68
+    });
     const r = rng(4321);
-    const xs = [];
+    const palms = [];
+    const trees = [];
 
-    // An avenue of trees ringing the canal terrace.
-    for (let i = 0; i < 64; i++) {
-      const a = (i / 64) * TAU + 0.03;
-      const rad = CANAL.outerRadius + 46 + (i % 2) * 14;
-      xs.push({
+    /* A double avenue of palms ringing the canal terrace. */
+    for (let i = 0; i < 76; i++) {
+      const a = (i / 76) * TAU + 0.03;
+      const rad = CANAL.outerRadius + 44 + (i % 2) * 15;
+      palms.push({
         pos: [Math.cos(a) * rad, 0.6, Math.sin(a) * rad],
-        rot: [0, r() * TAU, 0], scale: 0.9 + r() * 0.5
+        rot: [0, r() * TAU, 0], scale: 0.85 + r() * 0.4
       });
     }
-    // Scattered planting across the outer plaza.
-    for (let i = 0; i < 90; i++) {
+    /* Palms lining the four approach causeways, so the axes read from the
+       air as avenues rather than as bare strips of tarmac. */
+    for (let q = 0; q < 4; q++) {
+      const a = (q / 4) * TAU + Math.PI / 4;
+      for (let i = 0; i < 14; i++) {
+        const d = SITE.plazaRadius + 20 + i * 42;
+        for (const side of [-1, 1]) {
+          palms.push({
+            pos: [Math.cos(a) * d - Math.sin(a) * side * 24, 0.5,
+                  Math.sin(a) * d + Math.cos(a) * side * 24],
+            rot: [0, r() * TAU, 0], scale: 0.8 + r() * 0.35
+          });
+        }
+      }
+    }
+    /* Scattered groves across the outer plaza — broadleaf, for shade. */
+    for (let i = 0; i < 96; i++) {
       const a = r() * TAU;
       const rad = SITE.plazaRadius * (0.62 + r() * 0.36);
       const x = Math.cos(a) * rad, z = Math.sin(a) * rad;
       // Keep clear of the court's formal axis and the annex pavilions.
       if (z > COURT.startZ - 40 && Math.abs(x) < COURT.halfWidth + 10) continue;
       if (x < -180 && z > -180 && z < 320) continue;
-      xs.push({ pos: [x, 0.5, z], rot: [0, r() * TAU, 0], scale: 0.8 + r() * 0.7 });
+      (r() < 0.42 ? palms : trees).push({
+        pos: [x, 0.5, z], rot: [0, r() * TAU, 0], scale: 0.8 + r() * 0.7
+      });
     }
-    this.landscape = instance(tree(1717, 1.0), treeMat, xs, {
+
+    this.landscape = instance(tree(1717, 1.0), treeMat, trees, {
       name: 'SiteTrees', castShadow: true, receiveShadow: true
     });
     this.scene.add(this.landscape);
-    this.treeCount = xs.length;
+
+    /* Three palm cultivars so the avenue is not a row of clones. */
+    this.palms = [];
+    for (let v = 0; v < 3; v++) {
+      const share = palms.filter((_, i) => i % 3 === v);
+      if (!share.length) continue;
+      const m = instance(palm(4100 + v * 37, 1.0), palmMat, share, {
+        name: 'SitePalms_' + v, castShadow: true, receiveShadow: true
+      });
+      this.palms.push(m);
+      this.scene.add(m);
+    }
+    this.palmTrunkMat = trunkMat;
+    this.treeCount = trees.length + palms.length;
   }
 
   update(dt, t, cameraPos) {

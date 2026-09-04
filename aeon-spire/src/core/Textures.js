@@ -533,9 +533,9 @@ export class TextureFactory {
       const leaf = clamp((0.5 - e.d1) * 4, 0, 1);
       const tone = e.id;
       const shadow = n1.fbm(u * 8, v * 8, 4);
-      const dark = hexRGB(0x1d3a22);
-      const mid = hexRGB(0x35682f);
-      const light = hexRGB(0x6d9b3f);
+      const dark = hexRGB(0x28331d);
+      const mid = hexRGB(0x4d5c31);
+      const light = hexRGB(0x8b9455);
       let c = mix(dark, mid, tone);
       c = mix(c, light, leaf * 0.55 * tone);
       c = shade(c, 0.66 + shadow * 0.6);
@@ -556,8 +556,10 @@ export class TextureFactory {
       const blade = n1.noise2(u * 300, v * 300);
       const patch = n2.fbm(u * 9, v * 9, 4);
       const mow = Math.sin(v * Math.PI * 16) * 0.5 + 0.5;   // mown stripes
-      let c = mix(hexRGB(0x2f5a2b), hexRGB(0x4e8438), patch);
-      c = shade(c, 0.86 + blade * 0.24 + mow * 0.1);
+      let c = mix(hexRGB(0x4c5a30), hexRGB(0x77854a), patch);
+      // Sun-bleached patches where the irrigation does not quite reach.
+      c = mix(c, hexRGB(0x9d9a68), clamp((n3.fbm(u * 3.5, v * 3.5, 3) - 0.55) * 2.6, 0, 1));
+      c = shade(c, 0.88 + blade * 0.2 + mow * 0.08);
       h[y * size + x] = blade;
       return c;
     });

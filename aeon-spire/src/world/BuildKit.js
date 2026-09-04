@@ -513,13 +513,13 @@ export function tree(seed = 1, scale = 1) {
   const trunk = new THREE.CylinderGeometry(0.14 * scale, 0.28 * scale, h * 0.52, 6);
   xform(trunk, { pos: [0, h * 0.26, 0] });
   parts.push(trunk);
-  const blobs = 3 + Math.floor(r() * 3);
+  const blobs = 5 + Math.floor(r() * 3);
   for (let i = 0; i < blobs; i++) {
-    const rad = (1.5 + r() * 1.5) * scale;
-    const g = new THREE.IcosahedronGeometry(rad, 0);
+    const rad = (2.4 + r() * 1.9) * scale;
+    const g = new THREE.IcosahedronGeometry(rad, 1);
     xform(g, {
-      pos: [(r() - 0.5) * 2.4 * scale, h * (0.56 + r() * 0.4), (r() - 0.5) * 2.4 * scale],
-      scale: [1, 0.82, 1]
+      pos: [(r() - 0.5) * 3.6 * scale, h * (0.6 + r() * 0.38), (r() - 0.5) * 3.6 * scale],
+      scale: [1, 0.72, 1]
     });
     parts.push(g);
   }
@@ -528,6 +528,93 @@ export function tree(seed = 1, scale = 1) {
   const pos = merged.attributes.position;
   const sway = new Float32Array(pos.count);
   for (let i = 0; i < pos.count; i++) sway[i] = clamp((pos.getY(i) / h - 0.28) / 0.72, 0, 1) * 0.55;
+  merged.setAttribute('aSway', new THREE.BufferAttribute(sway, 1));
+  return merged;
+}
+
+/**
+ * A date palm: a slender leaning trunk with a crown of arcing fronds.
+ *
+ * The site is arid, and a low-poly broadleaf blob reads as toy broccoli at
+ * campus scale. A palm's silhouette — a bare stem and a burst of fronds —
+ * survives being 300 m away and two pixels wide, which is most of what a
+ * planting scheme has to do here.
+ *
+ * The `aSway` attribute rises from nothing at the base to full at the frond
+ * tips, so the wind shader bends the crown and leaves the trunk planted.
+ */
+export function palm(seed = 1, scale = 1) {
+  const r = rng(seed);
+  const h = (9 + r() * 5) * scale;
+  const lean = (r() - 0.5) * 0.22;
+  const parts = [];
+
+  /* Trunk: stacked segments on a shallow arc, so it curves rather than
+     standing dead straight, with the ring texture of an old frond scar. */
+  const segs = 7;
+  for (let i = 0; i < segs; i++) {
+    const t0 = i / segs, t1 = (i + 1) / segs;
+    const y0 = h * t0, y1 = h * t1;
+    const r0 = lerp(0.42, 0.24, t0) * scale, r1 = lerp(0.42, 0.24, t1) * scale;
+    const g = new THREE.CylinderGeometry(r1 * 1.04, r0, y1 - y0, 7);
+    xform(g, {
+      pos: [lean * h * t0 * t0, (y0 + y1) / 2, lean * 0.4 * h * t0 * t0],
+      rot: [0, (i * 1.7) % TAU, 0]
+    });
+    parts.push(g);
+  }
+
+  const cx = lean * h, cz = lean * 0.4 * h;
+
+  /* Crown: fronds on a strip of 8 spans, arcing over and down. */
+  const fronds = 9 + Math.floor(r() * 4);
+  for (let f = 0; f < fronds; f++) {
+    const a = (f / fronds) * TAU + r() * 0.2;
+    const len = (4.6 + r() * 2.8) * scale;
+    const droop = 0.55 + r() * 0.7;
+    const n = 8;
+    const pos = [], uv = [], idx = [];
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      // Arc: rises for the first third, then falls away under its own weight.
+      const y = Math.sin(t * 2.1) * len * 0.34 - Math.pow(t, 2.2) * len * droop;
+      const x = t * len;
+      const w = Math.sin(Math.PI * Math.min(t * 1.25, 1)) * 0.42 * scale * (1 - t * 0.45);
+      pos.push(x, y, -w, x, y, w);
+      uv.push(t, 0, t, 1);
+      if (i < n) {
+        const b = i * 2;
+        idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    xform(g, { pos: [cx, h, cz], rot: [0, -a, 0.12 + r() * 0.1] });
+    parts.push(g);
+  }
+
+  /* Fruit stems under the crown, on about half the trees. */
+  if (r() < 0.5) {
+    for (let i = 0; i < 3; i++) {
+      const a = r() * TAU;
+      const g = new THREE.CylinderGeometry(0.09 * scale, 0.05 * scale, 1.9 * scale, 5);
+      xform(g, {
+        pos: [cx + Math.cos(a) * 0.7 * scale, h - 0.9 * scale, cz + Math.sin(a) * 0.7 * scale],
+        rot: [0.5, a, 0]
+      });
+      parts.push(g);
+    }
+  }
+
+  const merged = mergeGeometries(parts);
+  const p = merged.attributes.position;
+  const sway = new Float32Array(p.count);
+  for (let i = 0; i < p.count; i++) {
+    sway[i] = clamp((p.getY(i) / h - 0.15) / 0.85, 0, 1) * 0.85;
+  }
   merged.setAttribute('aSway', new THREE.BufferAttribute(sway, 1));
   return merged;
 }

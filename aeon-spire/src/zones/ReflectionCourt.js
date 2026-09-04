@@ -13,7 +13,7 @@ import { Zone } from './Zone.js';
 import { COURT } from '../world/SitePlan.js';
 import {
   mergeGeometries, xform, box, cyl, mesh, instance, member, tube,
-  waterPlane, balustrade, tree, loft, circleRing
+  waterPlane, balustrade, tree, palm, loft, circleRing
 } from '../world/BuildKit.js';
 import { TAU, lerp, clamp, rng } from '../core/MathUtil.js';
 import {
@@ -157,26 +157,57 @@ export class ReflectionCourt extends Zone {
     const M = this.materials;
     const lawnMat = M.surface('courtLawn', 'lawn', { repeat: 10, roughness: 0.94, exterior: true });
     const hedgeMat = M.solid('courtHedge', {
-      color: 0x2c5c2c, roughness: 0.92, exterior: true, flatShading: true
+      color: 0x39482b, roughness: 0.92, exterior: true, flatShading: true
     });
     const treeMat = M.surface('courtTree', 'foliage', {
       repeat: 2, roughness: 0.9, exterior: true, wind: true
     });
 
-    const lawns = [], hedges = [];
+    const kerbMat = M.surface('courtKerb', 'limestone', {
+      repeat: 3, roughness: 0.62, exterior: true, color: 0xe2dac6
+    });
+    const rillMat = M.glass('courtRill', {
+      color: 0xbcd2d4, opacity: 0.5, roughness: 0.04, metalness: 0.1,
+      side: THREE.FrontSide, envMapIntensity: 0.9
+    });
+    const palmMat = M.surface('courtPalm', 'foliage', {
+      repeat: 1, roughness: 0.86, exterior: true, wind: true,
+      side: THREE.DoubleSide, color: 0xcfd8b4
+    });
+
+    const lawns = [], hedges = [], kerbs = [], rills = [];
     const treeXs = [];
+    const palmXs = [];
     const r = rng(606);
     for (const q of COURT.quadrants) {
       const g = new THREE.PlaneGeometry(q.w, q.d);
       g.rotateX(-Math.PI / 2);
       lawns.push(xform(g, { pos: [q.x, 0.44, q.z] }));
-      // Clipped hedge border.
-      hedges.push(box(q.w, 0.85, 0.9, [q.x, 0.8, q.z - q.d / 2]));
-      hedges.push(box(q.w, 0.85, 0.9, [q.x, 0.8, q.z + q.d / 2]));
-      hedges.push(box(0.9, 0.85, q.d, [q.x - q.w / 2, 0.8, q.z]));
-      hedges.push(box(0.9, 0.85, q.d, [q.x + q.w / 2, 0.8, q.z]));
+
+      /* A dressed stone kerb holds the planting off the paving — without it
+         the lawn is a green rectangle laid on grey, which is what a parterre
+         must never look like. */
+      const KW = 1.4, kx = q.w / 2 + KW / 2, kz = q.d / 2 + KW / 2;
+      kerbs.push(box(q.w + KW * 2, 0.66, KW, [q.x, 0.33, q.z - kz]));
+      kerbs.push(box(q.w + KW * 2, 0.66, KW, [q.x, 0.33, q.z + kz]));
+      kerbs.push(box(KW, 0.66, q.d, [q.x - kx, 0.33, q.z]));
+      kerbs.push(box(KW, 0.66, q.d, [q.x + kx, 0.33, q.z]));
+
+      // Clipped hedge border, set inside the kerb.
+      hedges.push(box(q.w, 0.85, 0.9, [q.x, 0.85, q.z - q.d / 2]));
+      hedges.push(box(q.w, 0.85, 0.9, [q.x, 0.85, q.z + q.d / 2]));
+      hedges.push(box(0.9, 0.85, q.d, [q.x - q.w / 2, 0.85, q.z]));
+      hedges.push(box(0.9, 0.85, q.d, [q.x + q.w / 2, 0.85, q.z]));
       // A formal cross of paths splits each quadrant into four.
       hedges.push(box(q.w - 2, 0.6, 0.7, [q.x, 0.68, q.z]));
+
+      /* An irrigation rill runs the length of each quadrant on the axis,
+         sunk between two stone cheeks — the water that makes the garden
+         possible, shown rather than hidden. */
+      rills.push(box(1.7, 0.05, q.d - 3, [q.x, 0.52, q.z]));
+      kerbs.push(box(0.55, 0.5, q.d - 3, [q.x - 1.12, 0.42, q.z]));
+      kerbs.push(box(0.55, 0.5, q.d - 3, [q.x + 1.12, 0.42, q.z]));
+
       // Trees on a regular grid — symmetry is the point of this court.
       for (let i = 0; i < 3; i++) {
         for (let k = 0; k < 4; k++) {
@@ -187,7 +218,21 @@ export class ReflectionCourt extends Zone {
           });
         }
       }
+      /* A palm at each corner of the parterre, marking the crossings. */
+      for (const sx of [-1, 1]) {
+        for (const sz of [-1, 1]) {
+          palmXs.push({
+            pos: [q.x + sx * (q.w / 2 + 3.4), 0.4, q.z + sz * (q.d / 2 + 3.4)],
+            rot: [0, r() * TAU, 0], scale: 0.9 + r() * 0.25
+          });
+        }
+      }
     }
+    this.shell.add(mesh(mergeGeometries(kerbs), kerbMat, { name: 'CourtKerbs', cast: true, receive: true }));
+    this.shell.add(mesh(mergeGeometries(rills), rillMat, { name: 'CourtRills', renderOrder: 3 }));
+    this.shell.add(instance(palm(3030, 1.0), palmMat, palmXs, {
+      name: 'CourtPalms', castShadow: true, receiveShadow: true
+    }));
     this.shell.add(mesh(mergeGeometries(lawns), lawnMat, { name: 'CourtLawns', receive: true }));
     this.shell.add(mesh(mergeGeometries(hedges), hedgeMat, { name: 'CourtHedges', cast: true, receive: true }));
     this.shell.add(instance(tree(909, 1.0), treeMat, treeXs, {
