@@ -122,7 +122,7 @@ export class ReflectionCourt extends Zone {
     const uniforms = { uTime: { value: 0 }, uRipple: { value: 0.25 } };
     const mat = new THREE.MeshStandardMaterial({
       color: 0x1e3d4a, roughness: 0.045, metalness: 0.3,
-      transparent: true, opacity: 0.94, normalMap: set.normalMap, envMapIntensity: 3.0
+      transparent: true, opacity: 0.94, normalMap: set.normalMap, envMapIntensity: 1.55
     });
     mat.normalScale = new THREE.Vector2(0.35, 0.35);
     mat.onBeforeCompile = (sh) => {
@@ -216,7 +216,7 @@ export class ReflectionCourt extends Zone {
     /* Glazed faces: four triangles from the plinth to the apex. */
     const glassMat = M.glass('pyramidGlass', {
       color: 0xbfd8e0, opacity: 0.24, roughness: 0.05, metalness: 0.1,
-      side: THREE.DoubleSide, envMapIntensity: 2.4
+      side: THREE.DoubleSide, envMapIntensity: 1.44
     });
     const apex = new THREE.Vector3(P.x, 1.8 + P.height, P.z);
     const corners = [
@@ -340,7 +340,7 @@ Object.assign(ReflectionCourt.prototype, {
 
     const glassMat = M.glass('chimneyGlass', {
       color: 0xbfe0e8, opacity: 0.2, roughness: 0.05, metalness: 0.05,
-      side: THREE.DoubleSide, envMapIntensity: 2.6
+      side: THREE.DoubleSide, envMapIntensity: 1.55
     });
     this.shell.add(mesh(
       loft(() => circleRing(C.radius, 24), [1.8, 1.8 + C.top], { capTop: false }),
@@ -561,7 +561,7 @@ Object.assign(ReflectionCourt.prototype, {
       for (let i = 0; i < wuv.count; i++) wuv.setXY(i, wpos.getX(i) * 0.06, wpos.getZ(i) * 0.06);
       const basinMat = this.materials.glass('courtBasinWater', {
         color: 0x25505c, opacity: 0.9, roughness: 0.03, metalness: 0.3, exterior: false,
-        envMapIntensity: 2.6
+        envMapIntensity: 1.55
       });
       const basinMesh = mesh(xform(basinWater, { pos: [Y.x, 1.35, Y.z] }), basinMat, {
         name: 'BasinWater', renderOrder: 3

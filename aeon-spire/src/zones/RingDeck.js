@@ -57,8 +57,12 @@ export class RingDeck extends Zone {
     const M = this.materials;
 
     /* --- The disc volume --- */
+    /* The disc's cladding. Anything above metalness ~0.5 at this scale is a
+       mirror, and a 104 m mirror facing the sky is a blue ball — which is
+       exactly what the disc used to read as. Anodised panels instead. */
     const skinMat = M.surface('ringSkin', 'brushedMetal', {
-      repeat: 14, roughness: 0.34, metalness: 0.68, exterior: true, color: 0xc6cdd6
+      repeat: 14, roughness: 0.46, metalness: 0.36, exterior: true,
+      color: 0xcac6ba, envMapIntensity: 0.85
     });
     const heights = [];
     const n = 40;
@@ -68,7 +72,7 @@ export class RingDeck extends Zone {
     }
     const disc = loft((t, y) => {
       const p = this.discPlan(y);
-      return roundedRectRing(p.xHalf, p.zHalf, Math.min(p.xHalf, p.zHalf) * 0.95, 44);
+      return roundedRectRing(p.xHalf, p.zHalf, Math.min(p.xHalf, p.zHalf) * 0.3, 44);
     }, heights, { capTop: true, capBottom: true, uvScale: 0.03 });
     this.shell.add(mesh(disc, skinMat, { name: 'RingDisc', cast: true, receive: true }));
 
@@ -77,9 +81,10 @@ export class RingDeck extends Zone {
        shaft is wider than the disc is thick and reads as a black band
        painted across it. --- */
     const coreMat = M.surface('ringCore', 'brushedMetal', {
-      repeat: 10, roughness: 0.32, metalness: 0.7, exterior: true, color: 0xb4bcc6
+      repeat: 10, roughness: 0.44, metalness: 0.34, exterior: true,
+      color: 0xb2ada2, envMapIntensity: 0.85
     });
-    const waist = 17.5;
+    const waist = 10.5;
     const shaftHeights = [];
     const sn = 22;
     for (let i = 0; i <= sn; i++) shaftHeights.push(lerp(RING.base - 3, RING.top + 3, i / sn));
@@ -217,7 +222,7 @@ export class RingDeck extends Zone {
     floorGeo.computeVertexNormals();
     const glassMat = M.glass('haloGlassFloor', {
       color: 0xaecfdd, opacity: 0.30, roughness: 0.04, metalness: 0.05,
-      side: THREE.DoubleSide, envMapIntensity: 2.0
+      side: THREE.DoubleSide, envMapIntensity: 1.20
     });
     this.shell.add(mesh(floorGeo, glassMat, { name: 'HaloGlassFloor', renderOrder: 5 }));
 
@@ -335,8 +340,8 @@ Object.assign(RingDeck.prototype, {
   buildDiscDiagrid() {
     const M = this.materials;
     const mat = M.surface('ringDiagrid', 'brushedMetal', {
-      repeat: 2, roughness: 0.28, metalness: 0.88, exterior: true,
-      color: 0xe8edf2, envMapIntensity: 1.5
+      repeat: 2, roughness: 0.34, metalness: 0.72, exterior: true,
+      color: 0xc9a468, envMapIntensity: 1.05
     });
 
     const cy = RING.discCentreY;
@@ -396,16 +401,19 @@ Object.assign(RingDeck.prototype, {
   /** Continuous glazing wrapping the disc's rim, between the truss chords. */
   buildRimGlazing() {
     const M = this.materials;
+    /* FrontSide, not DoubleSide: the rim is a closed loft, so drawing both
+       faces blends the sky reflection through the disc twice over and is
+       most of why the deck read as a solid blue ball. */
     const mat = M.glass('ringRimGlass', {
-      color: 0xb8d2e0, opacity: 0.26, roughness: 0.06, metalness: 0.16,
-      side: THREE.DoubleSide, envMapIntensity: 2.2
+      color: 0xdfe4e2, opacity: 0.34, roughness: 0.06, metalness: 0.14,
+      side: THREE.FrontSide, envMapIntensity: 0.85
     });
     const heights = [];
     const n = 30;
     for (let i = 0; i <= n; i++) heights.push(lerp(RING.base + 4, RING.top - 4, i / n));
     const skin = loft((t, y) => {
       const p = this.discPlan(y);
-      return roundedRectRing(p.xHalf + 0.25, p.zHalf + 0.25, Math.min(p.xHalf, p.zHalf) * 0.95, 44);
+      return roundedRectRing(p.xHalf + 0.25, p.zHalf + 0.25, Math.min(p.xHalf, p.zHalf) * 0.3, 44);
     }, heights, { capTop: false, uvScale: [0.02, 0.02] });
     this.shell.add(mesh(skin, mat, { name: 'RingRimGlazing', renderOrder: 3 }));
 

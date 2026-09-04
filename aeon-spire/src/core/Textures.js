@@ -736,6 +736,111 @@ export class TextureFactory {
     return { emissiveMap: toTexture(canvas), map: toTexture(canvas) };
   }
 
+  /**
+   * Unitised curtain wall — the cladding module the whole campus wears.
+   *
+   * One tile is `cols` × `rows` storey-height units. Each storey is an
+   * opaque spandrel band sitting over a run of vision glass, the two
+   * separated by a proud aluminium transom, with mullions up every unit
+   * joint. The alpha map is the part that matters: the spandrel is nearly
+   * opaque and the vision glass is not, so the eye reads floor lines from a
+   * kilometre out instead of one continuous tinted balloon. Panels carry a
+   * per-unit tint and roughness jitter, and a shallow pillow in the normal
+   * map reproduces the wavy reflection real laminated glass has under wind
+   * load — the detail that stops a facade looking like moulded plastic.
+   */
+  curtainWall(size, {
+    cols = 8, rows = 10, spandrel = 0x5d6773, glassA = 0xa8bcc6,
+    glassB = 0x8195a4, mullion = 0xc2c8cd, lit = 0.5, seed = 11,
+    band = 0.36, pillow = 1, warmSpandrel = 0
+  } = {}) {
+    const cSp = mix(hexRGB(spandrel), hexRGB(0x7a6b57), warmSpandrel);
+    const cGa = hexRGB(glassA), cGb = hexRGB(glassB), cMu = hexRGB(mullion);
+
+    /* Deterministic per-unit hash — cheaper than carrying an rng across
+       three passes over the same grid, and identical in each of them. */
+    const h2 = (a, b, salt = 0) => {
+      let n = ((a + 1) * 73856093) ^ ((b + 1) * 19349663) ^ ((seed + salt) * 83492791);
+      n = (n ^ (n >>> 13)) >>> 0;
+      n = Math.imul(n, 1274126177) >>> 0;
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+    };
+
+    const height = new Float32Array(size * size);
+    const rough = new Float32Array(size * size);
+    const metal = new Float32Array(size * size);
+    const alpha = new Float32Array(size * size);
+    const emis = [];
+
+    const MW = 0.05;   // mullion half-width, in unit-widths
+    const TW = 0.055;  // transom half-height, in unit-heights
+
+    const albedo = paint(size, (u, v, x, y) => {
+      const fu = u * cols, fv = v * rows;
+      const cu = Math.floor(fu), cv = Math.floor(fv);
+      const pu = fu - cu, pv = fv - cv;
+      const i = y * size + x;
+
+      const onMullion = pu < MW || pu > 1 - MW;
+      const onTransom = pv < TW || pv > 1 - TW || Math.abs(pv - band) < TW * 0.8;
+      const inSpandrel = pv < band;
+
+      const j = h2(cu, cv);
+      const j2 = h2(cu, cv, 991);
+
+      let col, r, m, a, hgt;
+      if (onMullion || onTransom) {
+        /* Aluminium framing: proud of the glass, brushed, fully opaque. */
+        const k = 0.9 + j2 * 0.16;
+        col = shade(cMu, k);
+        r = 0.34; m = 0.82; a = 1.0; hgt = 1.0;
+      } else if (inSpandrel) {
+        /* Back-painted spandrel over the floor slab and services zone. */
+        const k = 0.88 + j * 0.2;
+        col = shade(cSp, k);
+        r = 0.44 + j2 * 0.16; m = 0.42; a = 0.97; hgt = 0.62;
+      } else {
+        /* Vision glass. The pillow is what makes reflections ripple. */
+        const g = (pv - band) / (1 - band);
+        const dome = Math.sin(Math.PI * pu) * Math.sin(Math.PI * g);
+        col = mix(cGa, cGb, j);
+        r = 0.03 + j2 * 0.05;
+        m = 0.16;
+        a = 0.28 + j * 0.12;
+        hgt = 0.5 - pillow * 0.09 * dome;
+      }
+
+      height[i] = hgt; rough[i] = r; metal[i] = m; alpha[i] = a;
+      return col;
+    });
+
+    /* Lit-window pass: only the vision band, and only some units, so the
+       night elevation has the scattered pattern of a real occupied tower. */
+    const emissive = paint(size, (u, v) => {
+      const fu = u * cols, fv = v * rows;
+      const cu = Math.floor(fu), cv = Math.floor(fv);
+      const pu = fu - cu, pv = fv - cv;
+      if (pv < band + TW || pv > 1 - TW || pu < MW || pu > 1 - MW) return [0, 0, 0];
+      const on = h2(cu, cv, 4242);
+      if (on > lit) return [0, 0, 0];
+      const k = 0.45 + h2(cu, cv, 77) * 0.55;
+      /* A few floors run cool (plant, lift lobbies); the rest run warm. */
+      const cool = h2(cv, 0, 313) < 0.18;
+      const tintc = cool ? [0.72, 0.86, 1.0] : [1.0, 0.84, 0.62];
+      return [tintc[0] * k, tintc[1] * k, tintc[2] * k];
+    });
+    emis.push(emissive);
+
+    return {
+      map: toTexture(albedo),
+      normalMap: toTexture(heightToNormal(height, size, 3.4), { srgb: false }),
+      roughnessMap: toTexture(fieldToCanvas(rough, size, 0, 1), { srgb: false }),
+      metalnessMap: toTexture(fieldToCanvas(metal, size, 0, 1), { srgb: false }),
+      alphaMap: toTexture(fieldToCanvas(alpha, size, 0, 1), { srgb: false }),
+      emissiveMap: toTexture(emissive)
+    };
+  }
+
   /** Subtle streak/dirt map for large glazing panels. */
   glassGrime(size) {
     const h = new Float32Array(size * size);

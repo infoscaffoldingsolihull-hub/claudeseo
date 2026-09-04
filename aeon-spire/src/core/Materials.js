@@ -233,7 +233,7 @@ export class MaterialLibrary {
   glass(key, {
     color = 0x9fc4d8, opacity = 0.26, roughness = 0.05, metalness = 0.12,
     side = THREE.DoubleSide, tint = 1, exterior = true, emissive = 0x000000,
-    emissiveIntensity = 0, envMapIntensity = 2.2, noClip = false
+    emissiveIntensity = 0, envMapIntensity = 1.35, noClip = false
   } = {}) {
     return this.get(key, () => {
       const m = new THREE.MeshStandardMaterial({
@@ -255,36 +255,89 @@ export class MaterialLibrary {
   }
 
   /**
-   * Facade panel whose emissive window grid switches on at dusk (E.4).
-   * Registered so TimeOfDay can ramp them all in one pass.
+   * Unitised curtain wall — the campus's default cladding.
+   *
+   * `glass()` gives a tinted sheet with no internal structure, which at a
+   * kilometre reads as one moulded blob however carefully it is tuned. This
+   * hangs the procedural curtain-wall set on the same transparent-standard
+   * base instead, so the surface carries mullions, transoms, spandrel bands
+   * and per-unit tint jitter, and the alpha map lets the floor lines read
+   * from any distance. Registered for the night emissive ramp, the weather
+   * wetness ramp and the construction facade package like any other glazing.
+   *
+   * @param {[number,number]} repeat facade modules across × up
    */
-  litFacade(key, {
-    cols = 16, rows = 24, lit = 0.6, seed = 7, color = 0x8ea6bd,
-    repeat = 1, roughness = 0.12, metalness = 0.35, opacity = 0.55,
-    maxEmissive = 2.4
+  curtain(key, {
+    repeat = [1, 1], color = 0xffffff, opacity = 1, roughness = 0.1,
+    metalness = 0.4, side = THREE.DoubleSide, envMapIntensity = 1.3,
+    maxEmissive = 2.3, exterior = true, noClip = false, depthWrite = true,
+    normalScale = 1, opts = null
   } = {}) {
+    const [rx, ry] = repeat;
     const m = this.get(key, (tex) => {
-      const set = tex.get(key + '|windows', (size, f) => f.windowGrid(size, { cols, rows, lit, seed }));
+      const set = tex.get(key + '|curtain', (size, f) => f.curtainWall(size, opts || undefined));
       const mat = new THREE.MeshStandardMaterial({
-        color, roughness, metalness, transparent: true, opacity,
-        emissive: 0xffffff, emissiveIntensity: 0, side: THREE.DoubleSide,
-        depthWrite: false, envMapIntensity: 1.8
+        color, transparent: true, opacity, roughness, metalness, side,
+        depthWrite, envMapIntensity, emissive: 0xffffff, emissiveIntensity: 0
       });
-      mat.emissiveMap = repeat === 1 ? set.emissiveMap : (() => {
-        const c = set.emissiveMap.clone(); c.needsUpdate = true;
-        c.wrapS = c.wrapT = THREE.RepeatWrapping; c.repeat.set(repeat, repeat); return c;
-      })();
+      for (const [k, t] of Object.entries(set)) {
+        if (!t || !t.isTexture) continue;
+        const c = (rx === 1 && ry === 1) ? t : t.clone();
+        if (c !== t) {
+          c.needsUpdate = true;
+          c.wrapS = c.wrapT = THREE.RepeatWrapping;
+          c.repeat.set(rx, ry);
+        }
+        mat[k] = c;
+      }
+      mat.normalScale = new THREE.Vector2(normalScale, normalScale);
       mat.userData.maxEmissive = maxEmissive;
       mat.userData.baseOpacity = opacity;
       if (this.envMap) mat.envMap = this.envMap;
-      makeWeatherReactive(mat);
-      this.exterior.push(mat);
-      this.clippable.push(mat);
-      this.glazing.push(mat);
+      if (exterior) { makeWeatherReactive(mat); this.exterior.push(mat); }
+      if (!noClip) { this.clippable.push(mat); this.glazing.push(mat); }
       return mat;
     });
     if (!this.emissiveWindows.includes(m)) this.emissiveWindows.push(m);
     return m;
+  }
+
+  /**
+   * Facade panel whose emissive window grid switches on at dusk (E.4).
+   *
+   * Built on the unitised curtain wall rather than a flat tinted sheet: the
+   * caller still gives a module count, a lit fraction and a facade tint, but
+   * the tint is split into a desaturated vision-glass pair and a darker
+   * spandrel rather than being painted flat across the whole elevation. A
+   * single saturated colour over a doubled transparent surface is what made
+   * every tower on the campus read as one moulded blue mass, however
+   * carefully the hue was picked.
+   *
+   * Opacity is left to the alpha map — the spandrel bands are nearly opaque
+   * and the vision glass is not — so the caller's `opacity` is kept only as
+   * the construction-mode reveal target.
+   */
+  litFacade(key, {
+    cols = 16, rows = 24, lit = 0.6, seed = 7, color = 0x8ea6bd,
+    repeat = 1, roughness = 0.12, metalness = 0.35, opacity = 0.55,
+    maxEmissive = 2.4, spandrel = null, band = 0.36, mullion = 0xc6ccd2,
+    envMapIntensity = 1.25, side = THREE.DoubleSide, depthWrite = false,
+    exterior = true, noClip = false
+  } = {}) {
+    const hsl = {};
+    new THREE.Color(color).getHSL(hsl);
+    const at = (sMul, l) => new THREE.Color()
+      .setHSL(hsl.h, clamp(hsl.s * sMul, 0, 1), clamp(l, 0, 1)).getHex();
+    return this.curtain(key, {
+      repeat: [repeat, repeat], roughness, metalness, envMapIntensity,
+      side, depthWrite, maxEmissive, exterior, noClip, opacity: 1,
+      opts: {
+        cols, rows, lit, seed, band, mullion,
+        glassA: at(0.5, Math.min(0.74, hsl.l * 1.3)),
+        glassB: at(0.72, hsl.l * 0.9),
+        spandrel: spandrel === null ? at(0.3, hsl.l * 0.58) : spandrel
+      }
+    });
   }
 
   /**

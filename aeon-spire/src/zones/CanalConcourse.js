@@ -171,7 +171,7 @@ export class CanalConcourse extends Zone {
       transparent: true,
       opacity: 0.88,
       normalMap: set.normalMap,
-      envMapIntensity: 2.4
+      envMapIntensity: 1.44
     });
     mat.normalScale = new THREE.Vector2(0.9, 0.9);
     mat.onBeforeCompile = (shader) => {

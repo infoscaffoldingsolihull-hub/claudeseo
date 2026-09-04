@@ -64,8 +64,14 @@ export class SailAtrium extends Zone {
     const M = this.materials;
 
     /* --- The tower shaft: a lofted, tapering rounded-rectangle volume --- */
-    const shaftMat = M.surface('sailShaft', 'polishedConcrete', {
-      repeat: 10, roughness: 0.52, metalness: 0.1, exterior: true, color: 0xb9bec6
+    /* The shaft is occupied floors, so it wears the unitised curtain wall
+       rather than a bare concrete finish: the spandrel banding is what
+       gives the tower a legible storey rhythm from the ground. */
+    const shaftMat = M.curtain('sailShaftWall', {
+      repeat: [1, 1], roughness: 0.14, metalness: 0.42, envMapIntensity: 1.25,
+      side: THREE.FrontSide, maxEmissive: 2.5,
+      opts: { cols: 5, rows: 5, spandrel: 0x59616c, glassA: 0xa6b9c4,
+              glassB: 0x7d93a2, mullion: 0xc4cad0, lit: 0.44, seed: 21 }
     });
     const heights = [];
     for (let i = 0; i <= 26; i++) heights.push(lerp(SAIL.base, SAIL.top, i / 26));
@@ -75,9 +81,16 @@ export class SailAtrium extends Zone {
     /* --- The sail skin itself --- */
     const nu = 34, nv = 26;
     const skin = surfaceGrid((u, v, o) => this.sailPoint(u, v, o), nu, nv, { uvScale: [6, 12] });
-    const skinMat = M.glass('sailSkin', {
-      color: 0xcfe2ee, opacity: 0.30, roughness: 0.045, metalness: 0.12,
-      side: THREE.DoubleSide, envMapIntensity: 2.6
+    /* The sail is a single glazed plane in front of the atrium void, so it
+       is lighter and less framed than the shaft — a bigger unit, a paler
+       spandrel and fewer lit floors, because most of what is behind it is
+       the atrium rather than occupied space. */
+    const skinMat = M.curtain('sailSkin', {
+      repeat: [1, 1], roughness: 0.07, metalness: 0.3, envMapIntensity: 1.5,
+      side: THREE.DoubleSide, depthWrite: false, maxEmissive: 1.6, normalScale: 0.7,
+      opts: { cols: 6, rows: 3, spandrel: 0x7d8894, glassA: 0xb6c9d2,
+              glassB: 0x93a9b6, mullion: 0xd2d8dd, lit: 0.16, seed: 33,
+              band: 0.16, pillow: 1.4 }
     });
     const skinMesh = mesh(skin, skinMat, { name: 'SailSkin', renderOrder: 4 });
     this.shell.add(skinMesh);

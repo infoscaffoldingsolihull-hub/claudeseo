@@ -293,7 +293,7 @@ export class WonderAnnex extends Zone {
     const uniforms = { uTime: { value: 0 }, uRipple: { value: 0.6 } };
     const waterMat = new THREE.MeshStandardMaterial({
       color: 0x16323d, roughness: 0.06, metalness: 0.28,
-      transparent: true, opacity: 0.9, normalMap: set.normalMap, envMapIntensity: 2.6
+      transparent: true, opacity: 0.9, normalMap: set.normalMap, envMapIntensity: 1.55
     });
     waterMat.normalScale = new THREE.Vector2(0.6, 0.6);
     waterMat.onBeforeCompile = (sh) => {

@@ -49,8 +49,12 @@ export class SpireCrown extends Zone {
     const M = this.materials;
 
     /* --- Occupied crown: tapering rounded-rectangle shaft --- */
+    /* Anodised aluminium rainscreen, not chrome. At metalness 0.74 the
+       whole crown mirrored the sky and read as one cobalt mass; real
+       architectural panels sit nearer 0.4 and keep their own colour. */
     const crownMat = M.surface('crownSkin', 'brushedMetal', {
-      repeat: 8, roughness: 0.34, metalness: 0.74, exterior: true, color: 0xaeb6c0
+      repeat: 8, roughness: 0.46, metalness: 0.38, exterior: true,
+      color: 0xc3c0b6, envMapIntensity: 0.85
     });
     const heights = [];
     const n = 18;
@@ -94,7 +98,8 @@ export class SpireCrown extends Zone {
   buildLattice() {
     const M = this.materials;
     const ribMat = M.surface('spireRib', 'brushedMetal', {
-      repeat: 2, roughness: 0.3, metalness: 0.82, exterior: true, color: 0xc8ced6
+      repeat: 2, roughness: 0.36, metalness: 0.7, exterior: true,
+      color: 0xc9a468, envMapIntensity: 1.0
     });
     const glowMat = M.solid('spireRibGlow', {
       color: 0x1a2230, roughness: 0.4, metalness: 0.2,
@@ -151,7 +156,9 @@ export class SpireCrown extends Zone {
     this.detail.add(mesh(mergeGeometries(glow.filter(Boolean)), glowMat, { name: 'SpireLatticeGlow' }));
 
     /* Central mast core the ribs converge on. */
-    const mastMat = M.solid('spireMast', { color: 0x9aa2ac, roughness: 0.34, metalness: 0.8, exterior: true });
+    const mastMat = M.solid('spireMast', {
+      color: 0xa89a86, roughness: 0.42, metalness: 0.55, exterior: true, envMapIntensity: 0.9
+    });
     this.shell.add(mesh(
       loft((t) => circleRing(lerp(3.4, 0.6, Math.pow(t, 0.7)), 12), [yBase, yTip - 12], { capTop: true }),
       mastMat, { name: 'SpireMastCore', cast: true }
@@ -162,7 +169,8 @@ export class SpireCrown extends Zone {
   buildBeacon() {
     const M = this.materials;
     const mat = M.surface('beaconStruct', 'brushedMetal', {
-      repeat: 1, roughness: 0.34, metalness: 0.78, exterior: true, color: 0xb4bcc6
+      repeat: 1, roughness: 0.38, metalness: 0.66, exterior: true,
+      color: 0xc0a478, envMapIntensity: 0.95
     });
     const parts = [];
     const top = SPIRE.tip;
@@ -241,7 +249,8 @@ Object.assign(SpireCrown.prototype, {
     /* Vertical fins running the crown's full height — the "rhythm and
        verticality" the brief borrows from cathedral spires. */
     const finMat = M.surface('crownFin', 'brushedMetal', {
-      repeat: 3, roughness: 0.26, metalness: 0.84, exterior: true, color: 0xdde3ea
+      repeat: 3, roughness: 0.32, metalness: 0.7, exterior: true,
+      color: 0xd6b483, envMapIntensity: 1.0
     });
     const parts = [];
     const finCount = 28;
@@ -270,7 +279,7 @@ Object.assign(SpireCrown.prototype, {
     const M = this.materials;
     const mat = M.glass('spireLatticeGlass', {
       color: 0xa8c6d8, opacity: 0.17, roughness: 0.07, metalness: 0.1,
-      side: THREE.DoubleSide, envMapIntensity: 2.0
+      side: THREE.DoubleSide, envMapIntensity: 1.20
     });
     const yBase = SPIRE.crownTop, yTip = SPIRE.tip;
     const ribs = SPIRE.latticeRibs;

@@ -81329,6 +81329,111 @@ class TextureFactory {
     return { emissiveMap: toTexture(canvas), map: toTexture(canvas) };
   }
 
+  /**
+   * Unitised curtain wall — the cladding module the whole campus wears.
+   *
+   * One tile is `cols` × `rows` storey-height units. Each storey is an
+   * opaque spandrel band sitting over a run of vision glass, the two
+   * separated by a proud aluminium transom, with mullions up every unit
+   * joint. The alpha map is the part that matters: the spandrel is nearly
+   * opaque and the vision glass is not, so the eye reads floor lines from a
+   * kilometre out instead of one continuous tinted balloon. Panels carry a
+   * per-unit tint and roughness jitter, and a shallow pillow in the normal
+   * map reproduces the wavy reflection real laminated glass has under wind
+   * load — the detail that stops a facade looking like moulded plastic.
+   */
+  curtainWall(size, {
+    cols = 8, rows = 10, spandrel = 0x5d6773, glassA = 0xa8bcc6,
+    glassB = 0x8195a4, mullion = 0xc2c8cd, lit = 0.5, seed = 11,
+    band = 0.36, pillow = 1, warmSpandrel = 0
+  } = {}) {
+    const cSp = mix(hexRGB(spandrel), hexRGB(0x7a6b57), warmSpandrel);
+    const cGa = hexRGB(glassA), cGb = hexRGB(glassB), cMu = hexRGB(mullion);
+
+    /* Deterministic per-unit hash — cheaper than carrying an rng across
+       three passes over the same grid, and identical in each of them. */
+    const h2 = (a, b, salt = 0) => {
+      let n = ((a + 1) * 73856093) ^ ((b + 1) * 19349663) ^ ((seed + salt) * 83492791);
+      n = (n ^ (n >>> 13)) >>> 0;
+      n = Math.imul(n, 1274126177) >>> 0;
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+    };
+
+    const height = new Float32Array(size * size);
+    const rough = new Float32Array(size * size);
+    const metal = new Float32Array(size * size);
+    const alpha = new Float32Array(size * size);
+    const emis = [];
+
+    const MW = 0.05;   // mullion half-width, in unit-widths
+    const TW = 0.055;  // transom half-height, in unit-heights
+
+    const albedo = paint(size, (u, v, x, y) => {
+      const fu = u * cols, fv = v * rows;
+      const cu = Math.floor(fu), cv = Math.floor(fv);
+      const pu = fu - cu, pv = fv - cv;
+      const i = y * size + x;
+
+      const onMullion = pu < MW || pu > 1 - MW;
+      const onTransom = pv < TW || pv > 1 - TW || Math.abs(pv - band) < TW * 0.8;
+      const inSpandrel = pv < band;
+
+      const j = h2(cu, cv);
+      const j2 = h2(cu, cv, 991);
+
+      let col, r, m, a, hgt;
+      if (onMullion || onTransom) {
+        /* Aluminium framing: proud of the glass, brushed, fully opaque. */
+        const k = 0.9 + j2 * 0.16;
+        col = shade(cMu, k);
+        r = 0.34; m = 0.82; a = 1.0; hgt = 1.0;
+      } else if (inSpandrel) {
+        /* Back-painted spandrel over the floor slab and services zone. */
+        const k = 0.88 + j * 0.2;
+        col = shade(cSp, k);
+        r = 0.44 + j2 * 0.16; m = 0.42; a = 0.97; hgt = 0.62;
+      } else {
+        /* Vision glass. The pillow is what makes reflections ripple. */
+        const g = (pv - band) / (1 - band);
+        const dome = Math.sin(Math.PI * pu) * Math.sin(Math.PI * g);
+        col = mix(cGa, cGb, j);
+        r = 0.03 + j2 * 0.05;
+        m = 0.16;
+        a = 0.28 + j * 0.12;
+        hgt = 0.5 - pillow * 0.09 * dome;
+      }
+
+      height[i] = hgt; rough[i] = r; metal[i] = m; alpha[i] = a;
+      return col;
+    });
+
+    /* Lit-window pass: only the vision band, and only some units, so the
+       night elevation has the scattered pattern of a real occupied tower. */
+    const emissive = paint(size, (u, v) => {
+      const fu = u * cols, fv = v * rows;
+      const cu = Math.floor(fu), cv = Math.floor(fv);
+      const pu = fu - cu, pv = fv - cv;
+      if (pv < band + TW || pv > 1 - TW || pu < MW || pu > 1 - MW) return [0, 0, 0];
+      const on = h2(cu, cv, 4242);
+      if (on > lit) return [0, 0, 0];
+      const k = 0.45 + h2(cu, cv, 77) * 0.55;
+      /* A few floors run cool (plant, lift lobbies); the rest run warm. */
+      const cool = h2(cv, 0, 313) < 0.18;
+      const tintc = cool ? [0.72, 0.86, 1.0] : [1.0, 0.84, 0.62];
+      return [tintc[0] * k, tintc[1] * k, tintc[2] * k];
+    });
+    emis.push(emissive);
+
+    return {
+      map: toTexture(albedo),
+      normalMap: toTexture(heightToNormal(height, size, 3.4), { srgb: false }),
+      roughnessMap: toTexture(fieldToCanvas(rough, size, 0, 1), { srgb: false }),
+      metalnessMap: toTexture(fieldToCanvas(metal, size, 0, 1), { srgb: false }),
+      alphaMap: toTexture(fieldToCanvas(alpha, size, 0, 1), { srgb: false }),
+      emissiveMap: toTexture(emissive)
+    };
+  }
+
   /** Subtle streak/dirt map for large glazing panels. */
   glassGrime(size) {
     const h = new Float32Array(size * size);
@@ -81639,7 +81744,7 @@ class MaterialLibrary {
   glass(key, {
     color = 0x9fc4d8, opacity = 0.26, roughness = 0.05, metalness = 0.12,
     side = THREE.DoubleSide, tint = 1, exterior = true, emissive = 0x000000,
-    emissiveIntensity = 0, envMapIntensity = 2.2, noClip = false
+    emissiveIntensity = 0, envMapIntensity = 1.35, noClip = false
   } = {}) {
     return this.get(key, () => {
       const m = new THREE.MeshStandardMaterial({
@@ -81661,36 +81766,89 @@ class MaterialLibrary {
   }
 
   /**
-   * Facade panel whose emissive window grid switches on at dusk (E.4).
-   * Registered so TimeOfDay can ramp them all in one pass.
+   * Unitised curtain wall — the campus's default cladding.
+   *
+   * `glass()` gives a tinted sheet with no internal structure, which at a
+   * kilometre reads as one moulded blob however carefully it is tuned. This
+   * hangs the procedural curtain-wall set on the same transparent-standard
+   * base instead, so the surface carries mullions, transoms, spandrel bands
+   * and per-unit tint jitter, and the alpha map lets the floor lines read
+   * from any distance. Registered for the night emissive ramp, the weather
+   * wetness ramp and the construction facade package like any other glazing.
+   *
+   * @param {[number,number]} repeat facade modules across × up
    */
-  litFacade(key, {
-    cols = 16, rows = 24, lit = 0.6, seed = 7, color = 0x8ea6bd,
-    repeat = 1, roughness = 0.12, metalness = 0.35, opacity = 0.55,
-    maxEmissive = 2.4
+  curtain(key, {
+    repeat = [1, 1], color = 0xffffff, opacity = 1, roughness = 0.1,
+    metalness = 0.4, side = THREE.DoubleSide, envMapIntensity = 1.3,
+    maxEmissive = 2.3, exterior = true, noClip = false, depthWrite = true,
+    normalScale = 1, opts = null
   } = {}) {
+    const [rx, ry] = repeat;
     const m = this.get(key, (tex) => {
-      const set = tex.get(key + '|windows', (size, f) => f.windowGrid(size, { cols, rows, lit, seed }));
+      const set = tex.get(key + '|curtain', (size, f) => f.curtainWall(size, opts || undefined));
       const mat = new THREE.MeshStandardMaterial({
-        color, roughness, metalness, transparent: true, opacity,
-        emissive: 0xffffff, emissiveIntensity: 0, side: THREE.DoubleSide,
-        depthWrite: false, envMapIntensity: 1.8
+        color, transparent: true, opacity, roughness, metalness, side,
+        depthWrite, envMapIntensity, emissive: 0xffffff, emissiveIntensity: 0
       });
-      mat.emissiveMap = repeat === 1 ? set.emissiveMap : (() => {
-        const c = set.emissiveMap.clone(); c.needsUpdate = true;
-        c.wrapS = c.wrapT = THREE.RepeatWrapping; c.repeat.set(repeat, repeat); return c;
-      })();
+      for (const [k, t] of Object.entries(set)) {
+        if (!t || !t.isTexture) continue;
+        const c = (rx === 1 && ry === 1) ? t : t.clone();
+        if (c !== t) {
+          c.needsUpdate = true;
+          c.wrapS = c.wrapT = THREE.RepeatWrapping;
+          c.repeat.set(rx, ry);
+        }
+        mat[k] = c;
+      }
+      mat.normalScale = new THREE.Vector2(normalScale, normalScale);
       mat.userData.maxEmissive = maxEmissive;
       mat.userData.baseOpacity = opacity;
       if (this.envMap) mat.envMap = this.envMap;
-      makeWeatherReactive(mat);
-      this.exterior.push(mat);
-      this.clippable.push(mat);
-      this.glazing.push(mat);
+      if (exterior) { makeWeatherReactive(mat); this.exterior.push(mat); }
+      if (!noClip) { this.clippable.push(mat); this.glazing.push(mat); }
       return mat;
     });
     if (!this.emissiveWindows.includes(m)) this.emissiveWindows.push(m);
     return m;
+  }
+
+  /**
+   * Facade panel whose emissive window grid switches on at dusk (E.4).
+   *
+   * Built on the unitised curtain wall rather than a flat tinted sheet: the
+   * caller still gives a module count, a lit fraction and a facade tint, but
+   * the tint is split into a desaturated vision-glass pair and a darker
+   * spandrel rather than being painted flat across the whole elevation. A
+   * single saturated colour over a doubled transparent surface is what made
+   * every tower on the campus read as one moulded blue mass, however
+   * carefully the hue was picked.
+   *
+   * Opacity is left to the alpha map — the spandrel bands are nearly opaque
+   * and the vision glass is not — so the caller's `opacity` is kept only as
+   * the construction-mode reveal target.
+   */
+  litFacade(key, {
+    cols = 16, rows = 24, lit = 0.6, seed = 7, color = 0x8ea6bd,
+    repeat = 1, roughness = 0.12, metalness = 0.35, opacity = 0.55,
+    maxEmissive = 2.4, spandrel = null, band = 0.36, mullion = 0xc6ccd2,
+    envMapIntensity = 1.25, side = THREE.DoubleSide, depthWrite = false,
+    exterior = true, noClip = false
+  } = {}) {
+    const hsl = {};
+    new THREE.Color(color).getHSL(hsl);
+    const at = (sMul, l) => new THREE.Color()
+      .setHSL(hsl.h, clamp(hsl.s * sMul, 0, 1), clamp(l, 0, 1)).getHex();
+    return this.curtain(key, {
+      repeat: [repeat, repeat], roughness, metalness, envMapIntensity,
+      side, depthWrite, maxEmissive, exterior, noClip, opacity: 1,
+      opts: {
+        cols, rows, lit, seed, band, mullion,
+        glassA: at(0.5, Math.min(0.74, hsl.l * 1.3)),
+        glassB: at(0.72, hsl.l * 0.9),
+        spandrel: spandrel === null ? at(0.3, hsl.l * 0.58) : spandrel
+      }
+    });
   }
 
   /**
@@ -82040,7 +82198,17 @@ class EnvironmentProbe {
    */
   update(p, sunDir) {
     const ctx = this.ctx;
-    const hex = (c, k = 1) => `rgb(${Math.round(clamp(c.r * k, 0, 1) * 255)},${Math.round(clamp(c.g * k, 0, 1) * 255)},${Math.round(clamp(c.b * k, 0, 1) * 255)})`;
+    /* Reflections read greyer than the sky they come from: a clear zenith is
+       a saturated blue, but a building mirroring it is not a blue building.
+       Pulling each sky colour part-way toward its own luminance before it
+       goes into the probe is what keeps 400 m of glazing looking like glass
+       instead of one moulded cobalt mass. */
+    const DESAT = 0.45;
+    const hex = (c, k = 1) => {
+      const y = c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722;
+      const r = lerp(c.r, y, DESAT), g = lerp(c.g, y, DESAT), b = lerp(c.b, y, DESAT);
+      return `rgb(${Math.round(clamp(r * k, 0, 1) * 255)},${Math.round(clamp(g * k, 0, 1) * 255)},${Math.round(clamp(b * k, 0, 1) * 255)})`;
+    };
 
     // Sky half: zenith at the top, horizon at the equator.
     const g = ctx.createLinearGradient(0, 0, 0, H);
@@ -82276,7 +82444,7 @@ const TOD_PRESETS = [
     sunDiscIntensity: 1.0,
     fogColor: C(0xbcd2e4), fogNear: 1400, fogFar: 6400,
     exposure: 1.0, grade: C(0xffffff), lift: C(0x000000), contrast: 1.12,
-    saturation: 1.10, vignette: 0.40, bloomStrength: 0.42, bloomThreshold: 0.95,
+    saturation: 1.02, vignette: 0.40, bloomStrength: 0.42, bloomThreshold: 0.95,
     nightMix: 0.0, interiorEnv: 0.55, envIntensity: 0.85
   },
   {
@@ -89231,7 +89399,7 @@ class CanalConcourse extends Zone {
       transparent: true,
       opacity: 0.88,
       normalMap: set.normalMap,
-      envMapIntensity: 2.4
+      envMapIntensity: 1.44
     });
     mat.normalScale = new THREE.Vector2(0.9, 0.9);
     mat.onBeforeCompile = (shader) => {
@@ -90246,8 +90414,14 @@ class SailAtrium extends Zone {
     const M = this.materials;
 
     /* --- The tower shaft: a lofted, tapering rounded-rectangle volume --- */
-    const shaftMat = M.surface('sailShaft', 'polishedConcrete', {
-      repeat: 10, roughness: 0.52, metalness: 0.1, exterior: true, color: 0xb9bec6
+    /* The shaft is occupied floors, so it wears the unitised curtain wall
+       rather than a bare concrete finish: the spandrel banding is what
+       gives the tower a legible storey rhythm from the ground. */
+    const shaftMat = M.curtain('sailShaftWall', {
+      repeat: [1, 1], roughness: 0.14, metalness: 0.42, envMapIntensity: 1.25,
+      side: THREE.FrontSide, maxEmissive: 2.5,
+      opts: { cols: 5, rows: 5, spandrel: 0x59616c, glassA: 0xa6b9c4,
+              glassB: 0x7d93a2, mullion: 0xc4cad0, lit: 0.44, seed: 21 }
     });
     const heights = [];
     for (let i = 0; i <= 26; i++) heights.push(lerp(SAIL.base, SAIL.top, i / 26));
@@ -90257,9 +90431,16 @@ class SailAtrium extends Zone {
     /* --- The sail skin itself --- */
     const nu = 34, nv = 26;
     const skin = surfaceGrid((u, v, o) => this.sailPoint(u, v, o), nu, nv, { uvScale: [6, 12] });
-    const skinMat = M.glass('sailSkin', {
-      color: 0xcfe2ee, opacity: 0.30, roughness: 0.045, metalness: 0.12,
-      side: THREE.DoubleSide, envMapIntensity: 2.6
+    /* The sail is a single glazed plane in front of the atrium void, so it
+       is lighter and less framed than the shaft — a bigger unit, a paler
+       spandrel and fewer lit floors, because most of what is behind it is
+       the atrium rather than occupied space. */
+    const skinMat = M.curtain('sailSkin', {
+      repeat: [1, 1], roughness: 0.07, metalness: 0.3, envMapIntensity: 1.5,
+      side: THREE.DoubleSide, depthWrite: false, maxEmissive: 1.6, normalScale: 0.7,
+      opts: { cols: 6, rows: 3, spandrel: 0x7d8894, glassA: 0xb6c9d2,
+              glassB: 0x93a9b6, mullion: 0xd2d8dd, lit: 0.16, seed: 33,
+              band: 0.16, pillow: 1.4 }
     });
     const skinMesh = mesh(skin, skinMat, { name: 'SailSkin', renderOrder: 4 });
     this.shell.add(skinMesh);
@@ -91262,8 +91443,12 @@ class RingDeck extends Zone {
     const M = this.materials;
 
     /* --- The disc volume --- */
+    /* The disc's cladding. Anything above metalness ~0.5 at this scale is a
+       mirror, and a 104 m mirror facing the sky is a blue ball — which is
+       exactly what the disc used to read as. Anodised panels instead. */
     const skinMat = M.surface('ringSkin', 'brushedMetal', {
-      repeat: 14, roughness: 0.34, metalness: 0.68, exterior: true, color: 0xc6cdd6
+      repeat: 14, roughness: 0.46, metalness: 0.36, exterior: true,
+      color: 0xcac6ba, envMapIntensity: 0.85
     });
     const heights = [];
     const n = 40;
@@ -91273,7 +91458,7 @@ class RingDeck extends Zone {
     }
     const disc = loft((t, y) => {
       const p = this.discPlan(y);
-      return roundedRectRing(p.xHalf, p.zHalf, Math.min(p.xHalf, p.zHalf) * 0.95, 44);
+      return roundedRectRing(p.xHalf, p.zHalf, Math.min(p.xHalf, p.zHalf) * 0.3, 44);
     }, heights, { capTop: true, capBottom: true, uvScale: 0.03 });
     this.shell.add(mesh(disc, skinMat, { name: 'RingDisc', cast: true, receive: true }));
 
@@ -91282,9 +91467,10 @@ class RingDeck extends Zone {
        shaft is wider than the disc is thick and reads as a black band
        painted across it. --- */
     const coreMat = M.surface('ringCore', 'brushedMetal', {
-      repeat: 10, roughness: 0.32, metalness: 0.7, exterior: true, color: 0xb4bcc6
+      repeat: 10, roughness: 0.44, metalness: 0.34, exterior: true,
+      color: 0xb2ada2, envMapIntensity: 0.85
     });
-    const waist = 17.5;
+    const waist = 10.5;
     const shaftHeights = [];
     const sn = 22;
     for (let i = 0; i <= sn; i++) shaftHeights.push(lerp(RING.base - 3, RING.top + 3, i / sn));
@@ -91422,7 +91608,7 @@ class RingDeck extends Zone {
     floorGeo.computeVertexNormals();
     const glassMat = M.glass('haloGlassFloor', {
       color: 0xaecfdd, opacity: 0.30, roughness: 0.04, metalness: 0.05,
-      side: THREE.DoubleSide, envMapIntensity: 2.0
+      side: THREE.DoubleSide, envMapIntensity: 1.20
     });
     this.shell.add(mesh(floorGeo, glassMat, { name: 'HaloGlassFloor', renderOrder: 5 }));
 
@@ -91540,8 +91726,8 @@ Object.assign(RingDeck.prototype, {
   buildDiscDiagrid() {
     const M = this.materials;
     const mat = M.surface('ringDiagrid', 'brushedMetal', {
-      repeat: 2, roughness: 0.28, metalness: 0.88, exterior: true,
-      color: 0xe8edf2, envMapIntensity: 1.5
+      repeat: 2, roughness: 0.34, metalness: 0.72, exterior: true,
+      color: 0xc9a468, envMapIntensity: 1.05
     });
 
     const cy = RING.discCentreY;
@@ -91601,16 +91787,19 @@ Object.assign(RingDeck.prototype, {
   /** Continuous glazing wrapping the disc's rim, between the truss chords. */
   buildRimGlazing() {
     const M = this.materials;
+    /* FrontSide, not DoubleSide: the rim is a closed loft, so drawing both
+       faces blends the sky reflection through the disc twice over and is
+       most of why the deck read as a solid blue ball. */
     const mat = M.glass('ringRimGlass', {
-      color: 0xb8d2e0, opacity: 0.26, roughness: 0.06, metalness: 0.16,
-      side: THREE.DoubleSide, envMapIntensity: 2.2
+      color: 0xdfe4e2, opacity: 0.34, roughness: 0.06, metalness: 0.14,
+      side: THREE.FrontSide, envMapIntensity: 0.85
     });
     const heights = [];
     const n = 30;
     for (let i = 0; i <= n; i++) heights.push(lerp(RING.base + 4, RING.top - 4, i / n));
     const skin = loft((t, y) => {
       const p = this.discPlan(y);
-      return roundedRectRing(p.xHalf + 0.25, p.zHalf + 0.25, Math.min(p.xHalf, p.zHalf) * 0.95, 44);
+      return roundedRectRing(p.xHalf + 0.25, p.zHalf + 0.25, Math.min(p.xHalf, p.zHalf) * 0.3, 44);
     }, heights, { capTop: false, uvScale: [0.02, 0.02] });
     this.shell.add(mesh(skin, mat, { name: 'RingRimGlazing', renderOrder: 3 }));
 
@@ -92270,8 +92459,12 @@ class SpireCrown extends Zone {
     const M = this.materials;
 
     /* --- Occupied crown: tapering rounded-rectangle shaft --- */
+    /* Anodised aluminium rainscreen, not chrome. At metalness 0.74 the
+       whole crown mirrored the sky and read as one cobalt mass; real
+       architectural panels sit nearer 0.4 and keep their own colour. */
     const crownMat = M.surface('crownSkin', 'brushedMetal', {
-      repeat: 8, roughness: 0.34, metalness: 0.74, exterior: true, color: 0xaeb6c0
+      repeat: 8, roughness: 0.46, metalness: 0.38, exterior: true,
+      color: 0xc3c0b6, envMapIntensity: 0.85
     });
     const heights = [];
     const n = 18;
@@ -92315,7 +92508,8 @@ class SpireCrown extends Zone {
   buildLattice() {
     const M = this.materials;
     const ribMat = M.surface('spireRib', 'brushedMetal', {
-      repeat: 2, roughness: 0.3, metalness: 0.82, exterior: true, color: 0xc8ced6
+      repeat: 2, roughness: 0.36, metalness: 0.7, exterior: true,
+      color: 0xc9a468, envMapIntensity: 1.0
     });
     const glowMat = M.solid('spireRibGlow', {
       color: 0x1a2230, roughness: 0.4, metalness: 0.2,
@@ -92372,7 +92566,9 @@ class SpireCrown extends Zone {
     this.detail.add(mesh(mergeGeometries(glow.filter(Boolean)), glowMat, { name: 'SpireLatticeGlow' }));
 
     /* Central mast core the ribs converge on. */
-    const mastMat = M.solid('spireMast', { color: 0x9aa2ac, roughness: 0.34, metalness: 0.8, exterior: true });
+    const mastMat = M.solid('spireMast', {
+      color: 0xa89a86, roughness: 0.42, metalness: 0.55, exterior: true, envMapIntensity: 0.9
+    });
     this.shell.add(mesh(
       loft((t) => circleRing(lerp(3.4, 0.6, Math.pow(t, 0.7)), 12), [yBase, yTip - 12], { capTop: true }),
       mastMat, { name: 'SpireMastCore', cast: true }
@@ -92383,7 +92579,8 @@ class SpireCrown extends Zone {
   buildBeacon() {
     const M = this.materials;
     const mat = M.surface('beaconStruct', 'brushedMetal', {
-      repeat: 1, roughness: 0.34, metalness: 0.78, exterior: true, color: 0xb4bcc6
+      repeat: 1, roughness: 0.38, metalness: 0.66, exterior: true,
+      color: 0xc0a478, envMapIntensity: 0.95
     });
     const parts = [];
     const top = SPIRE.tip;
@@ -92462,7 +92659,8 @@ Object.assign(SpireCrown.prototype, {
     /* Vertical fins running the crown's full height — the "rhythm and
        verticality" the brief borrows from cathedral spires. */
     const finMat = M.surface('crownFin', 'brushedMetal', {
-      repeat: 3, roughness: 0.26, metalness: 0.84, exterior: true, color: 0xdde3ea
+      repeat: 3, roughness: 0.32, metalness: 0.7, exterior: true,
+      color: 0xd6b483, envMapIntensity: 1.0
     });
     const parts = [];
     const finCount = 28;
@@ -92491,7 +92689,7 @@ Object.assign(SpireCrown.prototype, {
     const M = this.materials;
     const mat = M.glass('spireLatticeGlass', {
       color: 0xa8c6d8, opacity: 0.17, roughness: 0.07, metalness: 0.1,
-      side: THREE.DoubleSide, envMapIntensity: 2.0
+      side: THREE.DoubleSide, envMapIntensity: 1.20
     });
     const yBase = SPIRE.crownTop, yTip = SPIRE.tip;
     const ribs = SPIRE.latticeRibs;
@@ -93890,7 +94088,7 @@ Object.assign(LeaningObservatory.prototype, {
     const M = this.materials;
     const glass = M.glass('obsHelixGlass', {
       color: 0xbfe0ee, opacity: 0.24, roughness: 0.06, metalness: 0.08,
-      side: THREE.DoubleSide, envMapIntensity: 2.4
+      side: THREE.DoubleSide, envMapIntensity: 1.44
     });
     const frameMat = M.surface('obsHelixFrame', 'brushedMetal', {
       repeat: 3, roughness: 0.28, metalness: 0.84, exterior: true, color: 0xc8cfd7
@@ -94135,7 +94333,7 @@ class ReflectionCourt extends Zone {
     const uniforms = { uTime: { value: 0 }, uRipple: { value: 0.25 } };
     const mat = new THREE.MeshStandardMaterial({
       color: 0x1e3d4a, roughness: 0.045, metalness: 0.3,
-      transparent: true, opacity: 0.94, normalMap: set.normalMap, envMapIntensity: 3.0
+      transparent: true, opacity: 0.94, normalMap: set.normalMap, envMapIntensity: 1.55
     });
     mat.normalScale = new THREE.Vector2(0.35, 0.35);
     mat.onBeforeCompile = (sh) => {
@@ -94229,7 +94427,7 @@ class ReflectionCourt extends Zone {
     /* Glazed faces: four triangles from the plinth to the apex. */
     const glassMat = M.glass('pyramidGlass', {
       color: 0xbfd8e0, opacity: 0.24, roughness: 0.05, metalness: 0.1,
-      side: THREE.DoubleSide, envMapIntensity: 2.4
+      side: THREE.DoubleSide, envMapIntensity: 1.44
     });
     const apex = new THREE.Vector3(P.x, 1.8 + P.height, P.z);
     const corners = [
@@ -94353,7 +94551,7 @@ Object.assign(ReflectionCourt.prototype, {
 
     const glassMat = M.glass('chimneyGlass', {
       color: 0xbfe0e8, opacity: 0.2, roughness: 0.05, metalness: 0.05,
-      side: THREE.DoubleSide, envMapIntensity: 2.6
+      side: THREE.DoubleSide, envMapIntensity: 1.55
     });
     this.shell.add(mesh(
       loft(() => circleRing(C.radius, 24), [1.8, 1.8 + C.top], { capTop: false }),
@@ -94574,7 +94772,7 @@ Object.assign(ReflectionCourt.prototype, {
       for (let i = 0; i < wuv.count; i++) wuv.setXY(i, wpos.getX(i) * 0.06, wpos.getZ(i) * 0.06);
       const basinMat = this.materials.glass('courtBasinWater', {
         color: 0x25505c, opacity: 0.9, roughness: 0.03, metalness: 0.3, exterior: false,
-        envMapIntensity: 2.6
+        envMapIntensity: 1.55
       });
       const basinMesh = mesh(xform(basinWater, { pos: [Y.x, 1.35, Y.z] }), basinMat, {
         name: 'BasinWater', renderOrder: 3
@@ -95286,7 +95484,7 @@ class WonderAnnex extends Zone {
     const uniforms = { uTime: { value: 0 }, uRipple: { value: 0.6 } };
     const waterMat = new THREE.MeshStandardMaterial({
       color: 0x16323d, roughness: 0.06, metalness: 0.28,
-      transparent: true, opacity: 0.9, normalMap: set.normalMap, envMapIntensity: 2.6
+      transparent: true, opacity: 0.9, normalMap: set.normalMap, envMapIntensity: 1.55
     });
     waterMat.normalScale = new THREE.Vector2(0.6, 0.6);
     waterMat.onBeforeCompile = (sh) => {

@@ -51,7 +51,7 @@ export const TOD_PRESETS = [
     sunDiscIntensity: 1.0,
     fogColor: C(0xbcd2e4), fogNear: 1400, fogFar: 6400,
     exposure: 1.0, grade: C(0xffffff), lift: C(0x000000), contrast: 1.12,
-    saturation: 1.10, vignette: 0.40, bloomStrength: 0.42, bloomThreshold: 0.95,
+    saturation: 1.02, vignette: 0.40, bloomStrength: 0.42, bloomThreshold: 0.95,
     nightMix: 0.0, interiorEnv: 0.55, envIntensity: 0.85
   },
   {

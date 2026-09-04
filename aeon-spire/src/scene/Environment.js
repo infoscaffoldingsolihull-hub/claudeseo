@@ -45,7 +45,17 @@ export class EnvironmentProbe {
    */
   update(p, sunDir) {
     const ctx = this.ctx;
-    const hex = (c, k = 1) => `rgb(${Math.round(clamp(c.r * k, 0, 1) * 255)},${Math.round(clamp(c.g * k, 0, 1) * 255)},${Math.round(clamp(c.b * k, 0, 1) * 255)})`;
+    /* Reflections read greyer than the sky they come from: a clear zenith is
+       a saturated blue, but a building mirroring it is not a blue building.
+       Pulling each sky colour part-way toward its own luminance before it
+       goes into the probe is what keeps 400 m of glazing looking like glass
+       instead of one moulded cobalt mass. */
+    const DESAT = 0.45;
+    const hex = (c, k = 1) => {
+      const y = c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722;
+      const r = lerp(c.r, y, DESAT), g = lerp(c.g, y, DESAT), b = lerp(c.b, y, DESAT);
+      return `rgb(${Math.round(clamp(r * k, 0, 1) * 255)},${Math.round(clamp(g * k, 0, 1) * 255)},${Math.round(clamp(b * k, 0, 1) * 255)})`;
+    };
 
     // Sky half: zenith at the top, horizon at the equator.
     const g = ctx.createLinearGradient(0, 0, 0, H);

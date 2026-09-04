@@ -907,7 +907,7 @@ Object.assign(LeaningObservatory.prototype, {
     const M = this.materials;
     const glass = M.glass('obsHelixGlass', {
       color: 0xbfe0ee, opacity: 0.24, roughness: 0.06, metalness: 0.08,
-      side: THREE.DoubleSide, envMapIntensity: 2.4
+      side: THREE.DoubleSide, envMapIntensity: 1.44
     });
     const frameMat = M.surface('obsHelixFrame', 'brushedMetal', {
       repeat: 3, roughness: 0.28, metalness: 0.84, exterior: true, color: 0xc8cfd7
