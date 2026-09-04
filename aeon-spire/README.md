@@ -87,8 +87,20 @@ likeness or its branding.
 | **3 · The Ring Deck** | L31–L55 | Aldar HQ — a circular structural disc standing on edge | A 110 m disc, 44 m thick, carrying a radial face diagrid; the tower waists through it, and a glass-bottomed halo walkway is cantilevered clear of it on radial ribs and ties. |
 | **4 · The Spire Crown** | L56–L88 + spire | Cathedral spires — verticality and rhythm, not ornament | A tapering parametric lattice from 400 m to 700 m with LED-integrated ribs, housing a tuned mass damper and terminating in a broadcast mast and aviation beacon. |
 | **5 · The Leaning Observatory** | ground–40 m | Pisa — a lean, declared and then engineered against | A deliberate 8° tilt applied as a rotation on the whole annex, resolved by six post-tensioned cable anchors and an asymmetric caisson offset against the lean. |
-| **6 · Reflection Court & Pyramid Pavilion** | ground | Taj Mahal axial symmetry + Giza's pure geometry | A mirror-symmetrical reflecting pool and four planted quadrants leading to a glass-and-stone pyramid housing the sustainability core — geothermal exchange, a solar chimney and the rainwater cistern. |
-| **7 · The Wonder Annex** | ground | A motorsport pavilion, a modular-block pavilion, a themed promenade | A curved aerodynamic speed form, an oversized modular-block creative pavilion, and a glazed barrel-vaulted arcade overlooking a light-and-water show plaza. |
+| **6 · Reflection Court & Pyramid Pavilion** | ground | Taj Mahal axial symmetry + Giza's pure geometry | A 174 m mirror-symmetrical reflecting pool, and four planted quadrants with dressed stone kerbs, sunk irrigation rills and a palm at every crossing, leading to a glass-and-stone pyramid housing the sustainability core — geothermal exchange, a solar chimney and the rainwater cistern. |
+| **7 · The Wonder Annex** | ground | Three engineering set-pieces: a banked test loop, a corbelled cassette stack, a doubly-curved gridshell | The **Speed Ribbon** — a 300 m banked loop lifted over the motorsport pavilion on eight raking piers, its deck rolled by the curvature it resists; the **Modular Block Pavilion** — a stone maker hall carrying seven prefabricated whole-floor cassettes, each turned 13° and reaching further out than the one below until the top floor stands 15 m clear; and the **Themed Promenade** — a gridshell whose rise swells down the street and whose crown slides off the centreline, so no two glazed panels are the same shape. |
+
+### The cladding
+
+Everything on the campus that is glazed wears the same procedural curtain
+wall: unitised panels with mullions, transoms and spandrel bands, per-unit
+tint and roughness jitter, and a shallow pillow in the normal map that
+reproduces the wavy reflection laminated glass has under wind load. The
+alpha map is the part that matters — spandrels nearly opaque, vision glass
+not — so floor lines read from a kilometre out instead of the tower being
+one tinted balloon. Architectural metals sit at metalness 0.34–0.4, and the
+environment probe desaturates the sky 45% toward luminance before filtering,
+because a building mirroring a blue zenith is not a blue building.
 
 **Height breakdown:** podium 18 m · sail atrium 124 m · ring deck 110 m ·
 occupied crown 148 m · lattice spire 300 m = **700 m** to the tip of the mast.
@@ -235,9 +247,13 @@ marque. Nothing in the scene is copied; everything in it is argued for.
 | | |
 |---|---|
 | ![Night](docs/screenshots/tod-night.jpg) | ![Rain at dusk](docs/screenshots/weather-rain.jpg) |
-| **Night** — lit windows, moonlight raking the sail, the aviation beacon pulsing at 700 m | **Rain at dusk** — wind-blown streaks, wet surfaces, the canal rippling harder |
+| **Night** — lit windows scattered through the curtain wall, moonlight raking the sail, the aviation beacon pulsing at 700 m | **Rain at dusk** — wind-blown streaks, wet surfaces, the canal rippling harder |
 | ![The Ring Deck](docs/screenshots/facade-ringface.jpg) | ![The canal](docs/screenshots/facade-canal.jpg) |
-| **The Ring Deck** — a 110 m disc on edge, radial face diagrid, the tower waisting through it | **The Canal Concourse** — the sunken canal, arched footbridges, the market arcade |
+| **The Ring Deck** — a 104 m disc on edge, bronze radial face diagrid, the tower waisting through it | **The Canal Concourse** — the sunken canal, arched footbridges, the market arcade |
+| ![The Reflection Court](docs/screenshots/facade-court.jpg) | ![The Speed Ribbon](docs/screenshots/facade-ribbon.jpg) |
+| **The Reflection Court** — a 174 m reflecting pool on the axis, four kerbed parterres with sunk irrigation rills, the pyramid closing the view | **The Speed Ribbon** — a 300 m banked test loop lifted over the motorsport pavilion on eight raking piers |
+| ![The Promenade gridshell](docs/screenshots/facade-promenade.jpg) | ![The cassette stack](docs/screenshots/facade-cassette.jpg) |
+| **The Themed Promenade** — a doubly-curved gridshell whose rise swells down the street and whose crown slides off the centreline | **The Modular Block Pavilion** — seven whole-floor cassettes, each turned 13° and reaching further out than the one below |
 | ![Milestone 6](docs/screenshots/build-m06.jpg) | ![The PM panel](docs/screenshots/hud-construction.jpg) |
 | **Construction, milestone 6** — bare diagrid, the disc going in, hoarding and haul road, no landscaping yet | **The PM panel at milestone 7** — duration-weighted Gantt, day 505 of 700, SPI 0.973, CPI 0.911 |
 
@@ -266,7 +282,10 @@ exactly one thing that can fail to resolve at runtime.
 | `src/core/PostFX.js` | Bloom, depth of field, ACES tonemapping and per-mode colour grading, written against `WebGLRenderTarget`. |
 | `src/audio/Synth.js` | Every sound in the project, synthesised: pink and brown noise beds, water, rain, thunder, birdsong, crickets, a generative pad, construction foley, and seven convolver impulse responses. |
 | `src/construction/ConstructionSite.js` | The build-height clipping plane that reveals the tower course by course. |
-| `src/world/BuildKit.js` | Lofting, parametric surfaces, diagrids, trusses and a geometry merger written from scratch (`BufferGeometryUtils` is an addon). |
+| `src/world/BuildKit.js` | Lofting, parametric surfaces, diagrids, trusses, date palms and a geometry merger written from scratch (`BufferGeometryUtils` is an addon). |
+| `TextureFactory.curtainWall` | The campus's cladding module: unitised panels with mullions, transoms and spandrel bands, per-unit tint and roughness jitter, a pillowed normal map, and the alpha map that lets floor lines read from a kilometre out. |
+| `WonderAnnex.buildSpeedRibbon` | The banked loop. The deck's roll is set by the curvature it resists, so the surface is warped along its whole length. |
+| `src/scene/Environment.js` | The environment probe, and the 45% desaturation that keeps a building mirroring a blue zenith from becoming a blue building. |
 
 ### Performance
 

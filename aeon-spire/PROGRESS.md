@@ -169,3 +169,49 @@ using the metrics that actually predict it: draw calls (~155 exterior, ~520
 with all 31 interiors forced live), triangle count (368k), and CPU simulation
 cost (0.22 ms/frame). Those budgets sit well inside what a mid-range laptop
 sustains at 60 fps, but the number itself has not been observed on a GPU.
+
+---
+
+## Post-review pass — visual quality and defects
+
+A review of the first delivery found the campus reading as flat and toy-like,
+and the file failing to open by double-click. Everything below was found,
+fixed and re-verified against the same suite.
+
+### Defects
+
+| Symptom | Root cause |
+|---|---|
+| The file would not open by double-click | ES modules are blocked over `file://`. `index.html` at the repo root is now the self-contained single-file build; `dev.html` is the module bootstrap and says it needs a server. |
+| Every tower rendered as one moulded cobalt mass | Three causes at once: glazing was a flat tinted sheet with no internal structure; big exterior metals sat at metalness 0.7–0.9, so 400 m of cladding mirrored the sky; and the environment probe reflected the sky at full saturation. |
+| The Ring Deck read as a blue sphere impaled on the tower | Its cross-section used a corner radius of 0.95× the half-thickness, making the coin's edge a full semicircle; and the core shaft was waisted *wider* than the disc was thick, so it broke out through both faces as a black band. |
+| The Reflection Court had no visible water | `rotateX(-90°)` sends a shape's +Y to −Z, so the court's paving — drawn with world Z values — was laid 300 m away on the far side of the campus, taking the pool's cut-out with it. The site plaza then roofed the pool over as well. |
+| Every pool and canal was flat grey paint | Water sat at metalness 0.16–0.3, which puts a high specular floor at every angle. At metalness 0 the Fresnel ramp does the work. |
+| The desert was a flat brown plate | The distant ground was a `CircleGeometry` — a triangle fan with 97 vertices, all but one on the rim — so every line of terrain displacement had nothing to displace. |
+| Shaded faces went almost black | A 4.2-intensity sun behind a 0.34 fill. Real daylight carries a very strong sky fill. |
+| Several surfaces rendered black however they were lit | `polishedConcrete` and `slate` are charcoal maps (0x30–0x4a), so anything asking for them with a pale tint came out near black — the Speed Ribbon deck and piers, and the Leaning Observatory's caisson and anchor blocks. |
+| Hand-built materials never got an environment map | `setEnvMap` walked only the library cache. `MaterialLibrary.adopt()` now takes them in, and `makeWeatherReactive` composes its program cache key instead of replacing it, so three water shaders cannot collapse onto one compiled program. |
+| The HUD compass threw during interior construction | `getWorldDirection()` was called with a plain object, which has no `.set`. It now reads the camera basis straight out of the world matrix. |
+
+### Design
+
+- **Cladding.** A new procedural curtain wall — unitised panels, mullions,
+  transoms, spandrel bands, per-unit tint and roughness jitter, a pillowed
+  normal map, and an alpha map that lets floor lines read from a kilometre out.
+  `litFacade()` is rebuilt on it, so every facade on the campus gains it.
+- **Modular Block Pavilion.** Was a stack of studded primary-colour bricks,
+  which read as a toy and was a particular toy's trade dress besides. Now a
+  stone maker hall carrying seven prefabricated whole-floor cassettes, each
+  turned 13° and reaching further out than the one below.
+- **Themed Promenade.** A doubly-curved gridshell replaces the semicircular
+  barrel: the rise swells down the street and the crown slides off the
+  centreline, so no two glazed panels are the same shape.
+- **Motorsport Pavilion.** Gains the Speed Ribbon, a 300 m banked test loop
+  lifted over the roof on eight raking piers.
+- **Landscape.** Dune relief and vertex-coloured sand, gravel, salt flats and
+  scrub; date palms on the canal terrace and all four approach causeways;
+  dry-toned turf; and the Court's parterres given stone kerbs, sunk irrigation
+  rills and a palm at every crossing.
+- **UI.** Rebuilt on a design-token theme: branded top bar, live earned-value
+  metrics that stand down to campus readouts outside construction mode, an
+  icon rail, a context card, a compass, and a duration-weighted Gantt.
