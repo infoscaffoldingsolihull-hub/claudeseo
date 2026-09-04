@@ -172,6 +172,8 @@ export class HUD {
         }, [icon('build', 14), el('span', { text: 'Build' }), el('kbd', { text: 'C' })]))
       ]),
       el('div', { class: 'a-metrics' }, [
+        metric('height', 'Eye height'),
+        metric('zones', 'Rooms live'),
         metric('day', 'Programme day'),
         metric('complete', 'Complete'),
         metric('spi', 'SPI'),
@@ -428,10 +430,23 @@ export class HUD {
       if (grade) m.box.classList.add(grade);
     };
     const gradeIdx = (v) => (v >= 0.995 ? 'good' : v >= 0.95 ? 'warn' : 'bad');
-    setMetric('day', cs.active ? String(cs.day) : '—');
-    setMetric('complete', cs.active ? (cs.percentComplete * 100).toFixed(0) + '%' : '—');
-    setMetric('spi', cs.active ? cs.spi.toFixed(2) : '—', cs.active ? gradeIdx(cs.spi) : null);
-    setMetric('cpi', cs.active ? cs.cpi.toFixed(2) : '—', cs.active ? gradeIdx(cs.cpi) : null);
+    /* The four earned-value figures only mean anything while the programme
+       is running; outside construction mode they were four em-dashes taking
+       up half the bar, so they are hidden and the campus reads instead. */
+    for (const id of ['day', 'complete', 'spi', 'cpi']) {
+      this.metricEls[id].box.hidden = !cs.active;
+    }
+    this.metricEls.height.box.hidden = cs.active;
+    this.metricEls.zones.box.hidden = cs.active;
+    if (cs.active) {
+      setMetric('day', String(cs.day));
+      setMetric('complete', (cs.percentComplete * 100).toFixed(0) + '%');
+      setMetric('spi', cs.spi.toFixed(2), gradeIdx(cs.spi));
+      setMetric('cpi', cs.cpi.toFixed(2), gradeIdx(cs.cpi));
+    } else {
+      setMetric('height', Math.round(app.camera.position.y) + ' m');
+      setMetric('zones', String(app.world.interiors.visibleCount));
+    }
     setMetric('fps', st.fps.toFixed(0), st.fps > 45 ? 'good' : st.fps > 26 ? 'warn' : 'bad');
 
     /* ---- context card ---- */

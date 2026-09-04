@@ -70,8 +70,11 @@ export class LeaningObservatory extends Zone {
     this._runWonder = true;
 
     /* --- Foundation: an asymmetric caisson, offset against the lean --- */
-    const concrete = M.surface('obsCaisson', 'polishedConcrete', {
-      repeat: 6, roughness: 0.88, exterior: true, color: 0xd8d2c6
+    /* polishedConcrete is a charcoal map, so a pale tint still renders near
+       black — the caisson and the anchor blocks both read as holes in the
+       ground. Paving is the light aggregate. */
+    const concrete = M.surface('obsCaisson', 'paving', {
+      repeat: 6, roughness: 0.86, exterior: true, color: 0xd2ccbe
     });
     const caisson = new THREE.Group();
     caisson.name = 'AsymmetricCaisson';
@@ -138,8 +141,8 @@ export class LeaningObservatory extends Zone {
   buildAnchors() {
     const M = this.materials;
     const cableMat = M.solid('obsCable', { color: 0x4a4f57, roughness: 0.4, metalness: 0.9, exterior: true });
-    const blockMat = M.surface('obsAnchorBlock', 'polishedConcrete', {
-      repeat: 2, roughness: 0.9, exterior: true, color: 0xc9c3b8
+    const blockMat = M.surface('obsAnchorBlock', 'paving', {
+      repeat: 2, roughness: 0.88, exterior: true, color: 0xc6c0b2
     });
 
     const cables = [];

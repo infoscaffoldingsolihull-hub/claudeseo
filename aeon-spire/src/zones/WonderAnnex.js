@@ -48,11 +48,15 @@ export class WonderAnnex extends Zone {
     const M = this.materials;
     const P = ANNEX.motorsport;
 
+    /* A 100 m mirror lying in the desert reads as a black egg, not as a
+       speed form. Anodised skin panels instead. */
     const shellMat = M.surface('motorShell', 'brushedMetal', {
-      repeat: 6, roughness: 0.24, metalness: 0.78, exterior: true, color: 0xc2c7cd
+      repeat: 6, roughness: 0.4, metalness: 0.36, exterior: true,
+      color: 0xcdc8bd, envMapIntensity: 0.9
     });
     const glassMat = M.glass('motorGlass', {
-      color: 0x233240, opacity: 0.42, roughness: 0.06, metalness: 0.3
+      color: 0x44515c, opacity: 0.5, roughness: 0.06, metalness: 0.1,
+      side: THREE.DoubleSide, envMapIntensity: 1.1
     });
 
     /* The shell: u sweeps along the length, v wraps over the section. */
@@ -88,6 +92,8 @@ export class WonderAnnex extends Zone {
     glazing.translate(P.x, 0.2, P.z);
     this.shell.add(mesh(glazing, glassMat, { name: 'MotorsportGlazing', renderOrder: 4 }));
 
+    this.buildSpeedRibbon();
+
     /* Plinth apron. */
     const apronMat = M.surface('motorApron', 'paving', {
       repeat: 12, roughness: 0.6, exterior: true, color: 0x8f939a
@@ -97,6 +103,120 @@ export class WonderAnnex extends Zone {
     apron.scale(1, 1, 0.72);
     this.shell.add(mesh(xform(apron, { pos: [P.x, 0.08, P.z], rot: [0, P.rot, 0] }), apronMat, {
       name: 'MotorsportApron', receive: true
+    }));
+  }
+
+  /**
+   * The Speed Ribbon — a continuous banked test loop lifted over the
+   * Motorsport Pavilion.
+   *
+   * A single 7 m ribbon of deck runs a 300 m circuit that climbs to two
+   * crests, banks into every curve and passes clean over the pavilion's
+   * roof, carried on eight raking piers. Nothing about it is a straight
+   * line: the deck's roll is set by the curvature it is resisting, so the
+   * surface is warped along its whole length and every barrier post stands
+   * normal to a different plane. It is the piece of the campus that most
+   * obviously could not be drawn twice the same way.
+   */
+  buildSpeedRibbon() {
+    const M = this.materials;
+    const P = ANNEX.motorsport;
+    const N = 168;                 // stations around the loop
+    const HALF = 3.6;              // deck half-width
+    const RX = 88, RZ = 62;
+
+    /* Centreline: an ellipse pinched on one side into a teardrop, so the
+       circuit has a long straight and a tight hairpin like a real one. */
+    const centre = (u, out) => {
+      const a = u * TAU;
+      const pinch = 1 - 0.3 * Math.pow(Math.cos(a * 0.5), 6);
+      const y = 5.5 + 21 * (0.5 - 0.5 * Math.cos(a * 2 - 0.6));
+      return out.set(P.x + Math.cos(a) * RX * pinch, y, P.z + Math.sin(a) * RZ * pinch);
+    };
+    const bank = (u) => Math.sin(u * TAU) * 0.42 - 0.16 * Math.sin(u * TAU * 2);
+
+    const c0 = new THREE.Vector3(), c1 = new THREE.Vector3(), tan = new THREE.Vector3();
+    const lat = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+    const pos = [], uv = [], idx = [];
+    const railPos = [], railUv = [], railIdx = [];
+    const piers = [];
+    for (let i = 0; i <= N; i++) {
+      const u = i / N;
+      centre(u, c0);
+      centre((i + 0.5) / N, c1);
+      tan.subVectors(c1, c0).normalize();
+      /* Lateral = horizontal normal rolled about the tangent by the bank. */
+      lat.crossVectors(tan, up).normalize();
+      const b = bank(u);
+      const lx = lat.x * Math.cos(b), lz = lat.z * Math.cos(b), ly = Math.sin(b);
+      for (const e of [-1, 1]) {
+        pos.push(c0.x + lx * HALF * e, c0.y + ly * HALF * e, c0.z + lz * HALF * e);
+        uv.push(u * 40, e > 0 ? 1 : 0);
+      }
+      if (i < N) {
+        const k = i * 2;
+        idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
+      }
+      /* Continuous outer parapet, built as its own strip off the deck edge.
+         Discrete posts merged into an unreadable dark line at any distance,
+         which is not what a 300 m safety barrier looks like. */
+      {
+        const bx = c0.x + lx * HALF, by = c0.y + ly * HALF, bz = c0.z + lz * HALF;
+        railPos.push(bx, by, bz, bx + lx * 0.34, by + 1.25, bz + lz * 0.34);
+        railUv.push(u * 60, 0, u * 60, 1);
+        if (i < N) {
+          const k = i * 2;
+          railIdx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
+        }
+      }
+      /* Piers: eight around the loop, each with a raking strut. */
+      if (i % 21 === 0 && i < N) {
+        const footX = P.x + (c0.x - P.x) * 1.16, footZ = P.z + (c0.z - P.z) * 1.16;
+        piers.push(cyl(0.72, 1.05, c0.y - 0.2, 10, [c0.x, (c0.y - 0.2) / 2, c0.z]));
+        const dx = c0.x - footX, dy = c0.y * 0.72, dz = c0.z - footZ;
+        const len = Math.hypot(dx, dy, dz);
+        const g = cyl(0.34, 0.34, len, 8);
+        // Aim the strut: pitch off vertical, then yaw onto its plan bearing.
+        g.rotateZ(-Math.atan2(Math.hypot(dx, dz), dy));
+        g.rotateY(-Math.atan2(dz, dx));
+        g.translate((footX + c0.x) / 2, c0.y * 0.5, (footZ + c0.z) / 2);
+        piers.push(g);
+        piers.push(cyl(2.2, 2.6, 0.7, 12, [footX, 0.35, footZ]));
+      }
+    }
+    const deck = new THREE.BufferGeometry();
+    deck.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    deck.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    deck.setIndex(idx);
+    deck.computeVertexNormals();
+
+    /* Both slate and polishedConcrete are near-black maps, so tinting them
+       pale still renders a black ribbon 300 m long. Paving is the light one. */
+    const deckMat = M.surface('ribbonDeck', 'paving', {
+      repeat: 5, roughness: 0.84, metalness: 0.04, exterior: true,
+      color: 0xa8a49a, side: THREE.DoubleSide
+    });
+    /* The deck is a single-thickness ribbon, so with shadow receiving on it
+       shadows itself through its own surface and most of the loop goes
+       black. It casts, but does not receive. */
+    this.shell.add(mesh(deck, deckMat, { name: 'SpeedRibbonDeck', cast: true, receive: false }));
+
+    const railGeo = new THREE.BufferGeometry();
+    railGeo.setAttribute('position', new THREE.Float32BufferAttribute(railPos, 3));
+    railGeo.setAttribute('uv', new THREE.Float32BufferAttribute(railUv, 2));
+    railGeo.setIndex(railIdx);
+    railGeo.computeVertexNormals();
+    const railMat = M.surface('ribbonRail', 'paintedSteel', {
+      repeat: 2, roughness: 0.44, metalness: 0.25, exterior: true,
+      color: 0xffffff, side: THREE.DoubleSide, opts: { hex: 0xe4e6e2 }
+    });
+    this.shell.add(mesh(railGeo, railMat, { name: 'SpeedRibbonBarrier', cast: false, receive: false }));
+
+    const pierMat = M.surface('ribbonPier', 'paving', {
+      repeat: 3, roughness: 0.66, metalness: 0.06, exterior: true, color: 0xcac3b4
+    });
+    this.shell.add(mesh(mergeGeometries(piers), pierMat, {
+      name: 'SpeedRibbonPiers', cast: true, receive: true
     }));
   }
 
@@ -257,44 +377,86 @@ export class WonderAnnex extends Zone {
     walls.push(box(P.width + 6.4, 2.2, 1.4, [P.x, P.height - 2.4, P.z + halfL]));
     this.shell.add(mesh(mergeGeometries(walls), wallMat, { name: 'PromenadeWalls', cast: true, receive: true }));
 
-    /* Glass barrel vault. */
-    const vault = surfaceGrid((u, v, o) => {
-      const z = P.z + (u - 0.5) * P.length;
+    /* --- The roof: a doubly-curved gridshell -------------------------
+       A plain semicircular barrel is a nineteenth-century arcade. This one
+       springs from the same shopfront cornices but its rise swells and
+       falls along the street and its crown slides from side to side, so the
+       glazed surface is doubly curved everywhere and no two panels are the
+       same shape. That is only buildable as a gridshell — a diagrid of
+       members each bent to its own radius — which is what the steel below
+       is, diagonals included. --- */
+    const springHalf = halfW + 1.6;
+    const base = P.height - 3;
+    /* Rise: a long swell down the street with a shorter beat inside it. */
+    const rise = (t) => 5.4 + 7.6 * Math.pow(Math.sin(Math.PI * t), 0.55)
+                              * (0.58 + 0.42 * Math.sin(t * Math.PI * 3.1 - 0.4));
+    /* Lean: the crown wanders off the centreline and back. */
+    const lean = (t) => Math.sin(t * Math.PI * 2.2 + 0.5) * 4.2;
+    const vaultPoint = (t, v, o) => {
       const a = v * Math.PI;
-      o.set(P.x + Math.cos(a) * (halfW + 1.6), (P.height - 3) + Math.sin(a) * 5.6, z);
-    }, 40, 16, { uvScale: [10, 2] });
+      o.set(P.x + Math.cos(a) * springHalf + lean(t) * Math.sin(a),
+            base + Math.sin(a) * rise(t),
+            P.z + (t - 0.5) * P.length);
+      return o;
+    };
+
+    const vault = surfaceGrid((u, v, o) => vaultPoint(u, v, o), 48, 18, { uvScale: [12, 2.4] });
     const glassMat = M.glass('promVault', {
-      color: 0xd2e4ec, opacity: 0.2, roughness: 0.07, metalness: 0.08, side: THREE.DoubleSide
+      color: 0xdce8ea, opacity: 0.24, roughness: 0.07, metalness: 0.08,
+      side: THREE.DoubleSide, envMapIntensity: 1.0
     });
     this.shell.add(mesh(vault, glassMat, { name: 'PromenadeVault', renderOrder: 4 }));
 
-    /* Vault ribs — the barrel vault's structure, at regular bays. */
+    /* Gridshell members: hoops, purlins and the diagonals that make it
+       a shell rather than a row of independent arches. */
     const steelMat = M.surface('promSteel', 'paintedSteel', {
-      repeat: 2, roughness: 0.42, metalness: 0.66, exterior: true, color: 0x9aa0a8,
-      opts: { hex: 0x8d939b }
+      repeat: 2, roughness: 0.42, metalness: 0.6, exterior: true, color: 0xd8cbb0,
+      opts: { hex: 0xb9a985 }
     });
+    const BAYS = 18, SEG = 16;
+    const v3 = new THREE.Vector3();
+    const grid = [];
+    for (let b = 0; b <= BAYS; b++) {
+      const row = [];
+      for (let i = 0; i <= SEG; i++) {
+        vaultPoint(b / BAYS, i / SEG, v3);
+        row.push([v3.x, v3.y, v3.z]);
+      }
+      grid.push(row);
+    }
     const ribs = [];
-    for (let b = 0; b <= 14; b++) {
-      const z = P.z - halfL + (b / 14) * P.length;
-      const seg = 14;
-      for (let i = 0; i < seg; i++) {
-        const a0 = (i / seg) * Math.PI, a1 = ((i + 1) / seg) * Math.PI;
-        ribs.push(member(
-          [P.x + Math.cos(a0) * (halfW + 1.6), (P.height - 3) + Math.sin(a0) * 5.6, z],
-          [P.x + Math.cos(a1) * (halfW + 1.6), (P.height - 3) + Math.sin(a1) * 5.6, z],
-          0.22, 0.3));
+    for (let b = 0; b <= BAYS; b++) {
+      for (let i = 0; i < SEG; i++) ribs.push(member(grid[b][i], grid[b][i + 1], 0.2, 0.28));
+    }
+    for (let i = 0; i <= SEG; i++) {
+      for (let b = 0; b < BAYS; b++) ribs.push(member(grid[b][i], grid[b + 1][i], 0.14, 0.14));
+    }
+    for (let b = 0; b < BAYS; b++) {
+      for (let i = 0; i < SEG; i++) {
+        if ((b + i) % 2) continue;                       // every other cell
+        ribs.push(member(grid[b][i], grid[b + 1][i + 1], 0.1, 0.1));
+        ribs.push(member(grid[b + 1][i], grid[b][i + 1], 0.1, 0.1));
       }
     }
-    // Longitudinal purlins.
-    for (let i = 1; i < 8; i++) {
-      const a = (i / 8) * Math.PI;
-      ribs.push(member(
-        [P.x + Math.cos(a) * (halfW + 1.6), (P.height - 3) + Math.sin(a) * 5.6, P.z - halfL],
-        [P.x + Math.cos(a) * (halfW + 1.6), (P.height - 3) + Math.sin(a) * 5.6, P.z + halfL],
-        0.14, 0.14));
+
+    /* Branching tree-columns down the middle, catching the crown where the
+       shell is highest and has the least arch action to fall back on. */
+    for (let c = 0; c < 4; c++) {
+      const t = 0.14 + c * 0.24;
+      const cx = P.x + lean(t) * 0.5;
+      const cz = P.z + (t - 0.5) * P.length;
+      const forkY = base * 0.62;
+      ribs.push(member([cx, 0.2, cz], [cx, forkY, cz], 0.52, 0.42));
+      for (let k = 0; k < 4; k++) {
+        const a = (k / 4) * TAU + 0.4;
+        const mid = [cx + Math.cos(a) * 2.6, forkY + 3.4, cz + Math.sin(a) * 4.4];
+        ribs.push(member([cx, forkY, cz], mid, 0.3, 0.22));
+        vaultPoint(t + Math.sin(a) * 0.045, 0.5 + Math.cos(a) * 0.16, v3);
+        ribs.push(member(mid, [v3.x, v3.y - 0.2, v3.z], 0.2, 0.14));
+      }
     }
     this.shell.add(mesh(mergeGeometries(ribs.filter(Boolean)), steelMat, {
-      name: 'PromenadeVaultRibs', cast: true
+      name: 'PromenadeVaultRibs', cast: true, receive: true
     }));
 
     /* Street floor. */

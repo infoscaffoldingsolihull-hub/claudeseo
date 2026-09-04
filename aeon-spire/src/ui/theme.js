@@ -120,6 +120,8 @@ export const CSS = `
   padding: 0 11px; height: 34px; border-left: 1px solid var(--line);
 }
 .a-metric:first-child { border-left: 0; }
+/* display:flex above outranks the UA's [hidden] rule, so say it here. */
+.a-metric[hidden] { display: none; }
 .a-metric b {
   font: 600 14px/1 var(--font-mono); color: var(--text);
   font-variant-numeric: tabular-nums;
@@ -310,10 +312,12 @@ export const CSS = `
 }
 .a-compass svg { display: block; }
 
-@media (max-width: 900px) {
-  .a-top { height: auto; flex-wrap: wrap; padding: 8px 10px; gap: 6px; }
+@media (max-width: 820px) {
+  .a-top { height: auto; flex-wrap: wrap; padding: 6px 10px; gap: 6px; }
   .a-metrics { order: 3; width: 100%; justify-content: space-between; }
-  .a-metric { padding: 0 6px; }
+  .a-metric { padding: 0 6px; height: 28px; }
+  .a-metric b { font-size: 12.5px; }
+  .a-brand small { display: none; }
   .a-context { display: none; }
   .a-compass { display: none; }
   .a-dock-head .eq { display: none; }
