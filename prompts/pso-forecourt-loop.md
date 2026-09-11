@@ -54,6 +54,21 @@ single arithmetic cause.
 is correct — the threshold is high on purpose so that white concrete does not glow. Raise the
 emitters above it instead, and keep every non-emitter below it.
 
+**The trap inside the fix.** `new THREE.Color(0x2E85FF)` is not the same value as
+`new THREE.Color().setRGB(0.18, 0.52, 1.0)`. `setHex` interprets its argument as sRGB and applies
+the transfer function, landing roughly a third of the nominal luminance; `setRGB` writes straight
+into the linear working space. Mixing the two conventions in one rig produces strips that measure
+below the threshold while looking correct in source, which is indistinguishable from the original
+bug. **Define every emitter as a linear triple.** Verified: hex-defined strips measured
+0.45–0.79; the identical colours as linear triples measured 1.17–1.52 against a 0.86 threshold.
+
+**The trap inside verifying the fix.** The strike ramp converges at `dt * 9` per frame with `dt`
+clamped to 0.05 s. Under SwiftShader at 0.5 fps that is ~30 s of wall time to settle. A harness
+that waits in milliseconds samples a strip still on its way up and reports a failure of the rig
+rather than of the harness. **Wait in frames, and assert on the strike variable itself, not only
+on the resulting colour** — `lit ≈ 1.0` is what distinguishes "not bright enough" from
+"not finished yet".
+
 ### 1.2 Dead LED plumbing
 
 `const COVE = [], DOWN = [], SIGNS = [];` — BUILDERS §, ~line 2631.
@@ -111,6 +126,30 @@ roundels, nameplates and fascia lettering. Separate the deliberate from the acci
 Rule: a logo, roundel, nameplate or price board is **plumb** unless the physical fixture it sits
 on is itself raked, and then the sign matches the fixture's rake exactly — never a hand-tuned
 offset. Emit the full before/after table.
+
+**Expect this sweep to come back clean, and do not manufacture a finding.** On the current build
+every surviving Z-rotation is deliberate: wheels laid on their side, a motorcycle fork rake, bike
+lean, pedestrian arm swing, the nozzle rest angle. What actually reads as "tilted" is a different
+defect — see 1.6.
+
+### 1.6 Fixtures that drift away from what they are mounted on
+
+Two distinct faults, both of which a viewer describes as "the signs look wrong":
+
+**Taper drift.** The canopy columns taper from `r0` at the base to `r0 × 0.86` at the soffit. A
+sign mounted at a fixed offset from the *nominal* half-width therefore floats further off the face
+the higher it sits — 30 mm at the roundel, 50 mm at the top of a full-height totem. Compute the
+half-width at the fixing's own height: `(r0 + (r1 - r0) · y/h) / √2`.
+
+**Viewpoint drift.** Viewpoint 1 ("Main canopy") sat at `(0, -5.6)`. The ordering-kiosk cluster
+had been moved to the shopfront at `(2, -6.4)` by an earlier fix, putting kiosk A **0.82 m** from
+the camera — so pressing `1` filled the screen with a black slab. Objects move between builds and
+viewpoints do not follow them. **Assert clearance rather than eyeballing it:** raycast a small fan
+from every viewpoint and fail any that returns under 1.2 m.
+
+This generalises. Whenever a fix relocates a fixture, everything positioned *relative to where it
+used to be* — viewpoints, spawn points, colliders, camera rails, audio emitters — is now wrong and
+nothing will tell you.
 
 ---
 

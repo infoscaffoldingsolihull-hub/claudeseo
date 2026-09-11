@@ -164,10 +164,41 @@ async function run() {
     led.day.cove > 0 && led.night.cove / led.day.cove >= 4.0,
     `night=${led.night.cove.toFixed(3)} day=${led.day.cove.toFixed(3)} ratio=${(led.night.cove / Math.max(1e-6, led.day.cove)).toFixed(1)}`);
   check('C5 LED animation is actually running', led.moved);
-  check('V3 soffit flag material present and lit', led.soffitFlag && led.flagEm > 0.8,
+  check('V3 soffit flag material present and lit', led.soffitFlag && led.flagEm > 0.6,
     'emissiveIntensity=' + led.flagEm);
-  check('V4 column totem material present and lit', led.totem && led.totemEm > 0.8,
+  check('V4 column totem material present and lit', led.totem && led.totemEm > 0.6,
     'emissiveIntensity=' + led.totemEm);
+
+  // ---- Gate E: viewpoints are not inside geometry --------------------------
+  /* Viewpoint 1 used to sit 0.82 m from a kiosk shell, so pressing "1" filled
+     the screen with a black slab. Objects move between builds and viewpoints do
+     not follow them, so this is checked rather than eyeballed. */
+  const views = await page.evaluate(async () => {
+    const P = window.PSO2035, T = P.THREE;
+    const frames = (n) => new Promise((res) => {
+      let i = 0; (function tick() { if (++i >= n) res(); else requestAnimationFrame(tick); })();
+    });
+    const out = [];
+    for (let i = 0; i < 5; i++) {
+      P.goView(i);
+      await frames(4);
+      P.camera.updateMatrixWorld(true);
+      const rc = new T.Raycaster();
+      let min = Infinity, what = null;
+      for (const [nx, ny] of [[0, 0], [-0.5, 0], [0.5, 0], [0, 0.4], [0, -0.4]]) {
+        rc.setFromCamera(new T.Vector2(nx, ny), P.camera);
+        const h = rc.intersectObjects(P.scene.children, true).filter((x) => x.object.visible)[0];
+        if (h && h.distance < min) { min = h.distance; what = (h.object.material && h.object.material.name) || '?'; }
+      }
+      out.push({ i, n: (P.VIEWS && P.VIEWS[i] && P.VIEWS[i].n) || String(i), d: +min.toFixed(2), what });
+    }
+    return out;
+  });
+  const tooClose = views.filter((v) => v.d < 1.2);
+  check('E1 no viewpoint spawns inside geometry (>= 1.2 m clear)',
+    tooClose.length === 0,
+    tooClose.length ? tooClose.map((v) => `view ${v.i + 1} "${v.n}" ${v.d}m from ${v.what}`).join('; ')
+                    : views.map((v) => v.d + 'm').join(', '));
 
   // ---- Gate F: audio -------------------------------------------------------
   /* Only the per-tick paths matter. Setting .value once at construction, before

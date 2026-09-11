@@ -64305,8 +64305,10 @@ function setTime(minutes) {
   MAT.soffit.emissiveIntensity = .13 * (1 - night);
   MAT.foliage.emissiveIntensity = .62 * (1 - night * .8);
   MAT.signLit.emissiveIntensity = night * 1.25;
-  MAT.soffitFlag.emissiveIntensity = 0.10 + night * 1.05;
-  MAT.totem.emissiveIntensity = 0.14 + night * 1.16;
+  /* A backlit graphic panel, not a light source: enough to read the crescent
+     clearly against the green field, not so much that it floods the deck. */
+  MAT.soffitFlag.emissiveIntensity = 0.08 + night * 0.72;
+  MAT.totem.emissiveIntensity = 0.12 + night * 0.85;
   MAT.panelLit.emissiveIntensity = 0.30 + night * 0.95;
   MAT.panelLit.color.setScalar(1 - night * 0.10);
   SUNMAT.emissiveIntensity = 0.10 + night * 0.85;
@@ -64324,7 +64326,10 @@ function setTime(minutes) {
   MAT.cove.color.setRGB(0.558 * cove, 1.612 * cove, 3.100 * cove);
   MAT.emGreen.color.setRGB(0.150 * cove, 1.500 * cove, 0.675 * cove);
   const dl = 0.14 + night * 0.86;
-  MAT.dlight.color.setRGB(1.18 * dl, 1.08 * dl, 0.94 * dl);
+  /* Left at its original level: luminance 0.971 already clears 0.86, and these
+     are broad ceiling strips rather than thin bars — pushing them further only
+     blows the soffit out into a white band. */
+  MAT.dlight.color.setRGB(1.05 * dl, 0.96 * dl, 0.84 * dl);
 
   /* wetness: puddles never fully dry out at night, rain floods it */
   WET.value = Math.min(1, 0.20 + night * 0.20 + rain * 0.78 + WASH.wet * 0.10);
@@ -65997,7 +66002,11 @@ function drawMinimap() {
 /* ── bookmarked viewpoints ──────────────────────────────────────────────────*/
 const VIEWS = [
   /* yaw 0 looks north (-Z); the canopy, islands and building all face north */
-  { n: 'Main canopy', x: 0.0, z: -5.6, yaw: 0.05, pitch: -0.02 },
+  /* Was (0, -5.6), which put the camera 0.82 m from the nose of ordering
+     kiosk A and filled the frame with its dark shell — the kiosk cluster was
+     moved to the shopfront at (2, -6.4) and this viewpoint was not moved with
+     it. Shifted west of the cluster, still south of the canopy looking north. */
+  { n: 'Main canopy', x: -7.0, z: -6.0, yaw: 0.05, pitch: -0.02 },
   { n: 'Ordering kiosks', x: D.kiosk.x, z: D.kiosk.z - 3.4, yaw: Math.PI, pitch: -0.04 },
   { n: NAME.shopStop + ' interior', x: -7.4, z: 4.0, yaw: -Math.PI / 2, pitch: -0.05 },
   { n: NAME.autowash + ' portal', x: WASH.lane, z: D.wash.z0 - 9.0, yaw: Math.PI, pitch: 0.03 },
@@ -66434,7 +66443,11 @@ function buildComposer() {
   } else { SSAO = null; COMPOSER.addPass(new RenderPass(scene, camera)); }
   /* bloom threshold sits high on purpose: white concrete must not glow, only
      signage, cove lines and the sun disc */
-  BLOOM = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.52, 0.62, 0.86);
+  /* Strength eased from 0.52: the LED rig put far more surface above the
+     threshold than there was when that number was set, and the sum was
+     blowing the canopy soffit into a flat white band. The threshold itself
+     is untouched — it is what keeps the concrete from glowing. */
+  BLOOM = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.44, 0.62, 0.86);
   BLOOM.enabled = !!T.bloom;
   COMPOSER.addPass(BLOOM);
   VIG = new ShaderPass(VignetteShader);
@@ -66639,7 +66652,7 @@ window.PSO2035 = {
      night rig numerically instead of taking a screenshot's word for it: whether
      every emitter clears the bloom threshold, whether the strips are actually
      animating, and whether they track the day/night ramp. */
-  LED, COVE, DOWN, lum, get BLOOM() { return BLOOM; },
+  LED, COVE, DOWN, lum, VIEWS, get BLOOM() { return BLOOM; },
   THREE, renderer, scene, camera, CFG, BRAND, D, MAT, MATREG, TEX, GEO, LIVE,
   PL, PUMPS, KIOSKS, WASH, STAGES, ORDERS, CARE, SKY, INTER, SOLIDS, PLATS, PLANT,
   MODE, VEH, RIDE, EVCHG, setMode, evToggle, TRAFFIC, ATTRACT, HOSEHW, SCREENS,
