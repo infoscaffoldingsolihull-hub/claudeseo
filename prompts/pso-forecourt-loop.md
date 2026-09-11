@@ -151,6 +151,28 @@ This generalises. Whenever a fix relocates a fixture, everything positioned *rel
 used to be* — viewpoints, spawn points, colliders, camera rails, audio emitters — is now wrong and
 nothing will tell you.
 
+### 1.7 Controls that report themselves instead of the world
+
+The same shape twice, and both were visible in the project's own screenshots long before anyone
+named them — which is the point: a control that lies is invisible to the person who wrote it,
+because they only ever exercise it the one way that works.
+
+**Lit by the last click.** The time-preset row was seeded to `Golden hour` at build time and only
+updated inside a preset button's own click handler. Dragging the slider to 22:30 left the panel
+insisting it was golden hour; so did the `T` key, the touch `TIME` button, and any programmatic
+`setTime`. The highlight must be **derived in the one function every route passes through**, never
+set by the handler that happens to be convenient. A state that matches no preset must be
+expressible — the old code could not say "none of these".
+
+**Synced before it existed.** `applyTier()` correctly syncs the quality row, but boot calls it
+*before* the controls are built, so its `querySelectorAll` matched nothing and the panel opened
+with no tier lit. Any UI sync that runs during boot must be either seeded at build time or ordered
+after the DOM it targets.
+
+**Assert the panel against the world, not against itself.** Gate U drives time and reads back which
+buttons carry `.on`. A check that only clicks a button and confirms it lit up would pass on both
+of these bugs.
+
 ---
 
 ## 2. The visual target

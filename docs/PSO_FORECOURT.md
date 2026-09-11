@@ -128,6 +128,29 @@ ordering-kiosk cluster to the shopfront at `(2, -6.4)`, leaving kiosk A **0.82 m
 clearance is now 6.64 m, and `tools/pso-smoke.mjs` raycasts a fan from every viewpoint and fails
 any under 1.2 m, because objects move between builds and viewpoints do not follow them.
 
+### The control panel misreported the state of the world
+
+Two faults of the same shape — state applied before, or apart from, the UI that displays it. Both
+were visible in the project's own screenshots before anyone noticed them.
+
+**The preset row was lit by whichever button you last pressed.** It was seeded to `Golden hour` at
+build time and only ever updated inside a preset button's own click handler. Nothing cleared it, so
+dragging the time slider to 22:30 left the panel insisting it was golden hour, and the `T` key, the
+touch `TIME` button and `window.PSO2035.setTime` all moved the world without moving the control.
+
+The highlight is now derived in `setTime()`, which is the single point every one of those routes
+passes through. A preset matches on both its minute and its rain flag, and matching against
+`rainTarget` rather than `rain` means the highlight lands when you *ask* for rain rather than after
+it has finished fading in. A time that matches no preset now correctly lights nothing, which the
+old code could not express at all.
+
+**No quality tier was lit at boot.** `applyTier()` does sync `#qrow`, but boot calls it at step
+7091 and builds the controls at step 7094 — so its `querySelectorAll` matched nothing and the panel
+opened with all three tiers looking inactive until you clicked one or the auto-tiering probe fired.
+Seeded from `TIERNAME` at build time, the way the mode row already seeded from `MODE.cur`.
+
+Guarded by Gate U, which asserts the panel against the world rather than against itself.
+
 ### Offline integrity
 
 The build reached jsDelivr through an import map. It could not open from `file://`, could not run
@@ -161,6 +184,9 @@ C4  LEDs respond to time of day           night/day ratio 10.0
 C5  LED animation is actually running
 C6  strips go dark in daylight            day lum=[0, 0, 0, 0, 0]
 E1  no viewpoint spawns inside geometry   6.64m, 3.31m, 2.3m, 7.1m, 6.64m
+U1  preset row follows the clock          at 22:30 lit=[Night]
+U3  nothing lit at a time matching none   at 03:17 lit=[]
+U4  exactly one quality tier lit at boot
 F1  no per-tick AudioParam steps in the mixer
 ```
 

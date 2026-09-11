@@ -200,6 +200,43 @@ async function run() {
     tooClose.length ? tooClose.map((v) => `view ${v.i + 1} "${v.n}" ${v.d}m from ${v.what}`).join('; ')
                     : views.map((v) => v.d + 'm').join(', '));
 
+  // ---- Gate U: the control panel reports the state of the world ------------
+  /* Both faults here were the same shape: state applied before or apart from
+     the UI that displays it. The preset row was lit by whichever button was
+     last clicked and seeded to 'Golden hour' at build time, so dragging the
+     slider to 22:30 left the panel insisting it was golden hour. The quality
+     row was synced by applyTier(), which boot calls before the buttons exist. */
+  const ui = await page.evaluate(async () => {
+    const P = window.PSO2035;
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const lit = (sel) => [...document.querySelectorAll(sel)]
+      .filter((b) => b.classList.contains('on')).map((b) => b.textContent);
+
+    P.setTime(22 * 60 + 30); await wait(120);
+    const atNight = lit('#presets .btn');
+    P.setTime(17 * 60 + 36); await wait(120);
+    const atGolden = lit('#presets .btn');
+    P.setTime(3 * 60 + 17); await wait(120);          // matches no preset
+    const atOddHour = lit('#presets .btn');
+    P.setTime(22 * 60 + 30); await wait(120);
+
+    return { atNight, atGolden, atOddHour, tiers: lit('#qrow .btn'), modes: lit('#mrow .btn') };
+  });
+
+  check('U1 preset row follows the clock, not the last click',
+    ui.atNight.length === 1 && ui.atNight[0] === 'Night',
+    'at 22:30 lit=[' + ui.atNight.join(', ') + ']');
+  check('U2 preset row still tracks after moving back',
+    ui.atGolden.length === 1 && ui.atGolden[0] === 'Golden hour',
+    'at 17:36 lit=[' + ui.atGolden.join(', ') + ']');
+  check('U3 no preset is lit at a time that matches none',
+    ui.atOddHour.length === 0,
+    'at 03:17 lit=[' + ui.atOddHour.join(', ') + ']');
+  check('U4 exactly one quality tier is lit at boot',
+    ui.tiers.length === 1, 'lit=[' + ui.tiers.join(', ') + ']');
+  check('U5 exactly one experience mode is lit',
+    ui.modes.length === 1, 'lit=[' + ui.modes.join(', ') + ']');
+
   // ---- Gate F: audio -------------------------------------------------------
   /* Only the per-tick paths matter. Setting .value once at construction, before
      the node is connected and running, is correct and is how every voice here is

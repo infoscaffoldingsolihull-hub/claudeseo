@@ -64340,7 +64340,25 @@ function setTime(minutes) {
   if (el) el.textContent = String(Math.floor(h)).padStart(2, '0') + ':' + String(SKY.min % 60).padStart(2, '0');
   const sl = document.getElementById('tslide');
   if (sl && Math.abs(+sl.value - SKY.min) > 2) sl.value = SKY.min;
+  syncPresets();
   SCRSTATE.dirty = true;
+}
+
+/* The preset row used to be lit by whichever button was last clicked, and was
+   seeded to 'Golden hour' at build time. Nothing cleared it, so dragging the
+   slider to 22:30 left the panel insisting it was golden hour — the control
+   was reporting the last thing you pressed rather than the state of the world.
+   Driving it from setTime() instead covers every route in: the slider, the
+   preset buttons, the T key, the touch TIME button and window.PSO2035.setTime.
+   Matching against rainTarget rather than rain means the highlight lands as
+   soon as you ask for rain, not after it has finished fading in. */
+function syncPresets() {
+  const pr = document.getElementById('presets');
+  if (!pr || !pr.children.length) return;
+  [...pr.children].forEach((b) => {
+    const P = PRESETS[b.textContent];
+    b.classList.toggle('on', !!P && P[0] === SKY.min && P[1] === SKY.rainTarget);
+  });
 }
 
 /* ── environment map: regenerated only when the sky has actually moved ───────*/
@@ -64405,6 +64423,7 @@ function setRain(on) {
   SKY.rainTarget = on ? 1 : 0;
   if (on) { toast('<b>Rain</b> — wet forecourt, ripples in the puddles'); }
   document.querySelectorAll('#wxrow .btn').forEach(b => b.classList.toggle('on', b.dataset.wx === (on ? '1' : '0')));
+  syncPresets();   // rain is half of what identifies a preset
 }
 let THUNDER_T = 6;
 function updateWeather(dt) {
@@ -66031,10 +66050,8 @@ function buildControls() {
       const [m, r] = PRESETS[k];
       SKY.rainTarget = r; SKY.rain = r; setTime(m); updateEnv(true);
       setRain(!!r);
-      [...pr.children].forEach(c => c.classList.toggle('on', c === b));
       toast('<b>' + k + '</b>');
     };
-    if (k === 'Golden hour') b.classList.add('on');
     pr.appendChild(b);
   });
   const wx = $('wxrow');
@@ -66057,6 +66074,11 @@ function buildControls() {
   ['low', 'medium', 'high'].forEach(t => {
     const b = document.createElement('div'); b.className = 'btn'; b.textContent = TIER[t].name;
     b.dataset.tier = t;
+    /* applyTier() syncs this row, but boot calls it before these buttons exist,
+       so its querySelectorAll matches nothing and the panel opens with no tier
+       lit at all. Seed from TIERNAME here, the way the mode row seeds from
+       MODE.cur. */
+    if (t === TIERNAME) b.classList.add('on');
     b.onclick = () => { applyTier(t, true); };
     q.appendChild(b);
   });
