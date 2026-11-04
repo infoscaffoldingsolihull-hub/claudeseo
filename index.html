@@ -3,37 +3,71 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0d0b08">
-<meta name="description" content="Digital Giza Project Management Simulator - an interactive Three.js digital twin of the Giza Necropolis combining archaeological reconstruction with a full PMBOK-aligned construction project simulation.">
-<title>Digital Giza - Project Management Simulator</title>
-<link rel="stylesheet" href="./src/ui/styles.css">
+<meta name="theme-color" content="#0b0f1e">
+<meta name="description" content="SKY GATEWAY HYDERABAD — a 3D project-management simulator of the Hyderabad Airport (HDD · OPKD) revival and expansion programme. Educational use; simulated scenario data.">
+<title>SKY GATEWAY HYDERABAD — Project Management Simulator</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0f1e; overflow: hidden; }
+  #boot { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; color: #e8e4d8;
+    background: radial-gradient(ellipse at 50% 120%, #1b2350 0%, #0b0f1e 60%, #05070f 100%);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; transition: opacity .9s ease, visibility .9s; }
+  #boot.done { opacity: 0; visibility: hidden; pointer-events: none; }
+  #boot .boot-inner { width: min(640px, 88vw); text-align: center; }
+  #boot .runway { position: relative; height: 70px; margin: 0 auto 26px; width: 100%; perspective: 260px; }
+  #boot .strip { position: absolute; left: 10%; right: 10%; bottom: 0; height: 64px; transform: rotateX(62deg); transform-origin: bottom;
+    background: linear-gradient(#141a33, #1d2444); border-left: 2px solid #c9a227; border-right: 2px solid #c9a227; }
+  #boot .lights { position: absolute; inset: 0; display: flex; justify-content: space-between; align-items: center; padding: 0 2px; }
+  #boot .lights i { width: 5px; height: 5px; border-radius: 50%; background: #3a3220; box-shadow: none; animation: sweep 1.6s linear infinite; }
+  #boot .centre { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px;
+    background: repeating-linear-gradient(#f4f6ff 0 6px, transparent 6px 14px); opacity: .55; }
+  @keyframes sweep { 0%, 100% { background: #3a3220; box-shadow: none; } 8% { background: #fff4c2; box-shadow: 0 0 10px 3px #ffd36b; } 22% { background: #6a5a30; box-shadow: none; } }
+  #boot .boot-title { margin: 0; font-size: clamp(22px, 4.6vw, 40px); letter-spacing: .18em; font-weight: 700; color: #f4f6ff; }
+  #boot .boot-title b { color: #c9a227; font-weight: 700; }
+  #boot .boot-sub { margin: 8px 0 2px; font-size: clamp(13px, 2vw, 16px); letter-spacing: .12em; color: #c9c3b2; text-transform: uppercase; }
+  #boot .boot-codes { margin: 0 0 24px; font-size: 13px; letter-spacing: .3em; color: #9aa3b8; }
+  #boot .boot-bar { height: 4px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden; }
+  #boot .boot-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #9b1b30, #c9a227); transition: width .25s ease; }
+  #boot .boot-step { min-height: 1.4em; margin: 12px 0 28px; font-size: 13px; color: #9aa3b8; }
+  #boot .boot-foot { font-size: 12px; color: #6f7891; letter-spacing: .04em; }
+  #boot .boot-error { margin-top: 18px; color: #ff8a7a; font-size: 14px; }
+  @media (prefers-reduced-motion: reduce) { #boot .lights i { animation: none; background: #c9a227; } }
+  .noscript { position: fixed; inset: 0; display: grid; place-items: center; color: #e8e4d8; font: 16px system-ui, sans-serif; }
+</style>
+<link rel="stylesheet" href="./src/styles/main.css">
+<link rel="stylesheet" href="./src/styles/panels.css">
+<link rel="stylesheet" href="./src/styles/hud.css">
+<link rel="stylesheet" href="./src/styles/chat.css">
 </head>
 <body>
 <div id="app">
-  <canvas id="view"></canvas>
+  <canvas id="view" aria-label="3D view of Hyderabad Airport"></canvas>
   <div id="ui-root"></div>
 </div>
 
-<div id="boot">
+<div id="boot" role="status" aria-live="polite">
   <div class="boot-inner">
-    <div class="boot-glyph" aria-hidden="true">
-      <svg viewBox="0 0 120 84" width="120" height="84">
-        <polygon points="60,6 114,78 6,78" fill="none" stroke="currentColor" stroke-width="1.5"/>
-        <polygon points="60,6 60,78 6,78" fill="currentColor" opacity="0.14"/>
-        <line x1="24" y1="78" x2="60" y2="30" stroke="currentColor" stroke-width="0.75" opacity="0.5"/>
-        <line x1="96" y1="78" x2="60" y2="30" stroke="currentColor" stroke-width="0.75" opacity="0.5"/>
-      </svg>
+    <div class="runway" aria-hidden="true">
+      <div class="strip"><div class="centre"></div>
+        <div class="lights" id="boot-lights"></div>
+      </div>
     </div>
-    <h1 class="boot-title">DIGITAL GIZA</h1>
+    <h1 class="boot-title">SKY GATEWAY <b>HYDERABAD</b></h1>
     <p class="boot-sub">Project Management Simulator</p>
+    <p class="boot-codes">HDD · OPKD · Sindh, Pakistan</p>
     <div class="boot-bar"><i id="boot-fill"></i></div>
-    <p id="boot-step" class="boot-step">Initialising renderer&hellip;</p>
-    <p class="boot-foot">Khufu&rsquo;s Horizon &middot; 2560&nbsp;BCE &middot; Giza Plateau, Egypt</p>
+    <p id="boot-step" class="boot-step">Initialising…</p>
+    <p class="boot-foot">Simulated scenario — educational use. Budgets, schedules, vendors and events are simulated.</p>
   </div>
 </div>
+<script>
+  (function () {
+    var l = document.getElementById('boot-lights');
+    for (var i = 0; i < 24; i++) { var b = document.createElement('i'); b.style.animationDelay = (i * 0.066).toFixed(3) + 's'; l.appendChild(b); }
+  })();
+</script>
 
 <noscript>
-  <div class="noscript">This simulator requires JavaScript and a WebGL&nbsp;2 capable browser (Chrome, Edge or Firefox).</div>
+  <div class="noscript">This simulator needs JavaScript and a WebGL 2 browser (Chrome, Edge or Firefox).</div>
 </noscript>
 
 <script type="importmap">

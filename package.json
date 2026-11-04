@@ -1,13 +1,16 @@
 {
-  "name": "digital-giza-pm-simulator",
-  "version": "1.0.0",
-  "description": "Digital Giza Project Management Simulator — an interactive Three.js digital twin of the Giza Necropolis with a full PMBOK-aligned construction project simulation.",
+  "name": "sky-gateway-hyderabad",
+  "version": "0.1.0",
+  "description": "SKY GATEWAY HYDERABAD — 3D airport project-management simulator (Three.js, single-file HTML, offline). Educational; simulated scenario data.",
   "license": "MIT",
   "type": "module",
   "private": true,
+  "engines": { "node": ">=20" },
+  "vendored": { "three": "0.160.0 (r160) — assets/vendor/three.module.js, MIT" },
   "scripts": {
     "build": "node tools/build.mjs",
     "serve": "node tools/serve.mjs",
-    "test": "node tools/smoke-test.mjs"
+    "test": "node --test tests/pm/",
+    "e2e": "node tests/e2e/run.mjs"
   }
 }

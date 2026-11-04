@@ -1,0 +1,29 @@
+{
+  "_readme": "Seed set from the mission brief §2.1. A1 (Research) verifies, cites and extends. The UI may only state real-world facts that appear here.",
+  "facts": {
+    "airport.name": { "value": "Hyderabad Airport", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "high" },
+    "airport.city": { "value": "Hyderabad, Sindh, Pakistan", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "high" },
+    "airport.iata": { "value": "HDD", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "high" },
+    "airport.icao": { "value": "OPKD", "source_url": "https://skyvector.com/node/53466", "retrieved": "2026-11-04", "confidence": "high" },
+    "airport.type": { "value": "Domestic airport", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "high" },
+    "airport.lat": { "value": 25.318, "source_url": "https://skyvector.com/node/53466", "retrieved": "2026-11-04", "confidence": "high" },
+    "airport.lon": { "value": 68.366, "source_url": "https://skyvector.com/node/53466", "retrieved": "2026-11-04", "confidence": "high" },
+    "airport.elevation": { "value": "≈ 41 m / 135 ft", "source_url": "https://skyvector.com/node/53466", "retrieved": "2026-11-04", "confidence": "medium", "note": "Sources differ between ~130 and ~145 ft." },
+    "airport.timezone": { "value": "UTC+5 (Asia/Karachi)", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "high" },
+    "airport.climate": { "value": "Hot desert climate (Köppen BWh)", "source_url": "https://en.wikipedia.org/wiki/Hyderabad,_Sindh", "retrieved": "2026-11-04", "confidence": "high" },
+    "runway.designators": { "value": "02/20", "source_url": "https://skyvector.com/node/53466", "retrieved": "2026-11-04", "confidence": "high" },
+    "runway.length": { "value": "2,133 m (6,998 ft)", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "high", "note": "Wikipedia cites the PAA eAIP (June 2025)." },
+    "runway.width": { "value": "30 m (98 ft)", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "high" },
+    "runway.threshold02": { "value": "N25°18.57′ E68°21.70′", "source_url": "https://skyvector.com/node/53466", "retrieved": "2026-11-04", "confidence": "high" },
+    "runway.threshold20": { "value": "N25°19.61′ E68°22.25′", "source_url": "https://skyvector.com/node/53466", "retrieved": "2026-11-04", "confidence": "high" },
+    "history.closed1998": { "value": "Closed to commercial traffic in 1998", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "medium" },
+    "history.reopened2008": { "value": "Reopened on 19 August 2008 with PIA flights", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "medium" },
+    "history.lastFlight2013": { "value": "Last commercial flight in 2013; closed to commercial traffic again thereafter", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "medium" },
+    "revival.proposal": { "value": "Proposed revival: runway extension from ~7,000 ft to ~11,500 ft for Boeing 777-class aircraft, with improved passenger facilities (proposed, per press reports)", "source_url": "https://www.thenews.com.pk/print/1440954", "retrieved": "2026-11-04", "confidence": "medium", "note": "Press report, 4 Oct 2026. Proposal, not an approved project." },
+    "revival.uses": { "value": "Diversions from Karachi, Nawabshah and Sukkur, and possible domestic and regional flights (proposed, per press reports)", "source_url": "https://www.thenews.com.pk/print/1440954", "retrieved": "2026-11-04", "confidence": "medium" },
+    "constraints.encroachment": { "value": "Land encroachment around the airport is reported as a constraint", "source_url": "https://www.thenews.com.pk/print/1440954", "retrieved": "2026-11-04", "confidence": "medium" },
+    "constraints.landOwnership": { "value": "Disputes over land ownership are reported", "source_url": "https://www.thenews.com.pk/print/1440954", "retrieved": "2026-11-04", "confidence": "medium" },
+    "org.operator": { "value": "Pakistan Airports Authority (PAA)", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "high" },
+    "org.regulator": { "value": "Pakistan Civil Aviation Authority (PCAA)", "source_url": "https://en.wikipedia.org/wiki/Pakistan_Civil_Aviation_Authority", "retrieved": "2026-11-04", "confidence": "high" }
+  }
+}
