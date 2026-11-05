@@ -1005,8 +1005,9 @@ function gearGeometry(spec) {
   wheel(-nr * 0.75, nr, nz, nr, nr * 0.55);
   wheel(nr * 0.75, nr, nz, nr, nr * 0.55);
   // nose gear doors
-  parts.push(box(0.04, 0.9, 1.6, -0.45, bottomY - 0.85, nz + 0.5, 0xd9dcdf));
-  parts.push(box(0.04, 0.9, 1.6, 0.45, bottomY - 0.85, nz + 0.5, 0xd9dcdf));
+  const dh = Math.min(0.55, (bottomY - nr * 2) * 0.35);
+  parts.push(box(0.03, dh, 1.2 * spec.R / 2, -0.32 * spec.R / 2, bottomY - dh + 0.05, nz + 0.3, 0xd9dcdf));
+  parts.push(box(0.03, dh, 1.2 * spec.R / 2, 0.32 * spec.R / 2, bottomY - dh + 0.05, nz + 0.3, 0xd9dcdf));
   // main gear
   const mz = L / 2 - spec.main.d;
   const mr = spec.main.r;
