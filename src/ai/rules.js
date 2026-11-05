@@ -190,6 +190,13 @@ export function findTask(p, text) {
   return bestScore >= 4 ? bestT : null;
 }
 
+/** Forecast networks are computed from today, so their ES/EF are offsets from p.day. */
+function absForecast(p, v) {
+  const n = num(v, NaN);
+  if (!Number.isFinite(n)) return NaN;
+  return p && p.forecast && p.forecast.nodes ? n + num(p.day, 0) : n;
+}
+
 function nodeOf(p, id, which = 'baseline') {
   const net = which === 'forecast' ? p.forecast || p.baseline : p.baseline;
   return getIn(net && net.nodes, id) || {};
@@ -206,11 +213,14 @@ export function criticalPath(p) {
     const t = taskById(p, id) || { id, code: id, name: id };
     const st = taskState(p, t.id);
     const n = nodeOf(p, t.id, 'forecast');
+    const base = nodeOf(p, t.id, 'baseline');
+    // A "blocked" flag on work that is not yet due is just normal sequencing.
+    const due = num(base.es, Infinity) <= num(p && p.day, 0);
     return {
       id: t.id, code: t.code || t.id, name: t.name || t.id,
       pct: num(st.pct, 0), float: num(n.totalFloat, 0), duration: num(t.duration, 0),
-      es: num(n.es), ef: num(n.ef), crashable: num(t.duration, 0) - num(t.crashDuration, num(t.duration, 0)),
-      blocked: st.blocked || null,
+      es: absForecast(p, n.es), ef: absForecast(p, n.ef), crashable: num(t.duration, 0) - num(t.crashDuration, num(t.duration, 0)),
+      blocked: st.blocked && due && num(st.pct, 0) < 1 ? st.blocked : null,
     };
   });
 }
@@ -244,8 +254,9 @@ export function scheduleDriver(p, S) {
   if (!worst || worst.gap <= 0.02) return null;
   const task = taskById(p, worst.id) || {};
   const st = taskState(p, worst.id);
+  const late = num(st.actualStart, NaN) - num(nodeOf(p, worst.id, 'baseline').es, NaN);
   const out = { ...worst, reason: 'behind its planned progress', recommendation: `Review ${worst.code} with its owner and agree a recovery plan.`, action: null, impact: null };
-  if (st.blocked) {
+  if (worst.blocked) {
     out.reason = `blocked (${typeof st.blocked === 'string' ? st.blocked : 'waiting on a predecessor'})`;
     out.recommendation = `Clear the blocker first; adding labour to ${worst.code} will not help until it is lifted.`;
     return out;
@@ -281,6 +292,12 @@ export function scheduleDriver(p, S) {
     return out;
   }
   const perf = num(st.perf, NaN);
+  if (Number.isFinite(late) && late > 3) {
+    out.reason = `started ${days(late)} late (day ${Math.round(num(st.actualStart))} vs baseline day ${Math.round(num(st.actualStart) - late)}), and its crews are fully supplied`;
+    out.recommendation = `The slip was inherited from a predecessor, so adding labour to ${worst.code} cannot recover it; compress what is still ahead — ask me to "crash ${Math.max(5, Math.min(60, Math.round(late)))} days" or fast-track ${worst.code}'s successor.`;
+    out.action = { kind: 'crash', label: `Price a ${days(Math.max(5, Math.min(60, Math.round(late))))} crash`, args: { days: Math.max(5, Math.min(60, Math.round(late))) }, detail: `Apply the least-cost crash plan for ${days(Math.max(5, Math.min(60, Math.round(late))))}.` };
+    return out;
+  }
   if (Number.isFinite(perf) && perf < 0.97) {
     const welfare = num(p.welfare, NaN);
     out.reason = `running at ${pct(perf)} of planned productivity` + (Number.isFinite(welfare) && welfare < 0.8 ? ` (workforce welfare ${pct(welfare)})` : '');
@@ -499,7 +516,8 @@ export function procurementInfo(p, S) {
   const atRisk = [];
   for (const k of list) {
     if (!['Planned', 'RFP', 'Evaluating'].includes(k.status || 'Planned')) continue;
-    const need = Math.min(...arr(k.packageIds).map((id) => num(nodeOf(p, id, 'forecast').es, Infinity)));
+    // First package that has not started yet decides the need date.
+    const need = Math.min(...arr(k.packageIds).filter((id) => !(num(taskState(p, id).pct, 0) > 0)).map((id) => { const v = absForecast(p, nodeOf(p, id, 'forecast').es); return Number.isFinite(v) ? v : Infinity; }));
     const lead = num(k.leadTime, 0);
     if (Number.isFinite(need) && need - day < lead + 14) atRisk.push({ ...k, needDay: need, slack: need - day - lead });
   }
@@ -512,7 +530,8 @@ export function nextMilestone(p, S) {
   const day = S ? S.day : num(p && p.day, 0);
   const ms = arr(p && p.milestones).map((m) => {
     const st = taskState(p, m.taskId || m.id);
-    const fc = num(nodeOf(p, m.taskId || m.id, 'forecast').ef, num(m.forecastDay, num(m.baselineDay)));
+    const fcRaw = absForecast(p, nodeOf(p, m.taskId || m.id, 'forecast').ef);
+    const fc = Number.isFinite(fcRaw) ? fcRaw : num(m.forecastDay, num(m.baselineDay));
     return { ...m, done: num(st.pct, 0) >= 1 || !!m.achieved || !!m.actualDay, forecastDay: fc };
   });
   return ms.filter((m) => !m.done).sort((a, b) => num(a.baselineDay, 1e9) - num(b.baselineDay, 1e9))[0] || null;
@@ -648,7 +667,7 @@ export function analyse(p, extras = {}) {
   const gaps = stakeholderGaps(p).filter((g) => g.gap > 0);
   if (gaps.length) {
     const g = gaps[0];
-    add({ id: 'stakeholder', domain: 'Stakeholders', severity: g.gap >= 2 && g.power >= 0.6 ? 'warning' : 'info', title: `${g.role}: ${levelName(g.current)} → target ${levelName(g.desired)}`, why: `Power ${pct(g.power)}, interest ${pct(g.interest)} (${g.quadrant})${Number.isFinite(g.satisfaction) ? `, satisfaction ${pct(g.satisfaction)}` : ''}. Needs: ${g.needs || 'not recorded'}.`, recommendation: `${cap(g.action)} them via ${g.channel || 'a face-to-face meeting'}${g.frequency ? ` (${g.frequency.toLowerCase()})` : ''}.`, impact: `${gaps.length} stakeholder${gaps.length > 1 ? 's are' : ' is'} below the desired engagement level.`, action: { kind: 'engage', label: `${cap(g.action)} ${g.id}`, args: { id: g.id, how: g.action }, detail: `Run a "${g.action}" engagement with ${g.role}.` } });
+    add({ id: 'stakeholder', domain: 'Stakeholders', severity: g.gap >= 2 && g.power >= 0.6 ? 'warning' : 'info', title: `${g.role}: ${levelName(g.current)} → target ${levelName(g.desired)}`, why: `Power ${pct(g.power)}, interest ${pct(g.interest)} (${g.quadrant})${Number.isFinite(g.satisfaction) ? `, satisfaction ${pct(g.satisfaction)}` : ''}. Needs: ${String(g.needs || 'not recorded').replace(/\.$/, '')}.`, recommendation: `${cap(g.action)} them via ${g.channel || 'a face-to-face meeting'}${g.frequency ? ` (${g.frequency.toLowerCase()})` : ''}.`, impact: `${gaps.length} stakeholder${gaps.length > 1 ? 's are' : ' is'} below the desired engagement level.`, action: { kind: 'engage', label: `${cap(g.action)} ${g.id}`, args: { id: g.id, how: g.action }, detail: `Run a "${g.action}" engagement with ${g.role}.` } });
   }
 
   /* --- changes */

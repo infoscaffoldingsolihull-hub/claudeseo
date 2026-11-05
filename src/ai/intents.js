@@ -523,7 +523,7 @@ export const INTENTS = [
       if (!r) return { text: 'No open threats in the register.' };
       const strat = bestStrategy(r);
       return {
-        text: `**${r.id} — ${r.title}** (${r.category || 'risk'})\nP ${pct(num(r.probability, 0))} × impact ${money(num(r.costImpact, 0))}${num(r.daysImpact, 0) ? ` and ${days(r.daysImpact)}` : ''} → EMV ${money(riskEmv(r))}${Number.isFinite(num(r.score)) ? `, score ${r.score}` : ''}.\nOwner: ${r.owner || '—'} · trigger: ${r.trigger || '—'} · current response: ${r.response || 'none'}.\nRecommended: **${strat}**.\n\nNext largest: ${rk.threats.slice(1, 4).map((x) => `${x.id} ${x.title} (${money(riskEmv(x))})`).join('; ') || 'none'}.`,
+        text: `**${r.id} — ${r.title}** (${r.category || 'risk'})\nP ${pct(num(r.probability, 0))} × impact ${money(num(r.costImpact, 0))}${num(r.daysImpact, 0) ? ` and ${days(r.daysImpact)}` : ''} → EMV ${money(riskEmv(r))}${Number.isFinite(num(r.score)) ? `, score ${r.score}` : ''}.\nOwner: ${r.owner || '—'} · trigger: ${String(r.trigger || '—').replace(/\.$/, '')} · current response: ${r.response || 'none'}.\nRecommended: **${strat}**.\n\nNext largest: ${rk.threats.slice(1, 4).map((x) => `${x.id} ${x.title} (${money(riskEmv(x))})`).join('; ') || 'none'}.`,
         actions: r.response !== strat ? [{ kind: 'risk', label: `${strat} ${r.id}`, args: { riskId: r.id, strategy: strat }, detail: `Set the response for ${r.id} to ${strat}.` }] : [],
       };
     },
@@ -663,7 +663,7 @@ export const INTENTS = [
       const gaps = stakeholderGaps(ctx.project).filter((x) => x.gap > 0);
       if (!gaps.length) return { text: 'Every stakeholder is at or above the desired engagement level. Keep the communication plan cadence.' };
       return {
-        text: `Talk to these first (largest engagement gap × power × interest):\n${list(gaps.slice(0, 4).map((x) => `**${x.role}** — ${levelName(x.current)} → ${levelName(x.desired)} (${x.quadrant}); ${x.action} via ${x.channel || 'meeting'}. Needs: ${x.needs || '—'}`))}`,
+        text: `Talk to these first (largest engagement gap × power × interest):\n${list(gaps.slice(0, 4).map((x) => `**${x.role}** — ${levelName(x.current)} → ${levelName(x.desired)} (${x.quadrant}); ${x.action} via ${x.channel || 'meeting'}. Needs: ${String(x.needs || '—').replace(/\.$/, '')}`))}`,
         actions: gaps.slice(0, 2).map((x) => ({ kind: 'engage', label: `${x.action.charAt(0).toUpperCase() + x.action.slice(1)} ${x.id}`, args: { id: x.id, how: x.action }, detail: `Run a "${x.action}" engagement with ${x.role}.` })),
       };
     },
@@ -732,6 +732,10 @@ export const INTENTS = [
     answer: (ctx) => {
       const a = agileInfo(ctx.project);
       if (!a.hasAgile) return { text: g('Velocity') };
+      if (!a.velocities.length) {
+        const pv = num(ctx.project.agile && ctx.project.agile.plannedVelocity, NaN);
+        return { text: `No sprint has finished yet, so there is no measured velocity.${Number.isFinite(pv) ? ` The plan assumes about ${pv.toFixed(1)} points per ${a.sprintLength}-day sprint.` : ''} Backlog: ${a.pointsLeft} points.\n\n${g('Velocity')}` };
+      }
       return { text: `Velocity by sprint: ${a.velocities.join(', ') || '—'} points. 3-sprint average **${Number.isFinite(a.avg) ? a.avg.toFixed(1) : '—'}**${a.trend ? ` (last change ${a.trend > 0 ? '+' : ''}${a.trend})` : ''}.\nBacklog remaining ${a.pointsLeft} points (${a.pointsDone} done)${Number.isFinite(a.sprintsLeft) ? ` → about ${a.sprintsLeft} more sprints of ${a.sprintLength} days` : ''}.\nUse the average, never the best sprint, to forecast.` };
     },
   },

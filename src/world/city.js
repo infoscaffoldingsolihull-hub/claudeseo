@@ -121,35 +121,53 @@ export class City {
     const blocks = []; const tanks = []; const rooms = []; const mosques = [];
     let attempts = 0;
     const centre = [-2600, 0];
-    while (blocks.length < target && attempts < target * 40) {
-      attempts++;
-      const a = rng() * Math.PI * 2;
-      const r = 1500 + Math.pow(rng(), 0.8) * 9000;
-      const x = centre[0] + Math.cos(a) * r; const z = centre[1] + Math.sin(a) * r;
-      const dens = Math.max(cityDensity(x, z), villageDensity(x, z) * (cityDensity(x, z) < 0.05 ? 1 : 0));
-      if (rng() > dens) continue;
-      const [u, v] = toGrid(x, z);
-      const iu = Math.round(u / CELL); const iv = Math.round(v / CELL);
-      if (iu % 7 === 0 || iv % 7 === 0) continue;          // streets
+    const queue = [];
+    const place = (iu, iv, dens) => {
+      if (iu % 7 === 0 || iv % 7 === 0) return false;          // streets
       const key = `${iu},${iv}`;
-      if (used.has(key)) continue;
+      if (used.has(key)) return false;
       used.add(key);
       const [cx, cz] = toWorld(iu * CELL, iv * CELL);
       const isVillage = cityDensity(cx, cz) < 0.05;
-      const w = 14 + rng() * 16; const d = 12 + rng() * 15;
-      let storeys = isVillage ? 1 + Math.floor(rng() * 2) : 2 + Math.floor(Math.pow(rng(), 1.6) * 5);
-      if (!isVillage && dens > 0.65 && rng() < 0.07) storeys += 5 + Math.floor(rng() * 10);
+      const w = isVillage ? 10 + rng() * 10 : 23 + rng() * 11; const d = isVillage ? 9 + rng() * 9 : 20 + rng() * 13;
+      let storeys = isVillage ? 1 + Math.floor(rng() * 2) : 2 + Math.floor(Math.pow(rng(), 1.5) * 5);
+      if (!isVillage && dens > 0.6 && rng() < 0.06) storeys += 5 + Math.floor(rng() * 10);
       const h = storeys * 3.3 + 0.6;
       const y = terrainHeight(cx, cz) - 0.5;
       const shade = [0xe9e2d2, 0xe4d6b8, 0xd8c7a6, 0xefe9de, 0xc9b896, 0xd9c6b4, 0xbfc4c0, 0xd5cfb8, 0xe6d2c2, 0xc7d3cf][Math.floor(rng() * 10)];
       blocks.push({ x: cx, y, z: cz, ry: NORTH, sx: w, sy: h, sz: d, color: shade });
-      if (rng() < 0.55) {
+      if (rng() < 0.35) {
         const ox = (rng() - 0.5) * (w - 4); const oz = (rng() - 0.5) * (d - 4);
-        const [wx, wz] = [cx + ox * cos + oz * sin, cz - ox * sin + oz * cos];
-        tanks.push({ x: wx, y: y + h, z: wz, s: 1, sx: 1.4, sy: 1.6, sz: 1.4, color: rng() < 0.7 ? 0x1c1c1c : 0x2b5aa0 });
+        tanks.push({ x: cx + ox * cos + oz * sin, y: y + h, z: cz - ox * sin + oz * cos, sx: 1.4, sy: 1.6, sz: 1.4, color: rng() < 0.7 ? 0x1c1c1c : 0x2b5aa0 });
       }
-      if (rng() < 0.4) rooms.push({ x: cx + (rng() - 0.5) * 4, y: y + h, z: cz + (rng() - 0.5) * 4, ry: NORTH, sx: 3.5, sy: 2.6, sz: 3.5, color: shade });
-      if (!isVillage && rng() < 0.012 && mosques.length < 26) mosques.push({ x: cx, y: y + 0.2, z: cz, h: 22 + rng() * 18, dome: 7 + rng() * 6 });
+      if (rng() < 0.3) rooms.push({ x: cx + (rng() - 0.5) * 6, y: y + h, z: cz + (rng() - 0.5) * 6, ry: NORTH, sx: 4, sy: 2.6, sz: 4, color: shade });
+      if (!isVillage && rng() < 0.008 && mosques.length < 26) mosques.push({ x: cx, y: y + 0.2, z: cz, h: 22 + rng() * 18, dome: 7 + rng() * 6 });
+      return true;
+    };
+    while (blocks.length < target && attempts < target * 30) {
+      attempts++;
+      const a = rng() * Math.PI * 2;
+      const r = 1200 + Math.pow(rng(), 1.15) * 8000;
+      const x = centre[0] + Math.cos(a) * r; const z = centre[1] + Math.sin(a) * r;
+      const city = cityDensity(x, z);
+      const dens = Math.max(city, city < 0.05 ? villageDensity(x, z) : 0);
+      if (rng() > dens) continue;
+      const [u, v] = toGrid(x, z);
+      const iu = Math.round(u / CELL); const iv = Math.round(v / CELL);
+      if (!place(iu, iv, dens)) continue;
+      // Grow a neighbourhood around the seed so the fabric reads as continuous.
+      queue.push([iu, iv, dens]);
+      let grown = 0;
+      while (queue.length && grown < 14 && blocks.length < target) {
+        const [qu, qv, qd] = queue.shift();
+        for (const [du, dv] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nu = qu + du; const nv = qv + dv;
+          const [wx, wz] = toWorld(nu * CELL, nv * CELL);
+          const nd = Math.max(cityDensity(wx, wz), qd < 0.05 ? 0 : 0);
+          if (rng() < (nd > 0.05 ? nd * 0.95 : villageDensity(wx, wz) * 0.6) && place(nu, nv, nd)) { queue.push([nu, nv, nd]); grown++; }
+        }
+      }
+      queue.length = 0;
     }
     this.blockCount = blocks.length;
 
@@ -227,7 +245,7 @@ export class City {
           const u = dir === 0 ? k * 7 * CELL * 2 : s; const v = dir === 0 ? s : k * 7 * CELL * 2;
           const [x, z] = toWorld(u, v);
           const [wx, wz] = [x + centre[0], z + centre[1]];
-          const ok = cityDensity(wx, wz) > 0.12 && Math.hypot(wx + 300, wz - 300) < 10000;
+          const ok = cityDensity(wx, wz) > 0.3 && Math.hypot(wx + 300, wz - 300) < 9000;
           if (ok) run.push([wx, terrainHeight(wx, wz) + 0.25, wz]); else flush();
         }
         flush();
@@ -236,8 +254,8 @@ export class City {
     for (const run of paths) {
       for (let i = 0; i < run.length - 1; i++) {
         const [ax, ay, az] = run[i]; const [bx, by, bz] = run[i + 1];
-        const L = Math.hypot(bx - ax, bz - az); const nx = -(bz - az) / L * 7; const nz = (bx - ax) / L * 7;
-        roads.quad3([ax - nx, ay, az - nz], [ax + nx, ay, az + nz], [bx + nx, by, bz + nz], [bx - nx, by, bz - nz], 0x9a9a9a);
+        const L = Math.hypot(bx - ax, bz - az); const nx = -(bz - az) / L * 5; const nz = (bx - ax) / L * 5;
+        roads.quad3([ax - nx, ay, az - nz], [ax + nx, ay, az + nz], [bx + nx, by, bz + nz], [bx - nx, by, bz - nz], 0xc8c2b8);
       }
     }
     this.roadMat = layered(Object.assign(this.M.asphaltOld.clone(), { vertexColors: true }), 1, null);

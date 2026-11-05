@@ -17,10 +17,10 @@ const LS = MP.landside;
 
 function carGeometry() {
   const b = new GeoBuilder({ worldUV: false });
-  b.box(4.3, 0.75, 1.75, 0, 0.32, 0, 0xffffff);
-  b.box(2.3, 0.62, 1.6, -0.2, 1.07, 0, 0xffffff);
-  b.box(2.32, 0.5, 1.5, -0.2, 1.1, 0, 0x1d242c);
-  for (const [x, z] of [[-1.35, -0.8], [1.35, -0.8], [-1.35, 0.8], [1.35, 0.8]]) b.cylH(0.32, 0.25, x, 0.32, z, 0x151515, 'z', 8);
+  b.box(4.3, 0.72, 1.75, 0, 0.3, 0, 0xffffff);
+  b.box(2.3, 0.6, 1.58, -0.2, 1.02, 0, 0x1d242c);
+  b.box(0.6, 0.6, 1.8, -1.35, 0, 0, 0x151515);
+  b.box(0.6, 0.6, 1.8, 1.35, 0, 0, 0x151515);
   return b.build();
 }
 

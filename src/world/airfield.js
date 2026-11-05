@@ -508,10 +508,10 @@ export class Airfield {
     const b = new GeoBuilder();
     const seg = 60;
     for (let z = a.z0; z < a.z1 - 0.01; z += seg) {
-      b.quad(a.x0, z, a.x1, Math.min(z + seg, a.z1), Y.base + 0.01, 0xffffff);
+      b.quad(a.x0, z, a.x1, Math.min(z + seg, a.z1), Y.base + 0.01, 0xc4c0b8);
       b.mark();
     }
-    for (const zc of [-250, 250]) { b.quad(a.x1 - 1, zc - 22, tw.x - tw.width / 2 + 1, zc + 22, Y.base + 0.01, 0xffffff); b.mark(); }
+    for (const zc of [-250, 250]) { b.quad(a.x1 - 1, zc - 22, tw.x - tw.width / 2 + 1, zc + 22, Y.base + 0.01, 0xc4c0b8); b.mark(); }
     this.apron = this._prog(b, this.mat.apron, 'apron');
     this._el('4.3', 'Apron (8 stands)', [a.x0, 0, a.z0, a.x1, 1, a.z1], (p) => this.apron.setProgress(p),
       { surface: 'concrete', front: (p) => ({ x: (a.x0 + a.x1) / 2, z: a.z0 + (a.z1 - a.z0) * p, radius: 80, kind: 'paving' }) });
@@ -977,16 +977,13 @@ export class Airfield {
     for (let z = Pm.z0 + L / 2; z <= Pm.z1; z += L) push(Pm.x1, z, Math.PI / 2);
     for (let x = Pm.x1 - L / 2; x >= Pm.x0; x -= L) push(x, Pm.z1, Math.PI);
     for (let z = Pm.z1 - L / 2; z >= Pm.z0; z -= L) push(Pm.x0, z, -Math.PI / 2);
-    const panel2 = new GeoBuilder();
+    const panel2 = new GeoBuilder({ worldUV: false });
     panel2.box(L, 2.6, 0.3, 0, 0, 0, 0xd9d0bf);
     panel2.box(L, 0.15, 0.42, 0, 2.6, 0, 0xc4baa6);
     panel2.box(0.5, 2.9, 0.5, -L / 2, 0, 0, 0xc4baa6);
-    for (let x = -L / 2; x < L / 2; x += 3.125) {
-      panel2.box(0.06, 0.6, 0.06, x, 2.75, 0, 0x555555);
-      panel2.beam(x, 3.3, 0, x, 3.55, 0.3, 0.05, 0x555555);
-    }
-    for (const h of [2.95, 3.15, 3.35]) panel2.box(L, 0.025, 0.025, 0, h, 0.06, 0x707070);
-    panel2.cylH(0.22, L, 0, 3.6, 0.32, 0x7a7a7a, 'x', 6);
+    panel2.box(L, 0.55, 0.04, 0, 2.75, 0.02, 0x666666);
+    panel2.boxR(L, 0.04, 0.4, 0, 3.32, 0.18, 0x666666, 0.6, 0, 0);
+    panel2.cylH(0.22, L, 0, 3.6, 0.32, 0x7a7a7a, 'x', 5);
     this.wall = new InstancedSet(panel2.build(), this.M.paintMap, items, { shadows: true, name: 'perimeter-wall' });
     this._add(this.wall.mesh);
     this.disposables.push(this.wall);

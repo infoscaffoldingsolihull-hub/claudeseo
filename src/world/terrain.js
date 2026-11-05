@@ -28,11 +28,12 @@ function outsideFlat(x, z) {
 
 /** Urban density 0..1 (simulated city footprint: generic, no landmarks). */
 const CITY_BLOBS = [
-  { x: -5600, z: -450, r: 3900, w: 1.0 },
-  { x: -2900, z: 3300, r: 2300, w: 0.85 },
-  { x: -3700, z: -4300, r: 2400, w: 0.6 },
-  { x: -2700, z: -1500, r: 1300, w: 0.75 },
-  { x: -7600, z: 2600, r: 2200, w: 0.55 },
+  { x: -5600, z: -450, r: 5200, w: 1.0 },
+  { x: -2900, z: 3300, r: 2600, w: 0.9 },
+  { x: -3700, z: -4300, r: 2600, w: 0.7 },
+  { x: -2500, z: -1500, r: 1900, w: 0.9 },
+  { x: -2100, z: 1300, r: 1500, w: 0.75 },
+  { x: -7600, z: 2600, r: 2400, w: 0.6 },
 ];
 export function cityDensity(x, z) {
   let d = 0;
@@ -41,7 +42,7 @@ export function cityDensity(x, z) {
     d = Math.max(d, b.w * Math.exp(-r * r * 1.6));
   }
   const n = fbm2(x * 0.0006, z * 0.0006, 3, 2, 0.5, 501);
-  d *= 0.65 + n * 0.7;
+  d *= 0.8 + n * 0.45;
   // Keep the airport, its approaches and buffer clear.
   const out = outsideFlat(x, z);
   d *= smoothstep(150, 900, out);
@@ -114,7 +115,7 @@ const FRAG_BODY = `
   soil = mix(soil, uSoilC, smoothstep(0.52, 0.78, n2.b) * 0.65);
   float grass = smoothstep(0.42, 0.72, n2.r * 0.45 + n3.g * 0.55) * vMask.r;
   soil = mix(soil, uGrass * (0.85 + 0.3 * n3.a), grass * 0.8);
-  soil = mix(soil, uGraded * (0.93 + 0.12 * n3.b), clamp(vMask.g, 0.0, 1.0) * 0.88);
+  soil = mix(soil, uGraded * (0.9 + 0.16 * n3.b), clamp(vMask.g, 0.0, 1.0) * 0.6);
   if (vMask.b > 0.01) {
     float ca = 0.446; // fields follow true north, not the runway
     vec2 rw = vec2(w.x * cos(ca) - w.y * sin(ca), w.x * sin(ca) + w.y * cos(ca));
@@ -199,7 +200,7 @@ export class TerrainSystem {
     this.uniforms = {
       uNoise: { value: this.noise },
       uSoilA: { value: col('#b39670') }, uSoilB: { value: col('#94775a') }, uSoilC: { value: col('#cdb58e') },
-      uGrass: { value: col('#8b8655') }, uGraded: { value: col('#c6b08a') },
+      uGrass: { value: col('#8b8655') }, uGraded: { value: col('#bea883') },
       uCrop1: { value: col('#56702f') }, uCrop2: { value: col('#71823d') }, uFallow: { value: col('#86694a') },
       uMustard: { value: col('#a99a3a') }, uUrban: { value: col('#9a9184') },
       uWet: { value: 0 },

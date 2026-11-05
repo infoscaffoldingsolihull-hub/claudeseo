@@ -32,10 +32,10 @@ const FRIENDLY = {
 };
 
 const TIER_COUNTS = {
-  low: { trees: 500, scrub: 1500, city: 1600, cars: 90 },
-  medium: { trees: 900, scrub: 3000, city: 3000, cars: 160 },
-  high: { trees: 1400, scrub: 5000, city: 4800, cars: 240 },
-  ultra: { trees: 2200, scrub: 8000, city: 7000, cars: 320 },
+  low: { trees: 500, scrub: 1500, city: 3000, cars: 90 },
+  medium: { trees: 900, scrub: 3000, city: 5500, cars: 160 },
+  high: { trees: 1400, scrub: 5000, city: 9000, cars: 240 },
+  ultra: { trees: 2200, scrub: 8000, city: 13000, cars: 320 },
 };
 
 function mergeMaterials(engineLib, fallback) {
