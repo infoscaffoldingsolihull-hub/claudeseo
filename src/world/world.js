@@ -12,6 +12,10 @@ import { Landside } from './landside.js';
 import { City } from './city.js';
 import { Construction } from './construction.js';
 import { makeRng } from '../engine/noise.js';
+import { VehicleFleet } from './vehicles.js';
+import { WorkerCrowd } from './workers.js';
+import { PassengerCrowd } from './passengers.js';
+import { createAircraft } from './aircraft.js';
 
 /**
  * World — everything that exists in 3D at Hyderabad Airport (HDD / OPKD),
@@ -84,7 +88,7 @@ export class World {
     this.counts = {
       trees: s.treeCount || Math.round(d.trees),
       scrub: s.scrubCount || d.scrub,
-      city: s.cityBlocks || d.city,
+      city: s.cityBlocks ? Math.max(s.cityBlocks, Math.round(d.city * 0.7)) : d.city,
       cars: s.carCount || d.cars,
       birds: s.birdCount ? Math.min(60, s.birdCount) : 30,
     };
@@ -193,7 +197,7 @@ export class World {
   }
 
   _buildConstruction() {
-    this.construction = new Construction(this._ctx(), { showPlant: !this.systemsIn.VehicleFleet });
+    this.construction = new Construction(this._ctx(), { showPlant: typeof VehicleFleet !== 'function' && !this.systemsIn.VehicleFleet });
     this._register(this.construction);
   }
 
@@ -270,7 +274,9 @@ export class World {
   }
 
   _buildAgents() {
-    const S = this.systemsIn || {};
+    // A4 systems present on disk are imported statically; Traffic (and any
+    // replacement) can be supplied with World.registerSystems / options.systems.
+    const S = { VehicleFleet, WorkerCrowd, PassengerCrowd, createAircraft, ...(this.systemsIn || {}) };
     const layout = { RUNWAY, MASTERPLAN, WORLD_LINKS, GEO, STANDS, TAXILANE_X, rapidExits: this.airfield ? this.airfield.rapidPaths : [], groundAt: (x, z) => this.collision.groundAt(x, z) };
     this.layoutForAgents = layout;
     const tryMake = (name, fn) => {
@@ -359,7 +365,7 @@ export class World {
     const active = new Set(this.state.activeIds || []);
     let best = null; let bestScore = Infinity;
     for (const h of hits) {
-      if (h.distance > d0 + Math.max(40, d0 * 0.05)) break;
+      if (h.distance > d0 + 4 + d0 * 0.002) break;
       const id = h.object.userData.wbsId;
       const e = this.elements.get(id);
       const b = h.object.userData.box;
@@ -598,6 +604,14 @@ export class World {
       const inst = lp.mesh.userData.installed === undefined ? 1 : lp.mesh.userData.installed;
       lp.mat.opacity = lights * (lp.strength || 0.5) * (inst >= 0.999 ? 1 : 0);
       lp.mesh.visible = lp.mat.opacity > 0.01;
+    }
+    if (this.envMap && Math.abs((this._envNight || -1) - night) > 0.02) {
+      this._envNight = night;
+      const k = 0.1 + 0.9 * (1 - night);
+      const mats = new Set([this.M.glass, this.M.paintMetal, this.M.roofMetal]);
+      if (this.terminal) for (const m of [this.terminal.roofMat, this.terminal.glass, this.terminal.glassSide]) mats.add(m);
+      if (this.tower) mats.add(this.tower.cabGlassMat);
+      for (const m of mats) if (m && m.envMap) m.envMapIntensity = (m.userData.envBase || (m.userData.envBase = m.envMapIntensity || 1)) * k;
     }
     const env = { wind: this._wind, lights, night, agl, time: t, camera, dt, mode: opts.mode, sky: this.sky, weather: this.weather };
     if (this.airfield) this.airfield.update(dt, t, env);

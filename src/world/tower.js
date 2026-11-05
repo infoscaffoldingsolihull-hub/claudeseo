@@ -55,7 +55,7 @@ export class Tower {
     this._cab();
     this._poisBuild();
     this.cabView = {
-      position: new THREE.Vector3(CX + 6.2, CF + 1.7, CZ),
+      position: new THREE.Vector3(CX + 4.6, CF + 1.75, CZ),
       target: new THREE.Vector3(0, 0, -120),
     };
   }
@@ -179,26 +179,28 @@ export class Tower {
     for (let i = 0; i < 8; i++) {
       if (i === 4) continue;  // walkway to the lift door (west)
       const a = (i / 8) * Math.PI * 2;
-      const r = 6.3;
+      const r = 6.5;
       const x = CX + Math.cos(a) * r; const z = CZ + Math.sin(a) * r;
-      fit.box(1.0, 0.95, 4.6, x, CF, z, 0x2c3138, -a);
-      fit.box(0.2, 0.6, 4.4, x + Math.cos(a) * 0.45, CF + 0.95, z + Math.sin(a) * 0.45, 0x1d2025, -a);
-      const cx2 = CX + Math.cos(a) * 5.0; const cz2 = CZ + Math.sin(a) * 5.0;
-      fit.cyl(0.28, 0.5, cx2, CF, cz2, 0x222222, 8);
-      fit.box(0.55, 0.12, 0.55, cx2, CF + 0.5, cz2, 0x24317a);
-      fit.box(0.12, 0.6, 0.55, cx2 - Math.cos(a) * 0.3, CF + 0.6, cz2 - Math.sin(a) * 0.3, 0x24317a, -a);
-      this.consoleBoxes.push([x - 1.1, z - 1.1, x + 1.1, z + 1.1]);
-      for (const k of [-1.3, 0, 1.3]) {
-        const sx = x + Math.cos(a) * 0.3 - Math.sin(a) * k; const sz = z + Math.sin(a) * 0.3 + Math.cos(a) * k;
-        const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.5, -a - Math.PI / 2, 0, 'YXZ'));
-        screens.add(new THREE.PlaneGeometry(1.0, 0.55), new THREE.Matrix4().compose(new THREE.Vector3(sx, CF + 1.25, sz), q, new THREE.Vector3(1, 1, 1)), 0xffffff);
+      const ca = Math.cos(a); const sa = Math.sin(a);
+      fit.box(1.1, 0.78, 4.4, x, CF, z, 0x5a616b, -a);
+      fit.box(1.25, 0.06, 4.6, x - ca * 0.08, CF + 0.78, z - sa * 0.08, 0x8a6a48, -a);
+      fit.box(0.25, 0.32, 4.3, x + ca * 0.42, CF + 0.84, z + sa * 0.42, 0x3a3f46, -a);
+      const cx2 = CX + ca * 5.3; const cz2 = CZ + sa * 5.3;
+      fit.cyl(0.25, 0.48, cx2, CF, cz2, 0x222222, 8);
+      fit.box(0.55, 0.1, 0.55, cx2, CF + 0.48, cz2, 0x24317a);
+      fit.box(0.12, 0.6, 0.55, cx2 - ca * 0.3, CF + 0.56, cz2 - sa * 0.3, 0x24317a, -a);
+      this.consoleBoxes.push([x - 1.2, z - 1.2, x + 1.2, z + 1.2]);
+      for (const k of [-1.4, 0, 1.4]) {
+        const sx = x + ca * 0.28 - sa * k; const sz = z + sa * 0.28 + ca * k;
+        const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.35, -a - Math.PI / 2, 0, 'YXZ'));
+        screens.add(new THREE.PlaneGeometry(0.62, 0.38), new THREE.Matrix4().compose(new THREE.Vector3(sx, CF + 1.08, sz), q, new THREE.Vector3(1, 1, 1)), 0xffffff);
       }
     }
     fit.mark(); screens.mark();
     this.cabFit = this._prog(fit, this.M.paint, 'tower-cab-fitout', false);
     this.radarTex = radarTexture();
     this.screenMat = new THREE.MeshBasicMaterial({ map: this.radarTex, side: THREE.DoubleSide });
-    this.screenMat.color.setScalar(1.4);
+    this.screenMat.color.setScalar(1.1);
     this.screenMat.toneMapped = false;
     this.disposables.push(this.radarTex, this.screenMat);
     this.cabScreens = this._prog(screens, this.screenMat, 'tower-cab-screens', false);
@@ -269,7 +271,7 @@ export class Tower {
     if (!this.liftUp) return;
     if (this.cabReady) {
       this.liftUp.prompt = 'Press E to take the lift to the control cab';
-      this.liftUp.teleport = { x: CX + 4.2, y: CF, z: CZ, yaw: -Math.PI / 2 };
+      this.liftUp.teleport = { x: CX + 3.3, y: CF, z: CZ - 1.2, yaw: -Math.PI / 2 };
       this.liftUp.teleportLabel = 'ATC visual control room — 42 m';
     } else {
       this.liftUp.prompt = 'Press E to inspect the tower (lift not yet commissioned)';

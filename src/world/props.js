@@ -37,6 +37,13 @@ function unitGeo(key, make) {
   return g;
 }
 
+/** Give a plain geometry an all-white colour attribute (for vertex-coloured materials + instanceColor). */
+export function whiteColors(geo) {
+  const n = geo.attributes.position.count;
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(n * 3).fill(1), 3));
+  return geo;
+}
+
 export function unitBox() { return unitGeo('box', () => new THREE.BoxGeometry(1, 1, 1)); }
 export function unitCyl(seg = 10, taper = 1) {
   return unitGeo(`cyl${seg}_${taper}`, () => new THREE.CylinderGeometry(taper * 0.5, 0.5, 1, seg, 1));
@@ -508,7 +515,7 @@ export function layered(material, level, cache) {
   if (cache && cache.has(key)) return cache.get(key);
   const m = material.clone();
   m.polygonOffset = true;
-  m.polygonOffsetFactor = -0.5 * level;
+  m.polygonOffsetFactor = -0.25 * level;
   m.polygonOffsetUnits = -3 * level;
   if (cache) cache.set(key, m);
   return m;
@@ -528,8 +535,12 @@ const LIGHT_VERT = /* glsl */ `
   varying vec3 vColor;
   void main() {
     vec4 wp = modelMatrix * vec4(position, 1.0);
-    vec4 mv = viewMatrix * wp;
-    float d = max(1.0, -mv.z);
+    // Lift the sprite towards the eye so polygon-offset pavements never occlude it.
+    vec3 toEye = cameraPosition - wp.xyz;
+    float dist = length(toEye);
+    vec4 lp = vec4(wp.xyz + toEye / max(dist, 1e-3) * min(dist * 0.5, 0.8 + dist * 0.006), 1.0);
+    vec4 mv = viewMatrix * lp;
+    float d = max(1.0, dist);
     float px = clamp(aSize * uScale / d, uMinPx, uMaxPx);
     float a = 1.0;
     vec3 col = color;
@@ -556,9 +567,9 @@ const LIGHT_FRAG = /* glsl */ `
   varying vec3 vColor;
   void main() {
     vec2 d = gl_PointCoord - 0.5;
-    float r2 = dot(d, d) * 4.0;
-    float core = exp(-r2 * 9.0);
-    float halo = exp(-r2 * 2.2) * 0.35;
+    float r = length(d) * 2.0;
+    float core = 1.0 - smoothstep(0.25, 0.6, r);
+    float halo = exp(-r * r * 3.0) * 0.45;
     float a = (core + halo) * uIntensity;
     if (a < 0.004) discard;
     gl_FragColor = vec4(vColor * a, 1.0);
@@ -571,6 +582,7 @@ const LIGHT_FRAG = /* glsl */ `
  */
 export class LightField {
   constructor(name = 'lights', { minPx = 1.6, maxPx = 40 } = {}) {
+    minPx = Math.max(2.4, minPx * 1.5);
     this.name = name;
     this.data = [];
     this.minPx = minPx;

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeRng } from '../engine/noise.js';
 import { RUNWAY, MASTERPLAN } from './layout.js';
-import { GeoBuilder, ProgressiveMesh, InstancedSet, LightField, layered, labelTexture } from './props.js';
+import { GeoBuilder, ProgressiveMesh, InstancedSet, LightField, layered, labelTexture, whiteColors } from './props.js';
 
 /**
  * Airside: the existing (worn) runway, the simulated extension and widening
@@ -121,7 +121,7 @@ export class Airfield {
       oldLink: L(Object.assign(M.asphaltOld.clone(), { vertexColors: true }), 3),
       shoulder: L(Object.assign(M.asphaltNew.clone(), { vertexColors: true }), 2),
       apron: L(Object.assign(M.concreteApron.clone(), { vertexColors: true }), 4),
-      soilCut: L(M.soilCut, 1), soilFill: L(M.soilFill, 1),
+      soilCut: L(Object.assign(M.soilCut.clone(), { vertexColors: true }), 1), soilFill: L(Object.assign(M.soilFill.clone(), { vertexColors: true }), 1),
       sub: L(M.gravelSubbase, 2), base: L(M.crushedBase, 3),
       markNew: L(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62 }), 7),
       markOld: L(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }), 5),
@@ -259,16 +259,14 @@ export class Airfield {
     const seg = 25;
     // 3.2 earthworks: cut (darker, fresh) and fill (compacted, striped) patchwork.
     const cut = new GeoBuilder(); const fill = new GeoBuilder();
-    let k = 0;
     for (let z = z0; z < z1 - 0.01; z += seg) {
       const ze = Math.min(z + seg, z1);
-      const isCut = Math.sin(z * 0.004) + Math.sin(z * 0.011) > 0.3;
-      for (const [x0, x1] of [[-85, -30], [-30, 30], [30, 85]]) {
-        const target = (isCut ^ (x0 > 0 && k % 3 === 0)) ? cut : fill;
-        target.quad(x0, z, x1, ze, Y.earth, 0xffffff);
-      }
+      const zone = Math.sin(z * 0.0047 + 0.8) + 0.6 * Math.sin(z * 0.013);
+      const t = 0.85 + 0.15 * Math.sin(z * 0.05);
+      const col = new THREE.Color(t, t, t * 0.97);
+      if (zone > 0.15) cut.quad(-85, z, 85, ze, Y.earth, col);
+      else fill.quad(-85, z, 85, ze, Y.earth, col);
       cut.mark(); fill.mark();
-      k++;
     }
     this.earthCut = this._prog(cut, this.mat.soilCut, 'earthworks-cut');
     this.earthFill = this._prog(fill, this.mat.soilFill, 'earthworks-fill');
@@ -587,7 +585,7 @@ export class Airfield {
         this.flood.add(x - 2.0, 30.3 + (i % 2) * 0.7, lz, new THREE.Color(4.2, 3.7, 2.9), 1.6, 0, 0);
       }
       fb.mark();
-      pm.compose(new THREE.Vector3(x - 50, Y.mark + 0.01, z), new THREE.Quaternion(), new THREE.Vector3(130, 1, 120));
+      pm.compose(new THREE.Vector3(x - 42, Y.mark + 0.01, z), new THREE.Quaternion(), new THREE.Vector3(95, 1, 90));
       poolB.add(poolPlane, pm, 0xffffff);
     }
     poolPlane.dispose();
@@ -609,7 +607,7 @@ export class Airfield {
     this.pools.visible = false;
     this._add(this.pools);
     this.disposables.push(poolTex, this.poolMat);
-    this.lightPools = [{ mesh: this.pools, mat: this.poolMat, id: '4.5', strength: 0.55 }];
+    this.lightPools = [{ mesh: this.pools, mat: this.poolMat, id: '4.5', strength: 0.2 }];
     this._el('4.5', 'Apron floodlight masts', [-305, 0, -340, -232, 32, 340], (p) => {
       this.floodMasts.setProgress(p);
       this.flood.setProgress(p);
@@ -1038,7 +1036,7 @@ export class Airfield {
     }
     const sortFn = (a, b) => a.order - b.order;
     walls.sort(sortFn); roofs.sort(sortFn); yards.sort(sortFn);
-    const box = new THREE.BoxGeometry(1, 1, 1); box.translate(0, 0.5, 0);
+    const box = whiteColors(new THREE.BoxGeometry(1, 1, 1)); box.translate(0, 0.5, 0);
     const box2 = box.clone(); const box3 = box.clone();
     this.shackWalls = new InstancedSet(box, this.M.paintMap, walls, { name: 'encroachment-walls' });
     this.shackRoofs = new InstancedSet(box2, this.M.paintMetal, roofs, { name: 'encroachment-roofs' });

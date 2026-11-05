@@ -103,9 +103,10 @@ export const MASTERPLAN = {
     { x: 520, z: 2900, r: 80 },
   ],
   windsock: { x: -110, z: -900 },
-  papi: { z02: 1066.5 - 380, z20: -1066.5 + 380, x: -40 },
+  /** After the extension the RWY 02 threshold moves to the new south end; PAPI/glide path follow it (A2 places them at z ≈ 2058.5 / 2118.5). */
+  papi: { z02: 2438.5 - 380, z20: -1066.5 + 380, x: -40 },
   approachLights: { length: 900, spacing: 30 },
-  ils: { localizerZ: -1066.5 - 300, glidePathZ: 1066.5 - 320, glidePathX: 140 },
+  ils: { localizerZ: -1066.5 - 300, glidePathZ: 2438.5 - 320, glidePathX: 140 },
   awos: { x: 120, z: -200 },
   city: { innerRadius: 2400, outerRadius: 9000 },
 };
@@ -142,6 +143,7 @@ export const WORLD_LINKS = {
   '4.3': 'apron',
   '4.4': 'standMarkings',
   '4.5': 'apronFloodlights',
+  '4.6': 'serviceRoads',
   '5.2': 'runwayLights',
   '5.3': 'approachLights',
   '5.4': 'papi',
@@ -162,6 +164,7 @@ export const WORLD_LINKS = {
   '8.3': 'arffStation',
   '8.4': 'substation',
   '8.5': 'solarPlant',
+  '8.6': 'waterWorks',
   '8.7': 'stormDrainage',
   '9.1': 'accessRoad',
   '9.2': 'carPark',

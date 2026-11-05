@@ -277,13 +277,13 @@ function concreteSet(size, seed, { slabs = 2, apron = false } = {}) {
     const joint = Math.max(smoothstep(jw, 0, fx) + smoothstep(1 - jw, 1, fx), smoothstep(jw, 0, fy) + smoothstep(1 - jw, 1, fy));
     const slabTone = hash2i(cx % slabs, cy % slabs, seed);
     const macro = pfbm(u, v, 4, 4, seed + 3);
-    const broom = pnoise(u * 6, v * 380, 6, seed + 7) * 0.6 + pnoise(u * 12, v * 760, 12, seed + 8) * 0.4;
-    const pores = smoothstep(0.82, 0.95, pnoise(u * 220, v * 220, 220, seed + 9));
+    const broom = pnoise(u * 24, v * 380, 24, seed + 7) * 0.6 + pnoise(u * 48, v * 760, 48, seed + 8) * 0.4;
+    const pores = smoothstep(0.88, 0.97, pnoise(u * 220, v * 220, 220, seed + 9)) * 0.6;
     pworley(u, v, 3, seed + 15, W);
-    const hair = smoothstep(0.012, 0.0, W.f2 - W.f1 + (pfbm(u, v, 32, 2, seed + 17) - 0.5) * 0.02) * 0.8;
+    const hair = smoothstep(0.008, 0.0, W.f2 - W.f1 + (pfbm(u, v, 32, 2, seed + 17) - 0.5) * 0.02) * 0.35 * smoothstep(0.45, 0.7, pfbm(u, v, 4, 2, seed + 19));
     let stain = 0;
     if (apron) {
-      const drip = smoothstep(0.62, 0.8, pfbm(u, v, 8, 3, seed + 31));
+      const drip = smoothstep(0.66, 0.84, pfbm(u, v, 8, 3, seed + 31)) * 0.7;
       const scuff = smoothstep(0.55, 0.85, pnoise(u * 2, v * 40, 2, seed + 33)) * smoothstep(0.4, 0.7, pfbm(u, v, 3, 2, seed + 35));
       stain = drip * 0.55 + scuff * 0.3;
     }

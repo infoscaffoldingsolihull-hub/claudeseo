@@ -368,7 +368,7 @@ SPECS.cargo = {
 
 /** Public type metadata (dims, seats, performance) for traffic logic. */
 export const AIRCRAFT_TYPES = Object.fromEntries(Object.entries(SPECS).map(([k, s]) => [k, {
-  length: s.length, span: s.span, height: s.height, seats: s.seats, approachSpeed: s.approachSpeed,
+  length: s.length, span: s.span, height: s.height, radius: s.R, doorSill: s.cy - s.R * 0.25, seats: s.seats, approachSpeed: s.approachSpeed,
   rotateSpeed: s.rotateSpeed, accel: s.accel, mainGearZ: s.length / 2 - s.main.d, noseGearZ: s.length / 2 - s.nose.d,
 }]));
 
@@ -1218,8 +1218,8 @@ function lightsFor(spec, engines) {
   const rootX = spec.R * 1.25;
   const rootZ = L / 2 - w.d - Math.tan((w.sweep * Math.PI) / 180) * rootX + 0.2;
   const rootY = wingY + Math.tan((w.dihedral * Math.PI) / 180) * rootX - 0.1;
-  list.push({ x: rootX, y: rootY, z: rootZ, color: 0xfff4dc, size: 2.2, kind: LIGHT_KIND.LANDING, day: 0.65 });
-  list.push({ x: -rootX, y: rootY, z: rootZ, color: 0xfff4dc, size: 2.2, kind: LIGHT_KIND.LANDING, day: 0.65 });
+  list.push({ x: rootX, y: rootY, z: rootZ, color: 0xfff4dc, size: 3.0, kind: LIGHT_KIND.LANDING, day: 0.65 });
+  list.push({ x: -rootX, y: rootY, z: rootZ, color: 0xfff4dc, size: 3.0, kind: LIGHT_KIND.LANDING, day: 0.65 });
   list.push({ x: 0, y: spec.nose.r * 2 + 0.9, z: L / 2 - spec.nose.d + 0.4, color: 0xfff0d0, size: 1.4, kind: LIGHT_KIND.LANDING, day: 0.5 });
   // logo lights wash the fin at night
   return list;

@@ -176,7 +176,12 @@ export class Terminal {
       }
       top.mark(); soffit.mark(); fascia.mark();
     }
-    this.roofTop = this._prog(top, this.M.roofMetal, 'terminal-roof', true);
+    this.roofMat = this.M.roofMetal.clone();
+    this.roofMat.color = new THREE.Color(0xf3eee4);
+    this.roofMat.metalness = Math.min(this.roofMat.metalness, 0.45);
+    if (this.ctx.envMap && !this.roofMat.envMap) this.roofMat.envMap = this.ctx.envMap;
+    this.disposables.push(this.roofMat);
+    this.roofTop = this._prog(top, this.roofMat, 'terminal-roof', true);
     this.roofSoffit = this._prog(soffit, this.M.paint, 'terminal-soffit', false);
     this.roofFascia = this._prog(fascia, this.M.paint, 'terminal-fascia', true);
 

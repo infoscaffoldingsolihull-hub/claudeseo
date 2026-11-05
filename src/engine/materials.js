@@ -139,6 +139,11 @@ roughnessFactor = mix( roughnessFactor, max( roughnessFactor, 0.85 ), hddDustCov
 roughnessFactor = clamp( roughnessFactor, 0.03, 1.0 );
 `;
 
+// After <lights_fragment_end>: wet surfaces and puddles mirror the sky.
+const FRAG_SPEC = /* glsl */ `
+reflectedLight.indirectSpecular *= 1.0 + hddPuddle * 2.5 + hddWetness * 0.8;
+`;
+
 // After <normal_fragment_maps>: standing water is optically flat.
 const FRAG_NORMAL = /* glsl */ `
 normal = normalize( mix( normal, nonPerturbedNormal, hddPuddle ) );
@@ -226,6 +231,8 @@ export class MaterialLibrary {
     this._lightPointMats = new Set();
     const tier = quality && quality.tier ? quality.tier : 'medium';
     this._detile = tier !== 'low';
+    // WeatherSystem finds the engine library here even when it is handed a merged object.
+    if (quality && !quality.materialLibrary) quality.materialLibrary = this;
     if (quality && quality.onChange) {
       this._offQuality = quality.onChange(() => this.applyAnisotropy());
     }
@@ -266,6 +273,7 @@ export class MaterialLibrary {
         .replace('#include <map_fragment>', `#include <map_fragment>\n${FRAG_MAP}`)
         .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>\n${FRAG_ROUGH}`)
         .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>\n${FRAG_NORMAL}`)
+        .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>\n${FRAG_SPEC}`)
         .replace('#include <opaque_fragment>', `${FRAG_GLASS}\n#include <opaque_fragment>`);
     };
     // Same source for every library material: programs are shared, keyed by defines.
@@ -296,6 +304,8 @@ export class MaterialLibrary {
   _std(name, tile, params, deco) {
     const m = new THREE.MeshStandardMaterial({ ...this._set(name, tile), ...params });
     m.name = `hdd:${name}`;
+    // Rough ground reflects less sky than the IBL's full Fresnel suggests (micro-shadowing).
+    if (deco && deco.world && params.envMapIntensity === undefined) m.envMapIntensity = 0.7;
     return this._decorate(m, deco);
   }
 
@@ -307,7 +317,7 @@ export class MaterialLibrary {
     this.asphaltNew = this._std('asphaltNew', TILE.asphaltNew, { roughness: 1, metalness: 0, normalScale: ns(0.7), aoMapIntensity: 0.8 }, ground(0.18, 0.8, 0.12));
     this.concrete = this._std('concrete', TILE.concrete, { roughness: 1, metalness: 0, normalScale: ns(0.8), aoMapIntensity: 1 }, ground(0.38, 0.6, 0.16));
     this.concreteApron = this._std('concreteApron', TILE.concreteApron, { roughness: 1, metalness: 0, normalScale: ns(0.8), aoMapIntensity: 1 }, ground(0.36, 0.8, 0.18));
-    this.sand = this._std('sand', TILE.sand, { roughness: 1, metalness: 0, normalScale: ns(1.0), aoMapIntensity: 0.6 }, ground(0.42, 0.35, 0.26));
+    this.sand = this._std('sand', TILE.sand, { roughness: 1, metalness: 0, normalScale: ns(1.0), aoMapIntensity: 0.6 }, ground(0.42, 0.35, 0.42));
     this.soilCut = this._std('soilCut', TILE.soilCut, { roughness: 1, metalness: 0, normalScale: ns(1.1) }, ground(0.4, 0.9, 0.22));
     this.soilFill = this._std('soilFill', TILE.soilFill, { roughness: 1, metalness: 0, normalScale: ns(1.0) }, ground(0.4, 0.6, 0.18));
     this.gravelSubbase = this._std('gravelSubbase', TILE.gravelSubbase, { roughness: 1, metalness: 0, normalScale: ns(1.2), aoMapIntensity: 1 }, ground(0.3, 0.3, 0.14));

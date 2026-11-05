@@ -129,7 +129,7 @@ const FRAG_BODY = `
     float farm = smoothstep(0.0, 0.6, vMask.b) * step(0.08, h);
     soil = mix(soil, crop, farm * mix(0.55, 1.0, edge));
   }
-  soil = mix(soil, uUrban * (0.88 + 0.24 * n3.r), clamp(vMask.a, 0.0, 1.0) * 0.9);
+  soil = mix(soil, uUrban * (0.88 + 0.24 * n3.r), clamp(vMask.a, 0.0, 1.0) * 0.55);
   soil *= 0.84 + 0.3 * n4.g;
   soil *= 1.0 - uWet * 0.35;
   diffuseColor.rgb *= soil;

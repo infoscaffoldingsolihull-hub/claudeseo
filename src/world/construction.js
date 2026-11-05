@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeRng } from '../engine/noise.js';
 import { MASTERPLAN, RUNWAY } from './layout.js';
-import { GeoBuilder, ProgressiveMesh, InstancedSet, LightField, coneGeometry, barrierGeometry, labelTexture } from './props.js';
+import { GeoBuilder, ProgressiveMesh, InstancedSet, LightField, coneGeometry, barrierGeometry, labelTexture, whiteColors } from './props.js';
 
 /**
  * Construction site dressing driven by the WBS: tower cranes on the terminal
@@ -183,9 +183,9 @@ export class Construction {
     this.batch = this._mesh(b, 'batch-plant', true);
     this.offices = this._mesh(o, 'site-offices', true);
     this.laydown = this._mesh(l, 'laydown-yard', true);
-    const cone = new THREE.ConeGeometry(1, 1, 12, 1);
+    const cone = whiteColors(new THREE.ConeGeometry(1, 1, 12, 1));
     cone.translate(0, 0.5, 0);
-    this.batchHeaps = new InstancedSet(cone, this.M.paintMap, heaps, { name: 'batch-heaps' });
+    this.batchHeaps = new InstancedSet(cone, this.M.paint, heaps, { name: 'batch-heaps' });
     this._add(this.batchHeaps.mesh); this.disposables.push(this.batchHeaps);
     const signTex = labelTexture('PROJECT SITE OFFICE · SIMULATED', { w: 512, h: 64, bg: '#1f2a6e', fg: '#f4efe4', font: 'bold 30px sans-serif' });
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(7.6, 1.0), new THREE.MeshStandardMaterial({ map: signTex }));
@@ -218,7 +218,7 @@ export class Construction {
 
   _temporary() {
     // Stockpiles along the extension (soil) and aggregate heaps.
-    const cone = new THREE.ConeGeometry(1, 1, 10, 1);
+    const cone = whiteColors(new THREE.ConeGeometry(1, 1, 10, 1));
     cone.translate(0, 0.5, 0);
     const soil = []; const agg = [];
     const z0 = RUNWAY.extensionStartZ;
@@ -228,8 +228,8 @@ export class Construction {
         agg.push({ x: s * 100, y: 0, z: z + 60, sx: 8, sy: 3.5, sz: 8, color: s > 0 ? 0x8f8a80 : 0x6f6c68 });
       }
     }
-    this.soilHeaps = new InstancedSet(cone, this.M.paintMap, soil, { name: 'soil-stockpiles' });
-    this.aggHeaps = new InstancedSet(cone.clone(), this.M.paintMap, agg, { name: 'aggregate-stockpiles' });
+    this.soilHeaps = new InstancedSet(cone, this.M.paint, soil, { name: 'soil-stockpiles' });
+    this.aggHeaps = new InstancedSet(cone.clone(), this.M.paint, agg, { name: 'aggregate-stockpiles' });
     for (const s of [this.soilHeaps, this.aggHeaps]) { this._add(s.mesh); this.disposables.push(s); s.setProgress(0); }
     // Barriers along both sides of the extension corridor.
     const bars = [];

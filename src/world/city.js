@@ -13,7 +13,7 @@ import { GeoBuilder, layered } from './props.js';
  */
 
 const NORTH = (GEO.northOffsetDeg * Math.PI) / 180;   // world rotation of the true-north grid
-const CELL = 36;
+const CELL = 54;
 
 const VILLAGES = [[1900, -900], [2600, 1400], [1600, 3300], [-400, 4800], [3200, -2600], [800, -3800], [-1600, 5200], [4200, 600]];
 function villageDensity(x, z) {
@@ -123,13 +123,13 @@ export class City {
     const centre = [-2600, 0];
     const queue = [];
     const place = (iu, iv, dens) => {
-      if (iu % 7 === 0 || iv % 7 === 0) return false;          // streets
+      if (iu % 6 === 0 || iv % 6 === 0) return false;          // arterial streets
       const key = `${iu},${iv}`;
       if (used.has(key)) return false;
       used.add(key);
       const [cx, cz] = toWorld(iu * CELL, iv * CELL);
       const isVillage = cityDensity(cx, cz) < 0.05;
-      const w = isVillage ? 10 + rng() * 10 : 23 + rng() * 11; const d = isVillage ? 9 + rng() * 9 : 20 + rng() * 13;
+      const w = isVillage ? 10 + rng() * 10 : 34 + rng() * 16; const d = isVillage ? 9 + rng() * 9 : 30 + rng() * 18;
       let storeys = isVillage ? 1 + Math.floor(rng() * 2) : 2 + Math.floor(Math.pow(rng(), 1.5) * 5);
       if (!isVillage && dens > 0.6 && rng() < 0.06) storeys += 5 + Math.floor(rng() * 10);
       const h = storeys * 3.3 + 0.6;
@@ -144,31 +144,32 @@ export class City {
       if (!isVillage && rng() < 0.008 && mosques.length < 26) mosques.push({ x: cx, y: y + 0.2, z: cz, h: 22 + rng() * 18, dome: 7 + rng() * 6 });
       return true;
     };
-    while (blocks.length < target && attempts < target * 30) {
-      attempts++;
-      const a = rng() * Math.PI * 2;
-      const r = 1200 + Math.pow(rng(), 1.15) * 8000;
-      const x = centre[0] + Math.cos(a) * r; const z = centre[1] + Math.sin(a) * r;
-      const city = cityDensity(x, z);
-      const dens = Math.max(city, city < 0.05 ? villageDensity(x, z) : 0);
-      if (rng() > dens) continue;
-      const [u, v] = toGrid(x, z);
-      const iu = Math.round(u / CELL); const iv = Math.round(v / CELL);
-      if (!place(iu, iv, dens)) continue;
-      // Grow a neighbourhood around the seed so the fabric reads as continuous.
-      queue.push([iu, iv, dens]);
-      let grown = 0;
-      while (queue.length && grown < 14 && blocks.length < target) {
-        const [qu, qv, qd] = queue.shift();
-        for (const [du, dv] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const nu = qu + du; const nv = qv + dv;
-          const [wx, wz] = toWorld(nu * CELL, nv * CELL);
-          const nd = Math.max(cityDensity(wx, wz), qd < 0.05 ? 0 : 0);
-          if (rng() < (nd > 0.05 ? nd * 0.95 : villageDensity(wx, wz) * 0.6) && place(nu, nv, nd)) { queue.push([nu, nv, nd]); grown++; }
-        }
+    // Scan the true-north grid; fill cells with probability ∝ urban density,
+    // nearest the airport first so the visible edge is always complete.
+    const cand = [];
+    const R = 10500;
+    for (let iu = Math.floor(-R / CELL) - 60; iu <= Math.ceil(R / CELL) + 60; iu++) {
+      for (let iv = Math.floor(-R / CELL) - 60; iv <= Math.ceil(R / CELL) + 60; iv++) {
+        if (iu % 6 === 0 || iv % 6 === 0) continue;
+        const [x, z] = toWorld(iu * CELL, iv * CELL);
+        const dx = x + 300; const dz = z - 300;
+        const dist = Math.hypot(dx, dz);
+        if (dist > R || dist < 900) continue;
+        const city = cityDensity(x, z);
+        const dens = city > 0.04 ? city : villageDensity(x, z) * 0.8;
+        if (dens < 0.05) continue;
+        if (rng() > Math.min(0.96, dens * 1.7)) continue;
+        cand.push([iu, iv, dens, dist]);
       }
-      queue.length = 0;
     }
+    cand.sort((p1, p2) => p1[3] - p2[3]);
+    let reach = 0;
+    for (const [iu, iv, dens, dist] of cand) {
+      if (blocks.length >= target) break;
+      if (place(iu, iv, dens)) reach = dist;
+    }
+    this.reach = reach;
+    attempts = cand.length;
     this.blockCount = blocks.length;
 
     // ---- block material with lit windows ----
@@ -242,10 +243,10 @@ export class City {
         let run = [];
         const flush = () => { if (run.length > 2) paths.push(run); run = []; };
         for (let s = -9000; s <= 9000; s += 180) {
-          const u = dir === 0 ? k * 7 * CELL * 2 : s; const v = dir === 0 ? s : k * 7 * CELL * 2;
+          const u = dir === 0 ? k * 6 * CELL * 2 : s; const v = dir === 0 ? s : k * 6 * CELL * 2;
           const [x, z] = toWorld(u, v);
           const [wx, wz] = [x + centre[0], z + centre[1]];
-          const ok = cityDensity(wx, wz) > 0.3 && Math.hypot(wx + 300, wz - 300) < 9000;
+          const ok = cityDensity(wx, wz) > 0.45 && Math.hypot(wx + 300, wz - 300) < Math.min(9000, reach + 150);
           if (ok) run.push([wx, terrainHeight(wx, wz) + 0.25, wz]); else flush();
         }
         flush();
