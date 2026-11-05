@@ -774,10 +774,14 @@ export class HUD {
     let pct = num(safe(() => p.worldState().pct[id], NaN));
     if (!Number.isFinite(pct)) pct = num(safe(() => p.state.get(id).pct, NaN));
     if (Number.isFinite(pct) && pct > 1.0001) pct /= 100;
-    const match = (x) => x && (x.wbs === id || x.wbsId === id || x.taskId === id || (Array.isArray(x.wbs) && x.wbs.includes(id)));
-    const open = (x) => !/closed|resolved|done/i.test(String(x.status || ''));
-    const ncrs = safe(() => p.quality.ncrs.filter((x) => match(x) && open(x)), []);
-    const issues = safe(() => p.issues.filter((x) => match(x) && open(x)), []);
+    // A summary element (e.g. '3') owns every leaf task whose summaryId matches.
+    const kids = new Set([id, ...safe(() => p.tasks.filter((x) => x.summaryId === id).map((x) => x.id), [])]);
+    const match = (x) => !!x && [x.task, x.taskId, x.wbs, x.wbsId].some((v) => v && kids.has(v));
+    const open = (x) => !/closed|resolved|done|rejected|implemented/i.test(String(x.status || ''));
+    const ncrs = safe(() => (p.ncrs || p.quality.ncrs).filter((x) => match(x) && open(x)), []);
+    const changes = safe(() => p.changes.filter((x) => match(x) && open(x)), []);
+    // Open issues on the element: its open NCRs, open change requests and any issue logged against it.
+    const issues = [...ncrs, ...changes, ...safe(() => p.issues.filter((x) => match(x) && open(x)), [])];
     return { task, pct, ncrs, issues };
   }
 
@@ -886,7 +890,7 @@ export class HUD {
     const task = this._task(wbsId);
     const st = this._wbsStatus(wbsId);
     const dict = (task && task.dictionary) || {};
-    const node = safe(() => p.baseline.nodes.get(wbsId), null);
+    const node = safe(() => p.forecast.nodes.get(wbsId), null) || safe(() => p.baseline.nodes.get(wbsId), null);
     let budget = num(task && task.budget);
     let actual = num(safe(() => p.state.get(wbsId).actualCost, NaN));
     if (!Number.isFinite(budget)) {

@@ -657,19 +657,19 @@ function palmParts(rng) {
   const trunk = new GeoBuilder({ worldUV: false });
   const crown = new GeoBuilder({ worldUV: false });
   const h = 1; // unit tree, scaled per instance (height ~ 9-14 m)
-  const segs = 6;
+  const segs = 3;
   for (let i = 0; i < segs; i++) {
     const y0 = (i / segs) * h; const y1 = ((i + 1) / segs) * h;
-    const lean = 0.018 * i * i / segs;
-    trunk.cyl(0.032 - i * 0.002, y1 - y0, lean, y0, 0, i % 2 ? 0x6e5a44 : 0x7b6650, 7, 0.9);
+    const lean = 0.036 * i * i / segs;
+    trunk.cyl(0.032 - i * 0.004, y1 - y0, lean, y0, 0, i % 2 ? 0x6e5a44 : 0x7b6650, 6, 0.88);
   }
-  const top = 1.0; const leanTop = 0.018 * segs;
+  const top = 1.0; const leanTop = 0.036 * segs;
   const frond = new THREE.BufferGeometry();
   // A frond: arched blade of 5 segments, 2 triangles each, folded slightly (V section).
   const pts = []; const nor = [];
   const L = 0.42; const W = 0.07;
-  for (let k = 0; k < 5; k++) {
-    const t0 = k / 5; const t1 = (k + 1) / 5;
+  for (let k = 0; k < 3; k++) {
+    const t0 = k / 3; const t1 = (k + 1) / 3;
     const y0 = Math.sin(t0 * 2.2) * 0.13 - t0 * t0 * 0.12; const y1 = Math.sin(t1 * 2.2) * 0.13 - t1 * t1 * 0.12;
     const w0 = W * (1 - t0 * 0.75); const w1 = W * (1 - t1 * 0.75);
     const x0 = t0 * L; const x1 = t1 * L;
@@ -679,7 +679,7 @@ function palmParts(rng) {
   }
   frond.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
   frond.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-  const n = 14;
+  const n = 11;
   for (let i = 0; i < n; i++) {
     const yaw = (i / n) * Math.PI * 2 + rng() * 0.3;
     const pitch = (i % 2 ? 0.25 : -0.15) + rng() * 0.2;
@@ -689,14 +689,14 @@ function palmParts(rng) {
     const green = new THREE.Color().setHSL(0.2 + rng() * 0.05, 0.42, 0.24 + rng() * 0.08);
     crown.add(frond, _m, green);
   }
-  crown.cyl(0.05, 0.08, leanTop, top - 0.06, 0, 0x7a6a3c, 6);
+  crown.cyl(0.05, 0.08, leanTop, top - 0.06, 0, 0x7a6a3c, 5);
   frond.dispose();
   return { trunk: trunk.build(), crown: crown.build() };
 }
 
 function blobCanopy(rng, blobs, spread, flat, hue, sat, light) {
   const b = new GeoBuilder({ worldUV: false });
-  const ico = new THREE.IcosahedronGeometry(1, 1);
+  const ico = new THREE.IcosahedronGeometry(1, 0);
   const pos = ico.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     _v.fromBufferAttribute(pos, i);
@@ -716,7 +716,7 @@ function blobCanopy(rng, blobs, spread, flat, hue, sat, light) {
 
 function treeTrunk(fork) {
   const b = new GeoBuilder({ worldUV: false });
-  b.cyl(0.05, 0.62, 0, 0, 0, 0x4e3e30, 6, 0.7);
+  b.cyl(0.05, 0.62, 0, 0, 0, 0x4e3e30, 5, 0.7);
   if (fork) {
     b.beam(0, 0.5, 0, 0.18, 0.8, 0.05, 0.035, 0x4e3e30);
     b.beam(0, 0.5, 0, -0.15, 0.82, -0.06, 0.035, 0x4e3e30);
@@ -745,7 +745,7 @@ const VEG_PATCH = (mat, amp) => {
  * with items { x, z, h, ry, color? }.
  */
 export class Vegetation {
-  constructor(scene, placements, { seed = 77 } = {}) {
+  constructor(scene, placements, { seed = 77, shadows = true } = {}) {
     const rng = makeRng(seed);
     this.time = { value: 0 };
     this.trunkMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 });
@@ -763,8 +763,8 @@ export class Vegetation {
     const kikar = blobCanopy(rng, 5, 0.42, 0.32, 0.17, 0.3, 0.23);
     const scrubGeo = (() => {
       const g = new GeoBuilder({ worldUV: false });
-      const ico = new THREE.IcosahedronGeometry(1, 0);
-      for (let i = 0; i < 3; i++) {
+      const ico = new THREE.OctahedronGeometry(1, 0);
+      for (let i = 0; i < 2; i++) {
         _m.compose(_p.set((rng() - 0.5) * 0.8, 0.25, (rng() - 0.5) * 0.8), _q.identity(), _s.set(0.5 + rng() * 0.3, 0.35 + rng() * 0.2, 0.5 + rng() * 0.3));
         g.add(ico, _m, new THREE.Color().setHSL(0.14 + rng() * 0.06, 0.2 + rng() * 0.12, 0.3 + rng() * 0.1));
       }
@@ -779,13 +779,14 @@ export class Vegetation {
       return set;
     };
     const P = placements;
-    mk(palm.trunk, this.trunkMat, P.palm || [], 1);
-    mk(palm.crown, this.leafMat, P.palm || [], 1);
+    const sh = shadows;
+    mk(palm.trunk, this.trunkMat, P.palm || [], 1, sh);
+    mk(palm.crown, this.leafMat, P.palm || [], 1, sh);
     const neemT = treeTrunk(true); const kikT = treeTrunk(true);
-    mk(neemT, this.trunkMat, P.neem || [], 1);
-    mk(neem, this.leafMat, P.neem || [], 1);
-    mk(kikT, this.trunkMat, P.kikar || [], 1);
-    mk(kikar, this.leafMat, (P.kikar || []).map((t) => ({ ...t, w: 1.25 })), 1);
+    mk(neemT, this.trunkMat, P.neem || [], 1, sh);
+    mk(neem, this.leafMat, P.neem || [], 1, sh);
+    mk(kikT, this.trunkMat, P.kikar || [], 1, sh);
+    mk(kikar, this.leafMat, (P.kikar || []).map((t) => ({ ...t, w: 1.25 })), 1, sh);
     this.scrub = mk(scrubGeo, this.scrubMat, P.scrub || [], 1, false);
     this.scrub.mesh.receiveShadow = true;
   }

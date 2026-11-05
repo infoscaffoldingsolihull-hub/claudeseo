@@ -136,7 +136,7 @@ const FRAG_BODY = `
 
 export class TerrainSystem {
   constructor(scene, quality) {
-    const seg = Math.max(160, Math.min(320, (quality && quality.settings && quality.settings.terrainSegments) || 220));
+    const seg = Math.max(160, Math.min(240, (quality && quality.settings && quality.settings.terrainSegments) || 200));
     const half = 13000;
     const cx = -600; const cz = 400;
     const n = seg;

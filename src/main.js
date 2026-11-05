@@ -446,7 +446,9 @@ class Simulator {
         case 'h': case 'H': this.chat.toggle(); break;
         case 'b': case 'B': this.dashboard.toggle('agile'); break;
         case 'r': case 'R': this.dashboard.toggle('present'); break;
-        case 'c': case 'C': this.dashboard.open('control'); if (this.dashboard.focusChangeForm) this.dashboard.focusChangeForm(); break;
+        case 'c': case 'C':
+          if (this.mode === 'inspector') break;   // C is crouch on foot; raise CRs from the POI card
+          this.dashboard.open('control'); if (this.dashboard.focusChangeForm) this.dashboard.focusChangeForm(); break;
         case 'v': case 'V': this.chat.toggleVoice(); break;
         case 'm': case 'M': this.dashboard.toggle('missions'); break;
         case 't': case 'T': this.toast(this.touch.toggle() ? 'Touch controls on' : 'Touch controls off'); break;

@@ -187,7 +187,7 @@ export class City {
       return m;
     };
     this.blocks = inst(unit, this.blockMat, blocks, 'city-blocks', false);
-    const tankGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 8); tankGeo.translate(0, 0.5, 0);
+    const tankGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 6, 1, false); tankGeo.translate(0, 0.5, 0);
     this.disposables.push(tankGeo);
     this.plainMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
     this.disposables.push(this.plainMat);

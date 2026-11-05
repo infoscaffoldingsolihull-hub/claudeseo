@@ -32,10 +32,10 @@ const FRIENDLY = {
 };
 
 const TIER_COUNTS = {
-  low: { trees: 650, scrub: 2600, city: 1700, cars: 90 },
-  medium: { trees: 1200, scrub: 5200, city: 3200, cars: 160 },
-  high: { trees: 2000, scrub: 9000, city: 5200, cars: 240 },
-  ultra: { trees: 2800, scrub: 14000, city: 8000, cars: 320 },
+  low: { trees: 500, scrub: 1500, city: 1600, cars: 90 },
+  medium: { trees: 900, scrub: 3000, city: 3000, cars: 160 },
+  high: { trees: 1400, scrub: 5000, city: 4800, cars: 240 },
+  ultra: { trees: 2200, scrub: 8000, city: 7000, cars: 320 },
 };
 
 function mergeMaterials(engineLib, fallback) {
@@ -257,7 +257,7 @@ export class World {
       if (this._scrubBlocked(x, z)) continue;
       scrub.push({ x, y: terrainHeight(x, z) - 0.05, z, ry: rng() * 6.28, h: 0.7 + rng() * 1.4, w: 1.2 + rng() * 0.8 });
     }
-    this.vegetation = new Vegetation(this.scene, { palm, neem, kikar, scrub }, { seed: 12 });
+    this.vegetation = new Vegetation(this.scene, { palm, neem, kikar, scrub }, { seed: 12, shadows: false });
   }
 
   _scrubBlocked(x, z) {
