@@ -525,8 +525,7 @@ export class Airfield {
       const side = z < 0 ? 1 : -1;
       m.ribbon([[TAXILANE_X, z + side * 46], [TAXILANE_X - 8, z + side * 22], [TAXILANE_X - 26, z + side * 4], [TAXILANE_X - 50, z], [st.noseX + 2, z]], 0.3, Y.mark, Yel);
       m.quad(st.noseX - 0.6, z - 3, st.noseX + 0.6, z + 3, Y.mark, Yel);           // stop bar
-      for (const dz of [-38, 38]) m.quad(-470, z + dz - 0.15, -300, z + dz + 0.15, Y.mark, Red);  // stand safety lines
-      m.quad(-472, z - 38, -470, z + 38, Y.mark, Red);
+      for (const dz of [-40, 40]) m.quad(-470, z + dz - 0.12, -400, z + dz + 0.12, Y.mark, Red);  // stand boundary lines
       for (let x = -470; x < -440; x += 4) m.quad(x, z - 12, x + 2, z - 11.7, Y.mark, Wht);   // equipment restraint dash
       m.mark();
     }

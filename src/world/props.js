@@ -365,7 +365,7 @@ export class WorldMaterials {
     const concrete = (base, joint, seed, slabs) => (ctx, size) => {
       noiseFill(ctx, size, 6, 4, seed, (n, x, y) => {
         const s = hash2i(x, y, seed) < 0.03 ? -18 : 0;
-        const v = base + (n - 0.5) * 30 + s;
+        const v = base + (n - 0.5) * 16 + s * 0.5;
         return [clamp255(v + 4), clamp255(v + 2), clamp255(v - 3)];
       });
       ctx.strokeStyle = joint;
@@ -377,7 +377,7 @@ export class WorldMaterials {
       }
     };
     this.concrete = std({ map: tex(S, concrete(178, 'rgba(90,88,84,0.25)', 21, 1), 4), roughness: 0.9 });
-    this.concreteApron = std({ map: tex(S, concrete(190, 'rgba(70,68,64,0.5)', 22, 2), 15), roughness: 0.86 });
+    this.concreteApron = std({ map: tex(S, concrete(200, 'rgba(90,88,84,0.45)', 22, 2), 15), roughness: 0.86 });
 
     this.sand = std({
       map: tex(S, (ctx, size) => noiseFill(ctx, size, 16, 5, 31, (n, x, y) => {
@@ -418,7 +418,7 @@ export class WorldMaterials {
           ctx.fillStyle = g; ctx.fillRect(x, 0, size / 16, size);
         }
       }, 6),
-      metalness: 0.55, roughness: 0.38,
+      metalness: 0.25, roughness: 0.45, color: 0xf4efe6,
     });
     this.tile = std({
       map: tex(S, (ctx, size) => {

@@ -191,7 +191,7 @@ export const INTENTS = [
       if (S.spi >= 0.98 && S.scheduleVarianceDays <= 7 && !d) {
         return { text: `We are not materially behind: SPI ${idx(S.spi)} and the forecast finish is day ${Math.round(S.forecastFinish)} vs baseline ${Math.round(S.baselineDuration)}. Keep an eye on the near-critical paths.` };
       }
-      const L = [`SPI is ${idx(S.spi)} — ${pct(S.spi)} of planned value earned (SV ${money(S.sv)})${Number.isFinite(S.svt) ? `, about ${days(Math.max(0, -S.svt))} of earned schedule lost` : ''}. Forecast finish day ${Math.round(S.forecastFinish)} (${S.scheduleVarianceDays > 0 ? '+' : ''}${Math.round(S.scheduleVarianceDays)} d).`];
+      const L = [`SPI is ${idx(S.spi)} — ${pct(S.spi)} of planned value earned (SV ${money(S.sv)})${Number.isFinite(S.svt) && S.svt <= -1 ? `, about ${days(-S.svt)} of earned schedule lost` : ''}. Forecast finish day ${Math.round(S.forecastFinish)} (${S.scheduleVarianceDays > 0 ? '+' : ''}${Math.round(S.scheduleVarianceDays)} d).`];
       if (d) L.push(`Root cause: **${d.code} ${d.name}** is on the critical path, ${pct(d.pct)} complete vs ${pct(d.expected)} planned — ${d.reason}.`);
       const rk = riskIssues(ctx.project, S);
       if (rk.occurred.length) L.push(`Realised risks: ${rk.occurred.slice(0, 3).map((r) => `${r.id} ${r.title}`).join('; ')}.`);

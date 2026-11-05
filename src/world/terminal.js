@@ -164,7 +164,7 @@ export class Terminal {
       const idx = s.index.array;
       for (let i = 0; i < idx.length; i += 3) { const t2 = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = t2; }
       s.computeVertexNormals();
-      soffit.add(s, mtx, 0xc9a77c);
+      soffit.add(s, mtx, 0xe0c39a);
       g.dispose(); s.dispose();
       // Fascia: landside & airside edges follow the scallop.
       for (let k = 0; k < 8; k++) {
@@ -182,25 +182,26 @@ export class Terminal {
 
     // Mangho windcatchers (open faces towards the prevailing south-westerly → world +Z).
     const mb = new GeoBuilder(); const screens = new GeoBuilder(); const glow = new GeoBuilder({ worldUV: false });
-    const sand = 0xd2ad80; const cap = 0xb48a5c;
+    const sand = 0xd9b98e; const cap = 0xa8794c;
     const plane = new THREE.PlaneGeometry(1, 1);
     const q = new THREE.Quaternion(); const ps = new THREE.Vector3(); const sc = new THREE.Vector3();
     this.manghos = [];
     for (const z of [-135, -81, -27, 27, 81, 135]) {
-      for (const x of [-582, -504]) {
-        const w = 6; const h0 = 19; const h1 = 31;
-        mb.box(w, h1 - h0, 0.6, x, h0, z - w / 2 + 0.3, sand);        // back
-        mb.box(0.6, h1 - h0, w, x - w / 2 + 0.3, h0, z, sand);         // sides
-        mb.box(0.6, h1 - h0, w, x + w / 2 - 0.3, h0, z, sand);
-        mb.box(w, 4.5, 0.6, x, h0, z + w / 2 - 0.3, sand);             // low front parapet
-        mb.boxR(w + 0.8, 0.5, w * 1.25, x, h1 + 1.0, z - 0.2, cap, 0.42, 0, 0); // sloping cap, high at the back
-        for (let k = 0; k < 4; k++) mb.box(w - 1.2, 0.18, 0.18, x, h0 + 6 + k * 1.6, z + w / 2 - 0.3, cap);
+      for (const x of [-580, -506]) {
+        const w = 9; const h0 = 18; const h1 = 36;
+        mb.box(w, h1 - h0, 0.8, x, h0, z - w / 2 + 0.4, sand);        // back
+        mb.box(0.8, h1 - h0, w, x - w / 2 + 0.4, h0, z, sand);         // sides
+        mb.box(0.8, h1 - h0, w, x + w / 2 - 0.4, h0, z, sand);
+        mb.box(w, 6, 0.8, x, h0, z + w / 2 - 0.4, sand);               // low front parapet
+        mb.box(w + 0.6, 0.9, w + 0.6, x, h0 + 6.5, z, 0x9b1b30);       // Ajrak-red band
+        mb.boxR(w + 1.2, 0.7, w * 1.3, x, h1 + 1.4, z - 0.3, cap, 0.42, 0, 0); // sloping cap, high at the back
+        for (const s2 of [-1, 1]) mb.box(0.5, h1 - h0 - 7.5, 0.5, x + s2 * (w / 2 - 1.2), h0 + 7.5, z + w / 2 - 0.4, cap);
         mb.mark();
         q.identity();
-        ps.set(x, (h0 + 4.5 + h1) / 2 + 0.5, z + w / 2 - 0.2);
-        sc.set(w - 1.2, h1 - h0 - 4.5, 1);
+        ps.set(x, (h0 + 7.4 + h1) / 2, z + w / 2 - 0.3);
+        sc.set(w - 1.6, h1 - h0 - 7.4, 1);
         screens.add(plane, new THREE.Matrix4().compose(ps, q, sc), 0xffffff);
-        ps.z -= 0.8;
+        ps.z -= 1.0;
         glow.add(plane, new THREE.Matrix4().compose(ps, q, sc), 0xffffff);
         screens.mark(); glow.mark();
         this.manghos.push({ x, z });
@@ -220,7 +221,7 @@ export class Terminal {
     this.nameSign = this._add(sign);
     this.disposables.push(tex, sign.material, sign.geometry);
 
-    this._el('7.4', 'Terminal roof & mangho windcatchers', [xa, RH - 1, -180, xb, 33, 180], (p) => {
+    this._el('7.4', 'Terminal roof & mangho windcatchers', [xa, RH - 1, -180, xb, 38, 180], (p) => {
       this.p['7.4'] = p;
       this.roofTop.setProgress(p); this.roofSoffit.setProgress(p); this.roofFascia.setProgress(p);
       const m = Math.max(0, (p - 0.35) / 0.65);
@@ -315,7 +316,7 @@ export class Terminal {
     G(0.08, 'floor-inlays', layered(this.M.paint, 5, this.ctx.layerCache), (b) => {
       b.quad(X0 + 6, -168, X0 + 8, ARR_Z - 2, FY + 0.01, 0x9b1b30);
       b.quad(-548, -168, -546, ARR_Z - 2, FY + 0.01, 0x2b3a8c);
-      for (const z of ISLANDS) b.quad(-592, z - 6, -566, z + 6, FY + 0.01, 0x8f7a64);
+      for (const z of ISLANDS) b.quad(-592, z - 6.5, -566, z + 6.5, FY + 0.01, 0xc9bca6);
     });
 
     const crimson = 0x9b1b30; const indigo = 0x24317a; const sandstone = 0xd9c3a0; const steelC = 0x9aa1aa; const desk = 0xe9e4da; const black = 0x23262b;

@@ -144,7 +144,9 @@ export class Landside {
       canopy.beam(f.x0 + 18, 8.8, z, f.x1 - 4, 9.4, z, 0.3, 0xe9ebee);
     }
     canopy.box(f.x1 - f.x0 - 8, 0.45, f.z1 - f.z0 + 90, (f.x0 + f.x1) / 2 + 3, 9.4, 0, 0xf1efe9);
-    canopy.box(f.x1 - f.x0 - 8.4, 0.5, f.z1 - f.z0 + 90.4, (f.x0 + f.x1) / 2 + 3, 9.85, 0, 0x9b1b30);
+    canopy.box(f.x1 - f.x0 - 8.4, 0.25, f.z1 - f.z0 + 90.4, (f.x0 + f.x1) / 2 + 3, 9.85, 0, 0xdcdad4);
+    for (const zz of [f.z0 - 45, f.z1 + 45]) canopy.box(f.x1 - f.x0 - 8, 1.0, 0.5, (f.x0 + f.x1) / 2 + 3, 9.2, zz, 0x9b1b30);
+    canopy.box(0.5, 1.0, f.z1 - f.z0 + 90, f.x0 + 4, 9.2, 0, 0x9b1b30);
     canopy.mark();
     this.fcRoad = this._prog(road, this.newRoadMat, 'forecourt-road', false);
     this.fcLines = this._prog(lines, this.lineMat, 'forecourt-lines', false);
@@ -464,9 +466,9 @@ export class Landside {
     }
     this.landscapeVeg = new Vegetation(this.group, { palm: palms, neem, kikar: [], scrub: [] }, { seed: 31 });
     const lawn = new GeoBuilder();
-    lawn.quad(f.x0 + 16.8, f.z0 - 50, f.x0 + 19.2, f.z1 + 50, 0.2, 0x5c7a34);
-    lawn.quad(c.x1 + 1, c.z0, f.x0 - 1, c.z1, 0.04, 0x6a8a3a);
-    for (const [x, z] of [[-700, -260], [-700, 260], [-620, -300], [-620, 300]]) lawn.quad(x - 18, z - 22, x + 18, z + 22, 0.04, 0x678a3a);
+    lawn.quad(f.x0 + 16.8, f.z0 - 50, f.x0 + 19.2, f.z1 + 50, 0.2, 0x56653a);
+    lawn.quad(c.x1 + 1, c.z0, f.x0 - 1, c.z1, 0.04, 0x5f7040);
+    for (const [x, z] of [[-700, -260], [-700, 260], [-620, -300], [-620, 300]]) lawn.quad(x - 18, z - 22, x + 18, z + 22, 0.04, 0x5d6e3e);
     lawn.mark();
     for (let k = 0; k < 40; k++) {
       const x = c.x1 + 2 + rng() * 24; const z = c.z0 + rng() * (c.z1 - c.z0);

@@ -11,7 +11,7 @@ import {
   analyse, readState, executeAction, standupText, statusReport, riskResponses, changeImpact,
   stakeholderMessage, westernElectricCheck, tutorText, STATE_CHANGING, criticalPath, scheduleDriver,
 } from '../../src/ai/rules.js';
-import { parseSSE, buildSystemPrompt, TOOLS, compactSnapshot } from '../../src/ai/llm.js';
+import { parseSSE, buildSystemPrompt, TOOLS, compactSnapshot, LiveEngine, setKey, getKey, clearKey } from '../../src/ai/llm.js';
 
 function mockProject() {
   const tasks = [
@@ -376,4 +376,67 @@ test('system prompt embeds the snapshot and the grounding rule; tools are well-f
   const names = TOOLS.map((t) => t.name);
   for (const n of ['get_snapshot', 'get_critical_path', 'run_monte_carlo', 'propose_change_request', 'draft_status_report', 'explain_term']) assert.ok(names.includes(n), n);
   for (const t of TOOLS) assert.equal(t.input_schema.type, 'object');
+});
+
+test('live engine: key stays in sessionStorage, tool loop echoes blocks, HTTP errors throw for fallback', async () => {
+  const mem = new Map();
+  globalThis.sessionStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
+  try {
+    setKey('test-key-not-real');
+    assert.equal(getKey(), 'test-key-not-real');
+    const sse = (events) => events.map((e) => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`).join('');
+    const turn1 = sse([
+      { type: 'content_block_start', index: 0, content_block: { type: 'thinking', thinking: '', signature: '' } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'signature_delta', signature: 'S1' } },
+      { type: 'content_block_stop', index: 0 },
+      { type: 'content_block_start', index: 1, content_block: { type: 'tool_use', id: 'tu_1', name: 'get_critical_path', input: {} } },
+      { type: 'content_block_delta', index: 1, delta: { type: 'input_json_delta', partial_json: '{}' } },
+      { type: 'content_block_stop', index: 1 },
+      { type: 'message_delta', delta: { stop_reason: 'tool_use' } },
+    ]);
+    const turn2 = sse([
+      { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'The path runs through 3.2.' } },
+      { type: 'content_block_stop', index: 0 },
+      { type: 'message_delta', delta: { stop_reason: 'end_turn' } },
+    ]);
+    const bodies = [];
+    const replies = [turn1, turn2];
+    const fetchImpl = async (url, init) => {
+      assert.equal(url, 'https://api.anthropic.com/v1/messages');
+      assert.equal(init.headers['x-api-key'], 'test-key-not-real');
+      assert.equal(init.headers['anthropic-version'], '2023-06-01');
+      assert.equal(init.headers['anthropic-dangerous-direct-browser-access'], 'true');
+      const body = JSON.parse(init.body);
+      bodies.push(body);
+      assert.equal(body.stream, true);
+      return { ok: true, status: 200, text: async () => replies.shift() };
+    };
+    const calls = [];
+    const eng = new LiveEngine({ getModel: () => 'claude-haiku-5-5', getSnapshot: () => ({ spi: 0.8 }), runTool: async (n) => { calls.push(n); return [{ code: '3.2' }]; }, fetchImpl });
+    let streamed = '';
+    const r = await eng.ask([{ role: 'assistant', text: 'hello' }, { role: 'user', text: 'hi' }], 'critical path?', { onDelta: (t) => { streamed += t; } });
+    assert.deepEqual(calls, ['get_critical_path']);
+    assert.equal(r.text, 'The path runs through 3.2.');
+    assert.equal(streamed, 'The path runs through 3.2.');
+    assert.equal(bodies.length, 2);
+    assert.equal(bodies[0].model, 'claude-haiku-5-5');
+    assert.equal(bodies[0].messages[0].role, 'user', 'history starts with a user turn');
+    const echoed = bodies[1].messages[bodies[1].messages.length - 2];
+    assert.equal(echoed.role, 'assistant');
+    assert.equal(echoed.content[0].type, 'thinking');
+    assert.equal(echoed.content[0].signature, 'S1');
+    const results = bodies[1].messages[bodies[1].messages.length - 1];
+    assert.equal(results.content[0].type, 'tool_result');
+    assert.equal(results.content[0].tool_use_id, 'tu_1');
+    assert.ok(!JSON.stringify(bodies).includes('test-key-not-real'), 'key never in the request body');
+
+    const bad = new LiveEngine({ fetchImpl: async () => ({ ok: false, status: 401, json: async () => ({ error: { message: 'invalid x-api-key' } }) }) });
+    await assert.rejects(() => bad.ask([], 'hi'), /API key rejected/);
+    clearKey();
+    assert.equal(getKey(), '');
+    await assert.rejects(() => eng.ask([], 'hi'), /unavailable/);
+  } finally {
+    delete globalThis.sessionStorage;
+  }
 });

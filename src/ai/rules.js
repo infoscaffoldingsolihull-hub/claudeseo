@@ -295,7 +295,7 @@ export function scheduleDriver(p, S) {
   if (Number.isFinite(late) && late > 3) {
     out.reason = `started ${days(late)} late (day ${Math.round(num(st.actualStart))} vs baseline day ${Math.round(num(st.actualStart) - late)}), and its crews are fully supplied`;
     out.recommendation = `The slip was inherited from a predecessor, so adding labour to ${worst.code} cannot recover it; compress what is still ahead — ask me to "crash ${Math.max(5, Math.min(60, Math.round(late)))} days" or fast-track ${worst.code}'s successor.`;
-    out.action = { kind: 'crash', label: `Price a ${days(Math.max(5, Math.min(60, Math.round(late))))} crash`, args: { days: Math.max(5, Math.min(60, Math.round(late))) }, detail: `Apply the least-cost crash plan for ${days(Math.max(5, Math.min(60, Math.round(late))))}.` };
+    out.action = { kind: 'crash', label: `Crash ${days(Math.max(5, Math.min(60, Math.round(late))))}`, args: { days: Math.max(5, Math.min(60, Math.round(late))) }, detail: `Apply the least-cost crash plan for ${days(Math.max(5, Math.min(60, Math.round(late))))}.` };
     return out;
   }
   if (Number.isFinite(perf) && perf < 0.97) {
@@ -572,7 +572,7 @@ export function analyse(p, extras = {}) {
       id: 'schedule', domain: 'Schedule',
       severity: S.spi < 0.88 ? 'critical' : 'warning',
       title: `Behind schedule — SPI ${idx(S.spi)}`,
-      why: `Only ${pct(S.spi)} of the planned work is done (EV ${money(S.ev)} vs PV ${money(S.pv)})` + (behind ? `, about ${days(behind)} of earned schedule lost.` : '.') +
+      why: `Only ${pct(S.spi)} of the planned work is done (EV ${money(S.ev)} vs PV ${money(S.pv)})` + (behind >= 1 ? `, about ${days(behind)} of earned schedule lost.` : '.') +
         (driver ? ` The binding constraint is ${driver.code} ${driver.name}: ${pct(driver.pct)} complete against ${pct(driver.expected)} planned, ${driver.reason}.` : ' No single critical activity dominates; the loss is spread along the path.'),
       recommendation: driver ? driver.recommendation : 'Compress the critical path (crash the cheapest days first) or re-sequence near-critical work.',
       impact: driver && driver.impact,
