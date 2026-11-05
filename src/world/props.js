@@ -142,8 +142,18 @@ export class GeoBuilder {
   /** Flat quad from 4 arbitrary corners (counter-clockwise seen from above: a,b,c,d). */
   quad4(a, b, c2, d, y, color) {
     _c.set(color === undefined ? 0xffffff : color);
+    // Auto-orient so the face points up (front face from above).
+    if ((b[1] - a[1]) * (c2[0] - a[0]) - (b[0] - a[0]) * (c2[1] - a[1]) < 0) { const t = b; b = d; d = t; }
     const pts = [a, b, c2, a, c2, d];
     for (const q of pts) { this.p.push(q[0], y, q[1]); this.n.push(0, 1, 0); this.c.push(_c.r, _c.g, _c.b); this.u.push(q[0], q[1]); }
+    return this;
+  }
+
+  /** Quad from 4 corners [x,y,z] (a,b,c,d counter-clockwise from above), normal up. */
+  quad3(a, b, c2, d, color) {
+    _c.set(color === undefined ? 0xffffff : color);
+    if ((b[2] - a[2]) * (c2[0] - a[0]) - (b[0] - a[0]) * (c2[2] - a[2]) < 0) { const t = b; b = d; d = t; }
+    for (const q of [a, b, c2, a, c2, d]) { this.p.push(q[0], q[1], q[2]); this.n.push(0, 1, 0); this.c.push(_c.r, _c.g, _c.b); this.u.push(q[0], q[2]); }
     return this;
   }
 
@@ -781,6 +791,9 @@ export class Vegetation {
   }
 
   update(dt) { this.time.value += dt; }
+
+  /** Reveal planted trees in placement order (landscaping works). */
+  setProgress(p) { for (const s of this.sets) s.setProgress(p); }
 
   dispose() {
     for (const s of this.sets) s.dispose();

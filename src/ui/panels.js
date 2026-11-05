@@ -270,6 +270,7 @@ export class Dashboard {
       b.setAttribute('aria-pressed', pid === id ? 'true' : 'false');
     }
     this.jump.value = id;
+    if (window.innerWidth <= 780 && this.rail.classList.contains('expanded')) this.setExpanded(false);
     this.body.scrollTop = 0;
     if (previous !== id) this._callHook(id, 'onOpen');
     this.render();

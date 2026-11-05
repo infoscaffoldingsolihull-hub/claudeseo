@@ -10,13 +10,18 @@ import { el, clear, icon, t, button, field } from './dom.js';
  * player does the thing it describes. Sets `settings.onboarded`.
  */
 
+function put(node, ...kids) {
+  for (const k of kids) if (k !== null && k !== undefined && k !== false) node.append(k);
+  return node;
+}
+
 const SPOTS = [
   { sel: '.instruments', title: 'Your instrument panel', text: 'Project date, phase, % complete, SPI and CPI, budget burn against work earned, quality, weather and local time. Green is on track, amber is watch, red is act.', secs: 9 },
-  { sel: '.hud-top .modes', alt: '.mode-arrows', title: 'Five ways to see the project', text: 'Try it now: press 1 to walk the site as an inspector, 4 to fly the drone, 2 to come back here. Operations (5) unlocks at handover.', secs: 11, waitFor: 'mode:changed' },
+  { sel: '.hud-top .modes', alt: '.mode-arrows', title: 'Five ways to see the project', text: 'Try it now: press 1 to walk the site as an inspector, 4 to fly the drone, 2 to come back here. Operations (5) unlocks at handover.', touchText: 'Try it now: tap the arrows to walk the site as an inspector or fly the drone, then come back to Project Manager. Operations unlocks at handover.', secs: 11, waitFor: 'mode:changed' },
   { sel: '.hud-top .speed', alt: '.speed-cycle', title: 'The project clock', text: 'Each setting is project days per real second. P pauses. Decisions stop the clock until you choose.', secs: 8 },
-  { sel: '.rail', title: 'The dashboard, in course order', text: '25 panels from Foundations to Close & assess — charter, WBS, schedule, earned value, risk, quality, change control and more. Open one now, or press Tab.', secs: 11, waitFor: 'panel:opened' },
-  { sel: '.hud-top .mehran', title: 'MEHRAN, your AI project manager', text: 'Ask anything — “why is CPI falling?”, “draft a status report”. Every action MEHRAN proposes waits for your approval. Press H.', secs: 9 },
-  { sel: '.hud-top .tool-btns', title: 'Help is one key away', text: 'Press ? for every control, K for sound, F for renderer statistics. You are ready — good luck with the programme.', secs: 7 },
+  { sel: '.rail-scroll', alt: '.rail-toggle', title: 'The dashboard, in course order', text: '25 panels from Foundations to Close & assess — charter, WBS, schedule, earned value, risk, quality, change control and more. Open one now, or press Tab.', touchText: '25 panels from Foundations to Close & assess. Tap the menu button to open the drawer, then pick a panel.', secs: 11, waitFor: 'panel:opened' },
+  { sel: '.hud-top .mehran', title: 'MEHRAN, your AI project manager', text: 'Ask anything — “why is CPI falling?”, “draft a status report”. Every action MEHRAN proposes waits for your approval. Press H.', touchText: 'Ask anything — “why is CPI falling?”, “draft a status report”. Every action MEHRAN proposes waits for your approval. Tap the chat button.', secs: 9 },
+  { sel: '.hud-top .tool-btns', title: 'Help is one key away', text: 'Press ? for every control, K for sound, F for renderer statistics. You are ready — good luck with the programme.', touchText: 'The ? button lists every control, including the on-screen stick and action pad. You are ready — good luck with the programme.', secs: 7 },
 ];
 
 const DIFFICULTIES = [
@@ -126,13 +131,13 @@ export class Onboarding {
     const total = this.steps - 1;
     this.timerBar.firstChild.style.width = `${(this.step / total) * 100}%`;
     setTimeout(() => {
-      const f = this.callout.querySelector('.action.primary, input, button');
+      const f = this.callout.querySelector('input') || this.callout.querySelector('.action.primary') || this.callout.querySelector('button');
       if (f) f.focus({ preventScroll: true });
     }, 30);
   }
 
   _welcome(c) {
-    c.append(
+    put(c, 
       el('div', { class: 'ob-hero' }, [
         el('span', { class: 'ob-mark' }, [icon('planeUp', 30)]),
         el('div', {}, [el('div', { class: 'ob-eyebrow', text: 'HDD · OPKD · Sindh, Pakistan' }), el('h2', { text: 'SKY GATEWAY HYDERABAD' })]),
@@ -157,7 +162,7 @@ export class Onboarding {
     const name = el('input', { type: 'text', maxlength: 60, value: ch.name, placeholder: 'Shown on your reports and scorecard', autocomplete: 'name' });
     name.addEventListener('input', () => { ch.name = name.value; });
     name.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); this.next(); } });
-    c.append(
+    put(c, 
       el('div', { class: 'ob-eyebrow', text: 'Step 1 · Who is driving?' }),
       el('h2', { text: 'Choose your role' }),
       el('div', { class: 'ob-choices two', role: 'radiogroup', 'aria-label': 'Role' }, [
@@ -173,7 +178,7 @@ export class Onboarding {
     const ch = this.choice;
     const seed = el('input', { type: 'number', min: 1, step: 1, value: ch.seed, inputmode: 'numeric', 'aria-label': 'Scenario seed' });
     seed.addEventListener('input', () => { ch.seed = Number(seed.value); });
-    c.append(
+    put(c, 
       el('div', { class: 'ob-eyebrow', text: 'Step 2 · Charter the project' }),
       el('h2', { text: 'Set the scenario' }),
       el('div', { class: 'ob-choices three', role: 'radiogroup', 'aria-label': 'Difficulty' }, DIFFICULTIES.map((d) => el('button', {
@@ -213,10 +218,10 @@ export class Onboarding {
     if ((!target || !target.offsetWidth) && spot.alt) target = document.querySelector(spot.alt);
     this._target = target && target.offsetWidth ? target : null;
     const progress = el('div', { class: 'ob-steptimer' }, [el('i', { style: { animationDuration: `${spot.secs}s` } })]);
-    c.append(
+    put(c, 
       el('div', { class: 'ob-eyebrow', text: `Tour · ${this.step - 2} of ${SPOTS.length}` }),
       el('h3', { text: spot.title }),
-      el('p', { text: spot.text }),
+      el('p', { text: document.body.classList.contains('touch-mode') && spot.touchText ? spot.touchText : spot.text }),
       progress,
       this._nav(this.step === this.steps - 1 ? 'Finish' : t('action.next')),
     );

@@ -30,8 +30,12 @@ export const MODES = [
 
 const PHASES = ['initiating', 'planning', 'executing', 'monitoring', 'closing'];
 
-/** Which direction is "good" for each trade-off dimension (+1: more is better, −1: more is worse). */
-const POLARITY = { time: -1, cost: -1, risk: -1, quality: 1, stakeholders: 1, safety: 1, scope: 0 };
+/**
+ * Trade-off convention (src/game/decisions.js): every dimension is scored from
+ * the project's point of view, so + is favourable and − unfavourable
+ * (time +1 = faster, cost −1 = dearer, risk +1 = less exposure).
+ */
+const POLARITY = { time: 1, cost: 1, risk: 1, quality: 1, stakeholders: 1, safety: 1, scope: 1 };
 const TRADE_ICON = { time: 'gantt', cost: 'coins', quality: 'gauge', risk: 'warning', stakeholders: 'people', safety: 'shield', scope: 'tree' };
 
 const safe = (fn, dflt) => {
@@ -42,6 +46,12 @@ const safe = (fn, dflt) => {
     return dflt;
   }
 };
+
+/** append() that skips null/false children (Element.append would print "null"). */
+function put(node, ...kids) {
+  for (const k of kids) if (k !== null && k !== undefined && k !== false) node.append(k);
+  return node;
+}
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : NaN);
 
@@ -337,15 +347,8 @@ export class HUD {
       this.closeCards();
       this._metricTimer = 1;
     });
-    bus.on('project:milestone', ({ name } = {}) => {
-      this.toast(`Milestone reached — ${name || 'milestone'}`, 'good');
-      if (this.sim.confetti) this.sim.confetti();
-    });
-    bus.on('mission:completed', ({ mission } = {}) => {
-      this.toast(`Mission complete — ${(mission && mission.name) || ''}`.trim(), 'good');
-      if (this.sim.confetti) this.sim.confetti();
-    });
-    bus.on('badge:earned', ({ badge } = {}) => this.toast(`Badge earned — ${(badge && (badge.name || badge.title)) || badge || ''}`, 'good'));
+    // The game director toasts milestones, missions and badges itself; the HUD adds the celebration.
+    bus.on('mission:completed', () => { if (this.sim.confetti) this.sim.confetti(); });
     bus.on('xp:gained', ({ amount, reason } = {}) => this._floatXp(amount, reason));
     bus.on('mode:changed', () => { this._metricTimer = 1; this._refreshModes(); });
     bus.on('overlay:changed', () => this._refreshOverlayButtons());
@@ -628,6 +631,7 @@ export class HUD {
     this.xpLevel.textContent = `Lv ${level}`;
     this.xpName.textContent = g.levelName || '';
     let frac = num(g.levelProgress);
+    if (!Number.isFinite(frac)) frac = num(safe(() => g.levelInfo.progress, NaN));
     if (!Number.isFinite(frac) && Number.isFinite(g.nextLevelXp)) {
       const base = Number.isFinite(g.levelXp) ? g.levelXp : 0;
       frac = (g.xp - base) / Math.max(1, g.nextLevelXp - base);
@@ -658,7 +662,7 @@ export class HUD {
     if (sig === this._missionSig) return;
     this._missionSig = sig;
     const n = objs.filter(done).length;
-    clear(this.missionHud).append(
+    put(clear(this.missionHud), 
       el('div', { class: 'card-eyebrow' }, [icon('flag', 13), el('span', { text: `Mission ${mission.id || ''}` }), mission.clo ? pill([].concat(mission.clo).join(' '), 'clo') : null, el('em', { text: `${n}/${objs.length}` })]),
       el('h4', { dir: 'auto', text: mission.name || 'Mission' }),
       mission.brief ? el('p', { class: 'brief', text: mission.brief }) : null,
@@ -692,7 +696,7 @@ export class HUD {
   _updateStats() {
     const st = safe(() => this.sim.engine.stats, {}) || {};
     const mem = safe(() => performance.memory.usedJSHeapSize, null);
-    clear(this.statsHud).append(
+    put(clear(this.statsHud), 
       el('div', {}, [el('b', { text: Number.isFinite(st.fps) ? st.fps.toFixed(0) : '—' }), ' fps · ', String(st.tier || '—')]),
       el('div', { text: `${(st.calls || 0).toLocaleString('en-US')} draw calls` }),
       el('div', { text: `${(st.triangles || 0).toLocaleString('en-US')} triangles` }),
@@ -780,7 +784,7 @@ export class HUD {
     const wbs = poi.wbsId || null;
     const st = wbs ? this._wbsStatus(wbs) : { task: null, pct: NaN, ncrs: [], issues: [] };
     const card = clear(this.poiCard);
-    card.append(
+    put(card, 
       el('div', { class: 'card-head' }, [
         el('span', { class: 'card-ico' }, [icon('eye', 18)]),
         el('div', { class: 'card-titles' }, [
@@ -813,7 +817,7 @@ export class HUD {
     }
     const st = this._wbsStatus(wbs);
     const q = st.ncrs.length ? pill(`${st.ncrs.length} open NCR${st.ncrs.length > 1 ? 's' : ''}`, 'bad') : pill('Conforming', 'ok');
-    live.append(
+    put(live, 
       el('div', { class: 'mini-kpis' }, [
         el('div', {}, [el('small', { text: 'Complete' }), el('b', { text: Number.isFinite(st.pct) ? fmtPct(st.pct, 0) : '—' })]),
         el('div', {}, [el('small', { text: 'Quality' }), q]),
@@ -902,7 +906,7 @@ export class HUD {
       this.overlayButtons.push(b);
       return b;
     };
-    clear(this.selCard).append(
+    put(clear(this.selCard), 
       el('div', { class: 'card-head' }, [
         el('span', { class: 'card-ico', style: task && task.color ? { color: task.color } : null }, [icon('tree', 18)]),
         el('div', { class: 'card-titles' }, [
@@ -955,9 +959,11 @@ export class HUD {
     if (card === this.selCard) this._selectionId = null;
   }
 
+  /** Close the POI and selection cards, and any decision card the game has already resolved. */
   closeCards() {
     this._hideCard(this.poiCard);
     this._hideCard(this.selCard);
+    this._dropDecision();
   }
 
   /* ========================================================== narration */
@@ -967,7 +973,7 @@ export class HUD {
     const captions = safe(() => this.sim.settings.get('accessibility.captions'), true) !== false;
     this.narration.classList.toggle('no-captions', !captions);
     const clos = [].concat(o.clo || []).filter(Boolean);
-    clear(this.narration).append(
+    put(clear(this.narration), 
       el('div', { class: 'narr-eyebrow' }, [
         o.phase ? el('span', { text: t(`phase.${String(o.phase).toLowerCase()}`, humanize(o.phase)) }) : null,
         ...clos.map((c) => pill(c, 'clo')),
@@ -987,7 +993,7 @@ export class HUD {
     const n = Math.max(0, Number(total) || 0);
     const i = Math.max(0, Math.min(n - 1, Number(index) || 0));
     const tour = this.sim.tour;
-    clear(this.tourBar).append(
+    put(clear(this.tourBar), 
       el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Previous beat', title: 'Previous (←)', onclick: () => tour && tour.previous && tour.previous() }, [icon('prev', 16)]),
       el('div', { class: 'tour-track' }, Array.from({ length: n }, (_, k) => el('button', {
         type: 'button', class: k < i ? 'done' : k === i ? 'now' : '', 'aria-label': `Go to beat ${k + 1}`, title: `Beat ${k + 1}`,
@@ -1018,13 +1024,14 @@ export class HUD {
     if (typeof v === 'number' && Number.isFinite(v)) {
       sign = Math.sign(v);
       const a = Math.abs(v);
-      const arrow = sign > 0 ? '▲' : sign < 0 ? '▼' : '●';
+      const arrow = sign > 0 ? '+' : sign < 0 ? '−' : '±';
       if (a === 0) text = '±0';
       else if (a <= 3 && Number.isInteger(a)) text = arrow.repeat(a);
       else if (dim === 'cost' && a >= 1000) text = `${arrow} ${fmtPKR(v, 2)}`;
       else if (dim === 'time') text = `${arrow} ${Math.round(a)} d`;
       else if (a < 1) text = `${arrow} ${Math.round(a * 100)}%`;
       else text = `${arrow} ${a.toFixed(a < 10 ? 1 : 0)}`;
+      if (a === 0) return null;
     } else if (typeof v === 'string') {
       text = v;
       sign = /^\s*[+▲↑]/.test(v) ? 1 : /^\s*[-−▼↓]/.test(v) ? -1 : 0;
@@ -1053,6 +1060,7 @@ export class HUD {
       el('span', { class: 'opt-body' }, [
         el('b', { dir: 'auto', text: o.label || `Option ${i + 1}` }),
         o.detail || o.description ? el('small', { text: o.detail || o.description }) : null,
+        o.summary ? el('span', { class: 'visually-hidden', text: `Trade-off: ${o.summary}` }) : null,
         el('span', { class: 'trades' }, Object.entries(o.tradeoff || {}).map(([k, v]) => this._tradeChip(k, v)).filter(Boolean)),
       ]),
     ]));
@@ -1074,7 +1082,6 @@ export class HUD {
     ]);
     clear(this.decisionLayer).appendChild(el('div', { class: 'decision-backdrop' }, [card]));
     this.decisionLayer.classList.add('show');
-    if (this.sim.bus) this.sim.bus.emit('decision:shown', { event, option: null });
     setTimeout(() => { if (optionNodes[0]) optionNodes[0].focus({ preventScroll: true }); }, 0);
   }
 
@@ -1089,8 +1096,22 @@ export class HUD {
     } catch (err) {
       console.error('[hud] decision handler failed', err);
     }
+    this._nextDecision();
+  }
+
+  _nextDecision() {
+    if (this._decision) return;
     const next = this._decisionQueue.shift();
     if (next) this.showDecision(next[0], next[1]);
+  }
+
+  /** Close the decision card without choosing (the game resolved it, e.g. QA autoResolve). */
+  _dropDecision() {
+    if (!this._decision) return;
+    this._decision = null;
+    this.decisionLayer.classList.remove('show');
+    clear(this.decisionLayer);
+    setTimeout(() => this._nextDecision(), 0);
   }
 
   blocking() {
