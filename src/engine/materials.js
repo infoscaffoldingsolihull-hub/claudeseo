@@ -118,7 +118,7 @@ float hddDustCover = 0.0;
       vec2 hddR = mat2( 0.8, -0.6, 0.6, 0.8 ) * vMapUv * 0.61 + vec2( 0.37, 0.71 );
       vec4 hddAlt = texture2D( map, hddR );
       float hddW = smoothstep( 0.35, 0.65, hddMb.a );
-      diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * 0.0 + hddAlt.rgb * ( diffuseColor.rgb / max( texture2D( map, vMapUv ).rgb, vec3( 0.02 ) ) ), hddW * 0.5 );
+      diffuseColor.rgb = mix( diffuseColor.rgb, diffuse * hddAlt.rgb, hddW * 0.5 );
     #endif
   #endif
   float hddVar = ( hddMa.r - 0.5 ) * hddMacroAmt + ( hddMb.g - 0.5 ) * hddMacroAmt * 0.6;

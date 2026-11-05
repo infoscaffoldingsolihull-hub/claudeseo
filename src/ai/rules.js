@@ -269,7 +269,7 @@ export function scheduleDriver(p, S) {
     if (target > scarcest.assigned) out.action = { kind: 'staffing', label: `Set ${scarcest.r.name || scarcest.r.id} to ${target}`, args: { resId: scarcest.r.id, n: target } };
     return out;
   }
-  const hit = arr(p.risks).find((r) => r.status === 'Occurred' && affects(r).includes(worst.id));
+  const hit = arr(p.risks).find((r) => (num(r.until, -1) >= day || (r.status === 'Occurred' && num(st.riskDays, 1) > 0)) && affects(r).includes(worst.id));
   if (hit) {
     out.reason = `hit by realised risk ${hit.id} (${hit.title})`;
     out.recommendation = `Work the response for ${hit.id}${strategyText(hit) ? ': ' + strategyText(hit) : ''}`;
@@ -278,12 +278,21 @@ export function scheduleDriver(p, S) {
   if (S && S.weather && Number.isFinite(S.weather.workFactor) && S.weather.workFactor < 0.9) {
     out.reason = `losing productivity to ${String(S.weather.label).toLowerCase()} (work factor ${pct(S.weather.workFactor)})`;
     out.recommendation = 'Shift weather-sensitive work to night shifts or re-sequence indoor work onto the critical path while it lasts.';
+    return out;
+  }
+  const perf = num(st.perf, NaN);
+  if (Number.isFinite(perf) && perf < 0.97) {
+    const welfare = num(p.welfare, NaN);
+    out.reason = `running at ${pct(perf)} of planned productivity` + (Number.isFinite(welfare) && welfare < 0.8 ? ` (workforce welfare ${pct(welfare)})` : '');
+    out.recommendation = Number.isFinite(welfare) && welfare < 0.8
+      ? `Fix welfare before adding headcount, then put the strongest crew on ${worst.code}; ask me to "crash ${Math.max(5, Math.round(worst.gap * worst.dur))} days" to price recovery.`
+      : `Give ${worst.code} priority access to crews and approvals; if that is not enough, crash it (cost slope ${money(num(task.costSlope, NaN))}/day).`;
   }
   return out;
 }
 
 function affects(r) {
-  return arr(r.wbs || r.affects || r.packages || r.tasks || r.wbsIds);
+  return [...new Set([...arr(r.wbs), ...arr(r.affects), ...arr(r.taskIds), ...arr(r.packages), ...arr(r.tasks)])];
 }
 
 function strategyName(s) {
@@ -298,7 +307,7 @@ function strategyText(r) {
   if (!s) return '';
   if (Array.isArray(s)) return s[1] || '';
   if (typeof s === 'string') return '';
-  return s.text || s.description || s.detail || '';
+  return s.action || s.text || s.description || s.detail || '';
 }
 
 /** Resource pools: starved (demand > supply), over capacity, idle (supply ≫ demand). */
@@ -358,7 +367,7 @@ export function qualityIssues(p) {
     const outOfSpec = samples.filter((s) => (typeof s === 'object' && s.ok === false) || (Number.isFinite(num(m.lsl)) && num(s.value) < num(m.lsl)) || (Number.isFinite(num(m.usl)) && num(s.value) > num(m.usl))).length;
     metrics.push({ key, name: m.name || key, unit: m.unit || '', n: values.length, mean, sigma, cl, target: num(m.target), latest: values[values.length - 1], hits: westernElectricCheck(values, cl, sigma), outOfSpec });
   }
-  const ncrs = arr(q.ncrs);
+  const ncrs = arr(q.ncrs).length ? arr(q.ncrs) : arr(p && p.ncrs);
   const openNcrs = ncrs.filter((n) => !/closed/i.test(String(n.status || '')));
   const coq = q.costOfQuality || {};
   const defects = Object.entries(q.defects || {}).map(([k, v]) => ({ category: k, count: num(v, 0) })).sort((a, b) => b.count - a.count);

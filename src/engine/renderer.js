@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { PostFX } from './postfx.js';
 import { QualityManager } from './quality.js';
+import { MaterialLibrary } from './materials.js';
+import { TextureLibrary } from './textures.js';
 
 /**
  * Engine: owns the WebGL context, the camera, the post chain and the frame
@@ -134,6 +136,15 @@ export class Engine {
     return dt;
   }
 
+  /** Shared PBR material library (built on first use, reusing main's TextureLibrary). */
+  get materials() {
+    if (!this._materials) {
+      const tex = this.quality.textureLibrary || new TextureLibrary(this.quality);
+      this._materials = new MaterialLibrary(tex, this.quality);
+    }
+    return this._materials;
+  }
+
   get stats() {
     const info = this.renderer.info;
     return {
@@ -153,6 +164,7 @@ export class Engine {
     this.canvas.removeEventListener('webglcontextlost', this._onLost);
     this.canvas.removeEventListener('webglcontextrestored', this._onRestored);
     this.postfx.dispose();
+    if (this._materials) this._materials.dispose();
     this.renderer.dispose();
   }
 }

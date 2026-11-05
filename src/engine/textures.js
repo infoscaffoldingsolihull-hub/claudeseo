@@ -887,6 +887,8 @@ export class TextureLibrary {
   constructor(quality) {
     this.quality = quality;
     this.cache = new Map();
+    // Let the Engine's lazily-built MaterialLibrary share this library.
+    if (quality && !quality.textureLibrary) quality.textureLibrary = this;
   }
 
   /** Texel size per tier. Hero sets (pavements, sand, floor) get the larger size. */
