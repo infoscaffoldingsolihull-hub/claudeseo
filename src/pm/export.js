@@ -52,7 +52,6 @@ function money(v) {
 export function toMSPDI(project) {
   const startMs = project.startDate.getTime();
   const nodes = project.baseline.nodes;
-  const live = project.forecast && project.forecast.nodes;
   const tasks = project.tasks;
   const lines = [];
   const out = (s) => lines.push(s);
@@ -185,7 +184,6 @@ export function toMSPDI(project) {
     kIndex++;
     const n = nodes.get(t.id);
     const st = project.state.get(t.id);
-    const ln = live ? live.get(t.id) : null;
     const d = dates(startMs, n.es, n.ef, t.milestone);
     const pct = Math.round(st.pct * 100);
     out('    <Task>');
@@ -243,7 +241,6 @@ export function toMSPDI(project) {
     out('        <DurationFormat>7</DurationFormat>');
     out(`        <Cost>${money(t.budget)}</Cost>`);
     out('      </Baseline>');
-    if (ln && !ln.done && project.forecastStartOf) out('      <Active>1</Active>');
     out('    </Task>');
   }
   out('  </Tasks>');

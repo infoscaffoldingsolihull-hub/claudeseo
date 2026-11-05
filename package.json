@@ -10,7 +10,7 @@
   "scripts": {
     "build": "node tools/build.mjs",
     "serve": "node tools/serve.mjs",
-    "test": "node --test tests/pm/",
+    "test": "node --test tests/pm/*.test.js",
     "e2e": "node tests/e2e/run.mjs"
   }
 }
