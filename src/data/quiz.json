@@ -1,0 +1,2089 @@
+{
+ "version": 1,
+ "title": "SKY GATEWAY HYDERABAD — weekly quiz bank",
+ "note": "Original questions aligned to PMBOK® Guide 8th Edition topics; scenario numbers are simulated.",
+ "derivedFrom": "mission brief §5.2/§6 weekly topics — replace with the official outline",
+ "questions": [
+  {
+   "id": "W01-Q01",
+   "week": 1,
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "type": "mcq",
+   "q": "Which of these is a PROJECT rather than an operation at Hyderabad Airport?",
+   "options": [
+    "Extending the runway from about 2,133 m to about 3,505 m",
+    "Monthly payroll for airport staff",
+    "Daily runway friction and FOD inspections",
+    "Routine sweeping of the apron"
+   ],
+   "answer": 0,
+   "explanation": "A project is temporary and creates a unique result; the extension has a start, an end and a unique deliverable. The others are repetitive, ongoing operations.",
+   "wrongExplanations": {
+    "1": "Payroll is an ongoing business process.",
+    "2": "Inspections repeat every day indefinitely — that is operations.",
+    "3": "Apron sweeping is routine maintenance."
+   }
+  },
+  {
+   "id": "W01-Q02",
+   "week": 1,
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "type": "mcq",
+   "q": "In the simulator the runway, terminal, tower and landside projects are managed together to deliver the \"revived gateway\" benefits. That coordinated group is best called a:",
+   "options": [
+    "Work package",
+    "Operations unit",
+    "Portfolio",
+    "Programme"
+   ],
+   "answer": 3,
+   "explanation": "A programme is a group of related projects (and activities) managed in a coordinated way to obtain benefits not available from managing them individually."
+  },
+  {
+   "id": "W01-Q03",
+   "week": 1,
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "type": "mcq",
+   "q": "A portfolio is best defined as:",
+   "options": [
+    "A group of tasks that share one resource",
+    "The set of deliverables of a single project",
+    "Projects, programmes and operations managed as a group to achieve strategic objectives",
+    "A sequence of project phases"
+   ],
+   "answer": 2,
+   "explanation": "Portfolios are aligned to strategy; their components need not be related to each other."
+  },
+  {
+   "id": "W01-Q04",
+   "week": 1,
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "type": "mcq",
+   "q": "Which of the following is an ORGANISATIONAL PROCESS ASSET (OPA) for the Hyderabad programme?",
+   "options": [
+    "Provincial labour law",
+    "The summer heat in Sindh",
+    "The PMO's lessons-learned repository from an earlier airport project",
+    "The exchange rate of the rupee"
+   ],
+   "answer": 2,
+   "explanation": "OPAs are internal plans, processes, policies and knowledge bases. Climate, law and exchange rates are enterprise environmental factors (EEFs)."
+  },
+  {
+   "id": "W01-Q05",
+   "week": 1,
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "type": "tf",
+   "q": "The July–September monsoon in Sindh is an enterprise environmental factor (EEF) for this project.",
+   "options": [
+    "True",
+    "False"
+   ],
+   "answer": 0,
+   "explanation": "EEFs are conditions not under the team's control that influence the project — climate is a classic external EEF."
+  },
+  {
+   "id": "W01-Q06",
+   "week": 1,
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "type": "mcq",
+   "q": "Which type of PMO takes direct control of projects by managing them itself?",
+   "options": [
+    "Directive",
+    "Consultative",
+    "Controlling",
+    "Supportive"
+   ],
+   "answer": 0,
+   "explanation": "Supportive PMOs provide templates and training (low control), controlling PMOs require compliance (moderate), directive PMOs manage the projects (high control)."
+  },
+  {
+   "id": "W01-Q07",
+   "week": 1,
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "type": "mcq",
+   "q": "Which statement best describes the role of the project manager?",
+   "options": [
+    "The person who funds the project and owns the business case",
+    "The regulator who certifies the aerodrome",
+    "The person assigned by the performing organisation to lead the team responsible for achieving the project objectives",
+    "The head of the engineering department"
+   ],
+   "answer": 2,
+   "explanation": "The sponsor funds and champions; functional managers run departments; the project manager leads the project team to achieve the objectives."
+  },
+  {
+   "id": "W01-Q08",
+   "week": 1,
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "type": "tf",
+   "q": "Because projects are temporary, the deliverables they create must also be temporary.",
+   "options": [
+    "True",
+    "False"
+   ],
+   "answer": 1,
+   "explanation": "The project is temporary; its outputs (a runway, a terminal) may last for decades."
+  },
+  {
+   "id": "W01-Q09",
+   "week": 1,
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "type": "mcq",
+   "q": "The PMBOK® Guide is best described as:",
+   "options": [
+    "A standard and body of knowledge describing principles, performance domains and practices, to be tailored",
+    "A software tool for scheduling",
+    "A step-by-step methodology that must be followed exactly",
+    "A national construction code"
+   ],
+   "answer": 0,
+   "explanation": "PMBOK is a framework and standard, not a methodology. Teams tailor it to the context."
+  },
+  {
+   "id": "W02-Q01",
+   "week": 2,
+   "clo": "CLO1",
+   "domain": "Lifecycle",
+   "type": "mcq",
+   "q": "Which characteristic is typical of a PREDICTIVE life cycle?",
+   "options": [
+    "There is no baseline",
+    "Requirements are elaborated every two weeks",
+    "Scope, time and cost are determined early and changes are carefully managed",
+    "The product is released continuously from day one"
+   ],
+   "answer": 2,
+   "explanation": "Predictive (waterfall) life cycles plan most of the work up front — appropriate for runway pavements where change is expensive."
+  },
+  {
+   "id": "W02-Q02",
+   "week": 2,
+   "clo": "CLO1",
+   "domain": "Lifecycle",
+   "type": "mcq",
+   "q": "The five focus areas (process groups) used in PMBOK 8 are Initiating, Planning, Executing, Closing and:",
+   "options": [
+    "Testing",
+    "Benefits realisation",
+    "Monitoring and Controlling",
+    "Procuring"
+   ],
+   "answer": 2,
+   "explanation": "Monitoring and Controlling runs in parallel with the other focus areas throughout the project."
+  },
+  {
+   "id": "W02-Q03",
+   "week": 2,
+   "clo": "CLO1",
+   "domain": "Lifecycle",
+   "type": "mcq",
+   "q": "What is the main purpose of a phase gate such as G1 at the end of planning?",
+   "options": [
+    "To freeze all change for the rest of the project",
+    "To release the project team",
+    "A go / no-go decision on continuing to the next phase, based on defined criteria",
+    "To celebrate a milestone"
+   ],
+   "answer": 2,
+   "explanation": "Gates (kill points) review performance and readiness and decide whether to continue, change or stop."
+  },
+  {
+   "id": "W02-Q04",
+   "week": 2,
+   "clo": "CLO1",
+   "domain": "Lifecycle",
+   "type": "tf",
+   "q": "Process groups (focus areas) are the same thing as project phases.",
+   "options": [
+    "True",
+    "False"
+   ],
+   "answer": 1,
+   "explanation": "Phases divide the life cycle over time (design, build, commission); focus areas can all occur within one phase."
+  },
+  {
+   "id": "W02-Q05",
+   "week": 2,
+   "clo": "CLO1",
+   "domain": "Lifecycle",
+   "type": "mcq",
+   "q": "Which activity belongs to the INITIATING focus area?",
+   "options": [
+    "Creating the WBS",
+    "Developing the project charter and identifying stakeholders",
+    "Archiving the project records",
+    "Pouring the apron slab"
+   ],
+   "answer": 1,
+   "explanation": "Initiating defines a new project or phase and obtains authorisation: charter and stakeholder identification."
+  },
+  {
+   "id": "W02-Q06",
+   "week": 2,
+   "clo": "CLO1",
+   "domain": "Principles",
+   "type": "mcq",
+   "q": "The project team links the runway extension directly to diversion and regional-route benefits in every gate review. This best reflects the principle of:",
+   "options": [
+    "Building an empowered culture only",
+    "Minimising documentation",
+    "Focusing on value",
+    "Avoiding stakeholder contact"
+   ],
+   "answer": 2,
+   "explanation": "Value focus means continually checking that outputs deliver the intended outcomes and benefits."
+  },
+  {
+   "id": "W02-Q07",
+   "week": 2,
+   "clo": "CLO1",
+   "domain": "Performance domains",
+   "type": "mcq",
+   "q": "Which of these is NOT a PMBOK performance domain?",
+   "options": [
+    "Risk",
+    "Concrete batching",
+    "Schedule",
+    "Stakeholders"
+   ],
+   "answer": 1,
+   "explanation": "Performance domains are groups of related activities critical to delivering outcomes (e.g., stakeholders, schedule, risk). Concrete batching is a construction activity."
+  },
+  {
+   "id": "W02-Q08",
+   "week": 2,
+   "clo": "CLO1",
+   "domain": "Lifecycle",
+   "type": "mcq",
+   "q": "Tailoring means:",
+   "options": [
+    "Using only predictive methods",
+    "Copying the previous project plan unchanged",
+    "Adapting the approach, governance and processes to suit the project's context",
+    "Removing all documentation"
+   ],
+   "answer": 2,
+   "explanation": "Tailoring selects and adjusts practices to the size, risk, complexity and culture of the project."
+  },
+  {
+   "id": "W02-Q09",
+   "week": 2,
+   "clo": "CLO1",
+   "domain": "Lifecycle",
+   "type": "tf",
+   "q": "Monitoring and controlling only happens at the end of each phase.",
+   "options": [
+    "True",
+    "False"
+   ],
+   "answer": 1,
+   "explanation": "Monitoring and controlling is continuous: performance is measured against baselines throughout."
+  },
+  {
+   "id": "W03-Q01",
+   "week": 3,
+   "clo": "CLO1",
+   "domain": "Agile",
+   "type": "mcq",
+   "q": "Which are the three accountabilities in Scrum?",
+   "options": [
+    "Sponsor, PM, PMO",
+    "Team lead, QA lead, Release manager",
+    "Product Owner, Scrum Master, Developers",
+    "Architect, Tester, Analyst"
+   ],
+   "answer": 2,
+   "explanation": "Scrum defines exactly three accountabilities within one Scrum Team."
+  },
+  {
+   "id": "W03-Q02",
+   "week": 3,
+   "clo": "CLO1",
+   "domain": "Agile",
+   "type": "mcq",
+   "q": "Who is accountable for ordering the product backlog for the terminal IT stream?",
+   "options": [
+    "The most senior developer",
+    "The Scrum Master",
+    "The Product Owner",
+    "The programme sponsor"
+   ],
+   "answer": 2,
+   "explanation": "The Product Owner maximises value by ordering the product backlog."
+  },
+  {
+   "id": "W03-Q03",
+   "week": 3,
+   "clo": "CLO2",
+   "domain": "Agile",
+   "type": "numeric",
+   "q": "The terminal IT team's last four velocities were 21, 24, 18 and 25 story points. About how many sprints are needed for 132 remaining points?",
+   "options": [],
+   "answer": 6,
+   "tolerance": 0,
+   "unit": "sprints",
+   "explanation": "Average velocity = (21 + 24 + 18 + 25) ÷ 4 = 22. Sprints = 132 ÷ 22 = 6."
+  },
+  {
+   "id": "W03-Q04",
+   "week": 3,
+   "clo": "CLO1",
+   "domain": "Agile",
+   "type": "mcq",
+   "q": "Why does a Kanban board set work-in-progress (WIP) limits?",
+   "options": [
+    "To fix the sprint length",
+    "To improve flow and expose bottlenecks",
+    "To make sure everyone is always busy",
+    "To replace the product backlog"
+   ],
+   "answer": 1,
+   "explanation": "Limiting WIP reduces multitasking and queues, so cycle time falls and bottlenecks become visible."
+  },
+  {
+   "id": "W03-Q05",
+   "week": 3,
+   "clo": "CLO1",
+   "domain": "Agile",
+   "type": "tf",
+   "q": "In Scrum the team should change the sprint length each sprint to fit the work.",
+   "options": [
+    "True",
+    "False"
+   ],
+   "answer": 1,
+   "explanation": "Sprints keep a consistent length to create a predictable cadence."
+  },
+  {
+   "id": "W03-Q06",
+   "week": 3,
+   "clo": "CLO1",
+   "domain": "Delivery approach",
+   "type": "mcq",
+   "q": "For the Hyderabad programme, which delivery approach best fits?",
+   "options": [
+    "Hybrid: predictive for pavements and steel, Agile for terminal IT",
+    "No defined approach",
+    "Pure predictive for everything, including software",
+    "Pure Scrum for everything, including the runway"
+   ],
+   "answer": 0,
+   "explanation": "Choose per deliverable: certain, costly-to-change civil works suit predictive; uncertain software suits Agile."
+  },
+  {
+   "id": "W03-Q07",
+   "week": 3,
+   "clo": "CLO1",
+   "domain": "AI in PM",
+   "type": "mcq",
+   "q": "Which is the most appropriate use of an AI assistant such as MEHRAN?",
+   "options": [
+    "Replacing the CCB",
+    "Signing contracts on behalf of the sponsor",
+    "Approving change requests without human review",
+    "Drafting risk-register entries from meeting notes for a human to review"
+   ],
+   "answer": 3,
+   "explanation": "AI augments the PM: it drafts, analyses and explains; humans stay accountable for decisions (human in the loop)."
+  },
+  {
+   "id": "W03-Q08",
+   "week": 3,
+   "clo": "CLO2",
+   "domain": "Agile",
+   "type": "numeric",
+   "q": "Using Little's law, a Kanban board holds 12 items in progress with a throughput of 3 items per day. What is the average cycle time in days?",
+   "options": [],
+   "answer": 4,
+   "tolerance": 0,
+   "unit": "days",
+   "explanation": "Cycle time = WIP ÷ throughput = 12 ÷ 3 = 4 days."
+  },
+  {
+   "id": "W03-Q09",
+   "week": 3,
+   "clo": "CLO1",
+   "domain": "Agile",
+   "type": "mcq",
+   "q": "What is the purpose of the sprint REVIEW?",
+   "options": [
+    "Inspect how the team worked and improve its process",
+    "Assign blame for missed stories",
+    "Plan the work of the next sprint only",
+    "Inspect the increment with stakeholders and adapt the product backlog"
+   ],
+   "answer": 3,
+   "explanation": "The review inspects the product; the retrospective inspects the process."
+  },
+  {
+   "id": "W04-Q01",
+   "week": 4,
+   "clo": "CLO1",
+   "domain": "Scope",
+   "type": "mcq",
+   "q": "The scope baseline consists of:",
+   "options": [
+    "The approved scope statement, WBS and WBS dictionary",
+    "The charter and the business case",
+    "The schedule and the budget",
+    "The requirements documentation only"
+   ],
+   "answer": 0,
+   "explanation": "These three items, approved, form the scope baseline that change control protects."
+  },
+  {
+   "id": "W04-Q02",
+   "week": 4,
+   "clo": "CLO1",
+   "domain": "Scope",
+   "type": "mcq",
+   "q": "The \"100 % rule\" of the WBS states that:",
+   "options": [
+    "Each package must cost the same",
+    "The WBS includes all of the work and only the work of the project",
+    "The WBS must have 100 elements",
+    "Every package must be 100 % complete before the next starts"
+   ],
+   "answer": 1,
+   "explanation": "Child elements sum to exactly the parent — nothing missing, nothing extra."
+  },
+  {
+   "id": "W04-Q03",
+   "week": 4,
+   "clo": "CLO1",
+   "domain": "Scope",
+   "type": "mcq",
+   "q": "The lowest level of the WBS, where cost and duration can be estimated and managed, is the:",
+   "options": [
+    "Programme",
+    "Work package",
+    "Control account",
+    "Milestone"
+   ],
+   "answer": 1,
+   "explanation": "Work packages are decomposed into activities for scheduling; control accounts group work packages for EVM."
+  },
+  {
+   "id": "W04-Q04",
+   "week": 4,
+   "clo": "CLO1",
+   "domain": "Scope",
+   "type": "tf",
+   "q": "Gold plating (adding features the customer did not request) is good practice because the customer will be pleased.",
+   "options": [
+    "True",
+    "False"
+   ],
+   "answer": 1,
+   "explanation": "Gold plating adds cost and risk outside the approved scope; deliver what was agreed, and propose extras through change control."
+  },
+  {
+   "id": "W04-Q05",
+   "week": 4,
+   "clo": "CLO1",
+   "domain": "Scope",
+   "type": "mcq",
+   "q": "What is the difference between VALIDATE SCOPE and CONTROL QUALITY?",
+   "options": [
+    "Control quality checks correctness; validate scope obtains the customer's formal acceptance",
+    "Control quality is done by the customer",
+    "Validate scope happens before design",
+    "They are identical"
+   ],
+   "answer": 0,
+   "explanation": "Deliverables are usually verified (control quality) first, then accepted by the customer (validate scope)."
+  },
+  {
+   "id": "W04-Q06",
+   "week": 4,
+   "clo": "CLO1",
+   "domain": "Scope",
+   "type": "mcq",
+   "q": "Which tool links each requirement (e.g., \"Code E capable apron stand\") to its source, WBS element and test?",
+   "options": [
+    "Pareto chart",
+    "Requirements traceability matrix",
+    "Tornado diagram",
+    "Gantt chart"
+   ],
+   "answer": 1,
+   "explanation": "The RTM traces requirements from origin through deliverables to verification."
+  },
+  {
+   "id": "W04-Q07",
+   "week": 4,
+   "clo": "CLO1",
+   "domain": "Scope",
+   "type": "mcq",
+   "q": "An official asks for a VIP lounge, and the contractor adds it without a change request. This is:",
+   "options": [
+    "Rolling-wave planning",
+    "Decomposition",
+    "Scope creep",
+    "Progressive elaboration"
+   ],
+   "answer": 2,
+   "explanation": "Uncontrolled additions to scope without adjusting time, cost and resources are scope creep."
+  },
+  {
+   "id": "W04-Q08",
+   "week": 4,
+   "clo": "CLO2",
+   "domain": "Scope",
+   "type": "numeric",
+   "q": "WBS 3 (runway) has eight work packages budgeted at PKR 2.4, 1.8, 2.2, 3.1, 1.5, 0.9, 0.6 and 0.5 bn. What is the budget of WBS 3 in PKR bn?",
+   "options": [],
+   "answer": 13,
+   "tolerance": 0.01,
+   "unit": "PKR bn",
+   "explanation": "Roll-up: 2.4 + 1.8 + 2.2 + 3.1 + 1.5 + 0.9 + 0.6 + 0.5 = 13.0."
+  },
+  {
+   "id": "W04-Q09",
+   "week": 4,
+   "clo": "CLO1",
+   "domain": "Scope",
+   "type": "mcq",
+   "q": "\"A runway 3,505 m long and 45 m wide with 7.5 m shoulders\" describes:",
+   "options": [
+    "The project charter's sponsor",
+    "Product scope",
+    "The communication plan",
+    "Project scope"
+   ],
+   "answer": 1,
+   "explanation": "Product scope = features and functions of the result; project scope = the work needed to deliver it."
+  },
+  {
+   "id": "W05-Q01",
+   "week": 5,
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "type": "numeric",
+   "q": "Extension earthworks (3.2) have estimates O = 40, M = 55, P = 88 days. What is the PERT expected duration?",
+   "options": [],
+   "answer": 58,
+   "tolerance": 0.01,
+   "unit": "days",
+   "explanation": "tE = (O + 4M + P) ÷ 6 = (40 + 220 + 88) ÷ 6 = 348 ÷ 6 = 58 days."
+  },
+  {
+   "id": "W05-Q02",
+   "week": 5,
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "type": "numeric",
+   "q": "For the same activity (O = 40, P = 88), what is the PERT standard deviation?",
+   "options": [],
+   "answer": 8,
+   "tolerance": 0.01,
+   "unit": "days",
+   "explanation": "σ = (P − O) ÷ 6 = 48 ÷ 6 = 8 days."
+  },
+  {
+   "id": "W05-Q03",
+   "week": 5,
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "type": "numeric",
+   "q": "A (5 days) precedes B (8) and C (10); B and C both precede D (4). All links are finish-to-start. What is the project duration?",
+   "options": [],
+   "answer": 19,
+   "tolerance": 0,
+   "unit": "days",
+   "explanation": "Paths: A-B-D = 17, A-C-D = 19. The longest path (critical path) is 19 days."
+  },
+  {
+   "id": "W05-Q04",
+   "week": 5,
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "type": "numeric",
+   "q": "In the same network, what is the total float of activity B?",
+   "options": [],
+   "answer": 2,
+   "tolerance": 0,
+   "unit": "days",
+   "explanation": "B is on the 17-day path; 19 − 17 = 2 days of float."
+  },
+  {
+   "id": "W05-Q05",
+   "week": 5,
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "type": "mcq",
+   "q": "When crashing, which activity should be shortened first?",
+   "options": [
+    "Any activity with float",
+    "The activity with the highest cost slope",
+    "The longest activity in the project",
+    "The critical activity with the lowest cost slope"
+   ],
+   "answer": 3,
+   "explanation": "Only critical activities shorten the project; choose the cheapest per day first, and re-check the critical path after each step."
+  },
+  {
+   "id": "W05-Q06",
+   "week": 5,
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "type": "numeric",
+   "q": "The apron slab normally takes 30 days for PKR 60 m; crashed it takes 24 days for PKR 84 m. What is the cost slope in PKR million per day?",
+   "options": [],
+   "answer": 4,
+   "tolerance": 0.01,
+   "unit": "PKR m/day",
+   "explanation": "Cost slope = (84 − 60) ÷ (30 − 24) = 24 ÷ 6 = 4 PKR million per day."
+  },
+  {
+   "id": "W05-Q07",
+   "week": 5,
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "type": "mcq",
+   "q": "Starting terminal fit-out in zones where glazing is complete, instead of waiting for all glazing, is an example of:",
+   "options": [
+    "Crashing",
+    "Resource levelling",
+    "Decomposition",
+    "Fast-tracking"
+   ],
+   "answer": 3,
+   "explanation": "Fast-tracking overlaps activities normally done in sequence; it adds risk rather than direct cost."
+  },
+  {
+   "id": "W05-Q08",
+   "week": 5,
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "type": "mcq",
+   "q": "The British Columbia Transportation case is discussed with scheduling. For seasonal civil works such as paving, which practice best handles weather windows?",
+   "options": [
+    "Use the same productivity rate all year",
+    "Schedule paving only after all other work is finished",
+    "Model seasonal work calendars and constraints explicitly in the schedule",
+    "Ignore weather and add a single contingency at the end"
+   ],
+   "answer": 2,
+   "explanation": "Calendars and constraints make weather windows visible to CPM, so float and risk are realistic."
+  },
+  {
+   "id": "W05-Q09",
+   "week": 5,
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "type": "tf",
+   "q": "In a schedule with no imposed finish date, critical-path activities have zero total float.",
+   "options": [
+    "True",
+    "False"
+   ],
+   "answer": 0,
+   "explanation": "By definition the critical path is the longest path, with zero float when the late finish equals the early finish."
+  },
+  {
+   "id": "W05-Q10",
+   "week": 5,
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "type": "numeric",
+   "q": "The critical path has a PERT mean of 300 days and σ = 10 days. To the nearest per cent, what is the probability of finishing within 310 days?",
+   "options": [],
+   "answer": 84,
+   "tolerance": 1,
+   "unit": "%",
+   "explanation": "z = (310 − 300) ÷ 10 = 1.0, and Φ(1.0) ≈ 0.841, i.e. about 84 %."
+  },
+  {
+   "id": "W06-Q01",
+   "week": 6,
+   "clo": "CLO2",
+   "domain": "Change control",
+   "type": "mcq",
+   "q": "What is the correct order for integrated change control?",
+   "options": [
+    "CCB decision → analyse impact → log",
+    "Communicate → implement → analyse",
+    "Implement → log → inform the sponsor",
+    "Log the request → analyse impact → CCB decision → update baselines → communicate"
+   ],
+   "answer": 3,
+   "explanation": "Impact analysis comes before the decision; approved changes update plans and are communicated."
+  },
+  {
+   "id": "W06-Q02",
+   "week": 6,
+   "clo": "CLO2",
+   "domain": "Change control",
+   "type": "mcq",
+   "q": "Who approves changes to the performance measurement baseline, per a typical change management plan?",
+   "options": [
+    "The quality inspector",
+    "The contractor's site agent",
+    "Any team member",
+    "The change control board (CCB)"
+   ],
+   "answer": 3,
+   "explanation": "The CCB (or the authority defined in the change management plan) approves baseline changes."
+  },
+  {
+   "id": "W06-Q03",
+   "week": 6,
+   "clo": "CLO2",
+   "domain": "Monitoring",
+   "type": "numeric",
+   "q": "At week 40, EV = PKR 4.2 bn and PV = PKR 4.8 bn. What is the schedule variance in PKR bn?",
+   "options": [],
+   "answer": -0.6,
+   "tolerance": 0.001,
+   "unit": "PKR bn",
+   "explanation": "SV = EV − PV = 4.2 − 4.8 = −0.6 bn (behind schedule)."
+  },
+  {
+   "id": "W06-Q04",
+   "week": 6,
+   "clo": "CLO2",
+   "domain": "Monitoring",
+   "type": "numeric",
+   "q": "With EV = 4.2 bn and PV = 4.8 bn, what is the SPI (three decimals)?",
+   "options": [],
+   "answer": 0.875,
+   "tolerance": 0.001,
+   "unit": "",
+   "explanation": "SPI = EV ÷ PV = 4.2 ÷ 4.8 = 0.875."
+  },
+  {
+   "id": "W06-Q05",
+   "week": 6,
+   "clo": "CLO2",
+   "domain": "Change control",
+   "type": "tf",
+   "q": "A change request is only needed for changes that increase cost.",
+   "options": [
+    "True",
+    "False"
+   ],
+   "answer": 1,
+   "explanation": "Any change to approved baselines (scope, schedule, cost) — or to controlled documents — goes through change control, whichever direction."
+  },
+  {
+   "id": "W06-Q06",
+   "week": 6,
+   "clo": "CLO2",
+   "domain": "Monitoring",
+   "type": "mcq",
+   "q": "SPI has fallen to 0.88 against a control threshold of 0.90. What should the PM do first?",
+   "options": [
+    "Report SPI as 1.0",
+    "Wait for the next gate",
+    "Re-baseline immediately without approval",
+    "Analyse the root cause and propose corrective action through change control"
+   ],
+   "answer": 3,
+   "explanation": "Breaching a variance threshold triggers analysis and, where baselines are affected, a change request."
+  },
+  {
+   "id": "W06-Q07",
+   "week": 6,
+   "clo": "CLO2",
+   "domain": "Closing",
+   "type": "mcq",
+   "q": "Closing a PHASE includes:",
+   "options": [
+    "Deleting the risk register",
+    "Releasing the whole programme budget",
+    "Confirming acceptance of the phase deliverables, recording lessons and archiving records",
+    "Starting operations immediately"
+   ],
+   "answer": 2,
+   "explanation": "Phase closure formally completes the phase so the next can start with what was learned."
+  },
+  {
+   "id": "W06-Q08",
+   "week": 6,
+   "clo": "CLO2",
+   "domain": "Monitoring",
+   "type": "mcq",
+   "q": "A storm has flooded the subgrade today. Where is this recorded and managed?",
+   "options": [
+    "In the WBS dictionary",
+    "Only in the risk register as a future uncertainty",
+    "In the procurement SOW",
+    "In the issue log — it is a current problem"
+   ],
+   "answer": 3,
+   "explanation": "Risks are future uncertainties; when they happen they become issues to resolve (and the risk register is updated)."
+  },
+  {
+   "id": "W06-Q09",
+   "week": 6,
+   "clo": "CLO2",
+   "domain": "Change control",
+   "type": "mcq",
+   "q": "What does configuration management control?",
+   "options": [
+    "Versions and characteristics of deliverables and documents, such as drawings",
+    "Daily weather",
+    "Stakeholder emotions",
+    "Team members' salaries"
+   ],
+   "answer": 0,
+   "explanation": "Configuration management ensures everyone builds from the current approved drawing revision."
+  },
+  {
+   "id": "W07-Q01",
+   "week": 7,
+   "clo": "CLO2",
+   "domain": "Quality",
+   "type": "mcq",
+   "q": "Training paving crews before work starts is which cost-of-quality category?",
+   "options": [
+    "Internal failure",
+    "Appraisal",
+    "External failure",
+    "Prevention"
+   ],
+   "answer": 3,
+   "explanation": "Prevention costs avoid defects; appraisal costs find them; failure costs fix them."
+  },
+  {
+   "id": "W07-Q02",
+   "week": 7,
+   "clo": "CLO2",
+   "domain": "Quality",
+   "type": "numeric",
+   "q": "Cube strengths average 40 MPa with σ = 1.5 MPa. What is the upper control limit at ±3σ?",
+   "options": [],
+   "answer": 44.5,
+   "tolerance": 0.01,
+   "unit": "MPa",
+   "explanation": "UCL = mean + 3σ = 40 + 4.5 = 44.5 MPa."
+  },
+  {
+   "id": "W07-Q03",
+   "week": 7,
+   "clo": "CLO2",
+   "domain": "Quality",
+   "type": "mcq",
+   "q": "On a control chart, seven consecutive points on one side of the mean indicate:",
+   "options": [
+    "The specification limits are wrong",
+    "A possible special (assignable) cause to investigate",
+    "Nothing — it is random",
+    "The process is perfectly in control"
+   ],
+   "answer": 1,
+   "explanation": "The \"rule of seven\" is a run signalling a non-random shift."
+  },
+  {
+   "id": "W07-Q04",
+   "week": 7,
+   "clo": "CLO2",
+   "domain": "Quality",
+   "type": "mcq",
+   "q": "A Pareto chart of runway defects is used to:",
+   "options": [
+    "Show the schedule",
+    "Focus on the few causes producing most of the defects",
+    "Calculate EVM",
+    "Track stakeholder sentiment"
+   ],
+   "answer": 1,
+   "explanation": "Pareto (80/20) ranks categories by frequency so effort goes to the vital few."
+  },
+  {
+   "id": "W07-Q05",
+   "week": 7,
+   "clo": "CLO2",
+   "domain": "Quality",
+   "type": "numeric",
+   "q": "Quality costs (PKR m): prevention 20, appraisal 35, internal failure 60, external failure 15. What is the cost of CONFORMANCE?",
+   "options": [],
+   "answer": 55,
+   "tolerance": 0.01,
+   "unit": "PKR m",
+   "explanation": "Conformance = prevention + appraisal = 20 + 35 = 55. Non-conformance = 60 + 15 = 75."
+  },
+  {
+   "id": "W07-Q06",
+   "week": 7,
+   "clo": "CLO2",
+   "domain": "Quality",
+   "type": "tf",
+   "q": "Control limits and specification limits are the same thing.",
+   "options": [
+    "True",
+    "False"
+   ],
+   "answer": 1,
+   "explanation": "Control limits come from process data (voice of the process); specification limits come from requirements (voice of the customer)."
+  },
+  {
+   "id": "W07-Q07",
+   "week": 7,
+   "clo": "CLO2",
+   "domain": "Quality",
+   "type": "mcq",
+   "q": "A basic fit-out that meets every requirement without defects is:",
+   "options": [
+    "Low grade, low quality",
+    "Low grade, high quality",
+    "Neither — grade and quality are the same",
+    "High grade, low quality"
+   ],
+   "answer": 1,
+   "explanation": "Grade is a category of features; quality is the degree to which requirements are met."
+  },
+  {
+   "id": "W07-Q08",
+   "week": 7,
+   "clo": "CLO2",
+   "domain": "Quality",
+   "type": "mcq",
+   "q": "To find why concrete cubes failed, the team brainstorms causes under Materials, Methods, Machines, People, Environment and Measurement. Which tool is this?",
+   "options": [
+    "Histogram of costs",
+    "RACI chart",
+    "Gantt chart",
+    "Cause-and-effect (Ishikawa / fishbone) diagram"
+   ],
+   "answer": 3,
+   "explanation": "The fishbone groups potential root causes by category."
+  },
+  {
+   "id": "W07-Q09",
+   "week": 7,
+   "clo": "CLO2",
+   "domain": "Quality",
+   "type": "numeric",
+   "q": "Of 120 concrete cubes tested, 6 failed. What percentage failed?",
+   "options": [],
+   "answer": 5,
+   "tolerance": 0.01,
+   "unit": "%",
+   "explanation": "6 ÷ 120 = 0.05 = 5 %."
+  },
+  {
+   "id": "W08-Q01",
+   "week": 8,
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "type": "numeric",
+   "q": "Mid-term: AGL cabling has O = 10, M = 16, P = 28 days. What is the PERT expected duration?",
+   "options": [],
+   "answer": 17,
+   "tolerance": 0.01,
+   "unit": "days",
+   "explanation": "(10 + 4×16 + 28) ÷ 6 = 102 ÷ 6 = 17 days."
+  },
+  {
+   "id": "W08-Q02",
+   "week": 8,
+   "clo": "CLO2",
+   "domain": "Monitoring",
+   "type": "numeric",
+   "q": "Mid-term: EV = PKR 9 bn and AC = PKR 10 bn. What is the CPI?",
+   "options": [],
+   "answer": 0.9,
+   "tolerance": 0.001,
+   "unit": "",
+   "explanation": "CPI = EV ÷ AC = 9 ÷ 10 = 0.9 — each rupee spent earns 90 paisa of value."
+  },
+  {
+   "id": "W08-Q03",
+   "week": 8,
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "type": "mcq",
+   "q": "Mid-term: what distinguishes a programme from a portfolio?",
+   "options": [
+    "Programmes have no projects",
+    "There is no difference",
+    "Programme components are related and managed for shared benefits; portfolio components serve strategy and may be unrelated",
+    "A portfolio is always smaller"
+   ],
+   "answer": 2,
+   "explanation": "Programmes coordinate related work for benefits; portfolios select and balance work for strategic objectives."
+  },
+  {
+   "id": "W08-Q04",
+   "week": 8,
+   "clo": "CLO1",
+   "domain": "Agile",
+   "type": "mcq",
+   "q": "Mid-term: in which Scrum event does the team inspect its own way of working?",
+   "options": [
+    "Sprint retrospective",
+    "Sprint planning",
+    "Sprint review",
+    "Daily scrum"
+   ],
+   "answer": 0,
+   "explanation": "The retrospective plans improvements to quality and effectiveness."
+  },
+  {
+   "id": "W08-Q05",
+   "week": 8,
+   "clo": "CLO1",
+   "domain": "Scope",
+   "type": "mcq",
+   "q": "Mid-term: which is found in the WBS dictionary?",
+   "options": [
+    "The project budget at completion only",
+    "The sponsor's signature",
+    "Description, deliverables, acceptance criteria and owner of each WBS element",
+    "The communication matrix"
+   ],
+   "answer": 2,
+   "explanation": "The dictionary details each element of the WBS."
+  },
+  {
+   "id": "W08-Q06",
+   "week": 8,
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "type": "numeric",
+   "q": "Mid-term: an activity has ES = day 12 and LS = day 18. What is its total float?",
+   "options": [],
+   "answer": 6,
+   "tolerance": 0,
+   "unit": "days",
+   "explanation": "Total float = LS − ES = 18 − 12 = 6 days."
+  },
+  {
+   "id": "W08-Q07",
+   "week": 8,
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "type": "tf",
+   "q": "Mid-term: fast-tracking always increases the project's direct cost.",
+   "options": [
+    "True",
+    "False"
+   ],
+   "answer": 1,
+   "explanation": "Fast-tracking mainly increases risk (rework); crashing is the technique that adds cost."
+  },
+  {
+   "id": "W08-Q08",
+   "week": 8,
+   "clo": "CLO2",
+   "domain": "Change control",
+   "type": "mcq",
+   "q": "Mid-term: the regulator mandates a longer RESA. How is this handled?",
+   "options": [
+    "Ignored until certification",
+    "Implemented quietly without records",
+    "Handled only by the contractor",
+    "Through integrated change control — mandatory changes still update baselines formally"
+   ],
+   "answer": 3,
+   "explanation": "Mandatory changes skip the \"whether\" debate but not the documentation, impact analysis and baseline update."
+  },
+  {
+   "id": "W08-Q09",
+   "week": 8,
+   "clo": "CLO2",
+   "domain": "Quality",
+   "type": "mcq",
+   "q": "Mid-term: which observation on a control chart is a clear signal of a special cause?",
+   "options": [
+    "All points inside the limits with no pattern",
+    "Points alternating randomly around the mean",
+    "A point beyond the upper control limit",
+    "A point near the mean"
+   ],
+   "answer": 2,
+   "explanation": "Points outside the ±3σ limits indicate an assignable cause."
+  },
+  {
+   "id": "W09-Q01",
+   "week": 9,
+   "clo": "CLO2",
+   "domain": "Cost",
+   "type": "numeric",
+   "q": "BAC = PKR 48 bn, EV = 18 bn, AC = 20 bn. Assuming the current CPI continues, what is the EAC in PKR bn (two decimals)?",
+   "options": [],
+   "answer": 53.33,
+   "tolerance": 0.02,
+   "unit": "PKR bn",
+   "explanation": "CPI = 18 ÷ 20 = 0.9. EAC = BAC ÷ CPI = 48 ÷ 0.9 = 53.33 bn."
+  },
+  {
+   "id": "W09-Q02",
+   "week": 9,
+   "clo": "CLO2",
+   "domain": "Cost",
+   "type": "numeric",
+   "q": "Same data (BAC 48, EV 18, AC 20). What is the TCPI to finish on the original BAC (two decimals)?",
+   "options": [],
+   "answer": 1.07,
+   "tolerance": 0.01,
+   "unit": "",
+   "explanation": "TCPI = (BAC − EV) ÷ (BAC − AC) = 30 ÷ 28 = 1.07."
+  },
+  {
+   "id": "W09-Q03",
+   "week": 9,
+   "clo": "CLO2",
+   "domain": "Cost",
+   "type": "numeric",
+   "q": "Same data. What is the VAC (PKR bn, two decimals)?",
+   "options": [],
+   "answer": -5.33,
+   "tolerance": 0.02,
+   "unit": "PKR bn",
+   "explanation": "VAC = BAC − EAC = 48 − 53.33 = −5.33 bn (forecast overrun)."
+  },
+  {
+   "id": "W09-Q04",
+   "week": 9,
+   "clo": "CLO2",
+   "domain": "Cost",
+   "type": "numeric",
+   "q": "Same data. What is the ETC in PKR bn (two decimals)?",
+   "options": [],
+   "answer": 33.33,
+   "tolerance": 0.02,
+   "unit": "PKR bn",
+   "explanation": "ETC = EAC − AC = 53.33 − 20 = 33.33 bn."
+  },
+  {
+   "id": "W09-Q05",
+   "week": 9,
+   "clo": "CLO2",
+   "domain": "Cost",
+   "type": "mcq",
+   "q": "The contingency reserve is intended for:",
+   "options": [
+    "Identified risks (known-unknowns) and is part of the cost baseline",
+    "Paying the sponsor",
+    "Profit",
+    "Unknown-unknowns and is outside the cost baseline"
+   ],
+   "answer": 0,
+   "explanation": "Management reserve covers unknown-unknowns and sits outside the baseline but inside the budget."
+  },
+  {
+   "id": "W09-Q06",
+   "week": 9,
+   "clo": "CLO2",
+   "domain": "Cost",
+   "type": "mcq",
+   "q": "Project budget = ?",
+   "options": [
+    "EAC − AC",
+    "Cost baseline − contingency",
+    "Sum of work packages only",
+    "Cost baseline + management reserve"
+   ],
+   "answer": 3,
+   "explanation": "Work packages + contingency = cost baseline; + management reserve = project budget."
+  },
+  {
+   "id": "W09-Q07",
+   "week": 9,
+   "clo": "CLO2",
+   "domain": "Cost",
+   "type": "mcq",
+   "q": "Estimating the terminal at PKR 210,000 per m² of floor area is:",
+   "options": [
+    "Parametric estimating",
+    "Expert judgment only",
+    "Bottom-up estimating",
+    "Analogous estimating"
+   ],
+   "answer": 0,
+   "explanation": "Parametric estimating uses a statistical relationship between a parameter (m²) and cost."
+  },
+  {
+   "id": "W09-Q08",
+   "week": 9,
+   "clo": "CLO2",
+   "domain": "Cost",
+   "type": "numeric",
+   "q": "Using PKR 210,000 per m², what is the parametric estimate for an 18,000 m² terminal, in PKR bn?",
+   "options": [],
+   "answer": 3.78,
+   "tolerance": 0.01,
+   "unit": "PKR bn",
+   "explanation": "18,000 × 210,000 = 3,780,000,000 = PKR 3.78 bn."
+  },
+  {
+   "id": "W09-Q09",
+   "week": 9,
+   "clo": "CLO2",
+   "domain": "Cost",
+   "type": "tf",
+   "q": "Funding-limit reconciliation can require rescheduling work so spending stays within annual funding limits.",
+   "options": [
+    "True",
+    "False"
+   ],
+   "answer": 0,
+   "explanation": "If planned spend exceeds the year's limit, work is re-sequenced (or funds re-negotiated)."
+  },
+  {
+   "id": "W10-Q01",
+   "week": 10,
+   "clo": "CLO2",
+   "domain": "Risk",
+   "type": "numeric",
+   "q": "A flash flood has a 30 % probability and a PKR 300 m impact. What is its EMV magnitude in PKR m?",
+   "options": [],
+   "answer": 90,
+   "tolerance": 0.01,
+   "unit": "PKR m",
+   "explanation": "EMV = P × I = 0.30 × 300 = 90 (a threat, so −90)."
+  },
+  {
+   "id": "W10-Q02",
+   "week": 10,
+   "clo": "CLO2",
+   "domain": "Risk",
+   "type": "numeric",
+   "q": "Without pumps: 30 % chance of a PKR 300 m loss. Pumps cost PKR 40 m and cut the probability to 10 %. By how much (PKR m) do pumps reduce the expected cost?",
+   "options": [],
+   "answer": 20,
+   "tolerance": 0.01,
+   "unit": "PKR m",
+   "explanation": "Without: 0.3 × 300 = 90. With: 40 + 0.1 × 300 = 70. Saving = 20."
+  },
+  {
+   "id": "W10-Q03",
+   "week": 10,
+   "clo": "CLO2",
+   "domain": "Risk",
+   "type": "numeric",
+   "q": "A risk is rated probability 4 and impact 5 on 1–5 scales. What is its P × I score?",
+   "options": [],
+   "answer": 20,
+   "tolerance": 0,
+   "unit": "",
+   "explanation": "4 × 5 = 20 — in the red zone of a 5×5 matrix."
+  },
+  {
+   "id": "W10-Q04",
+   "week": 10,
+   "clo": "CLO2",
+   "domain": "Risk",
+   "type": "mcq",
+   "q": "Buying contractor's all-risk insurance against flood damage is which threat response?",
+   "options": [
+    "Transfer",
+    "Accept",
+    "Exploit",
+    "Avoid"
+   ],
+   "answer": 0,
+   "explanation": "Transfer shifts the impact (and ownership of the response) to a third party, at a premium."
+  },
+  {
+   "id": "W10-Q05",
+   "week": 10,
+   "clo": "CLO2",
+   "domain": "Risk",
+   "type": "mcq",
+   "q": "Adding capacity so the solar plant can sell surplus power is which opportunity response?",
+   "options": [
+    "Enhance",
+    "Transfer",
+    "Mitigate",
+    "Avoid"
+   ],
+   "answer": 0,
+   "explanation": "Enhance increases the probability or impact of an opportunity; exploit makes it certain; share partners with a third party."
+  },
+  {
+   "id": "W10-Q06",
+   "week": 10,
+   "clo": "CLO2",
+   "domain": "Risk",
+   "type": "mcq",
+   "q": "In the pandemic-vaccine case (AstraZeneca) studied in Week 10, manufacturing doses \"at risk\" in parallel with clinical trials is best described as:",
+   "options": [
+    "Gold plating",
+    "Transferring risk to patients",
+    "Avoiding all risk",
+    "Accepting financial risk to compress the schedule by overlapping phases"
+   ],
+   "answer": 3,
+   "explanation": "Overlapping normally sequential work (fast-tracking) trades a known financial exposure for time when the value of time is very high."
+  },
+  {
+   "id": "W10-Q07",
+   "week": 10,
+   "clo": "CLO2",
+   "domain": "Risk",
+   "type": "mcq",
+   "q": "A risk that arises as a direct result of implementing a risk response is a:",
+   "options": [
+    "Trigger",
+    "Workaround",
+    "Residual risk",
+    "Secondary risk"
+   ],
+   "answer": 3,
+   "explanation": "Residual risk remains after the response; a secondary risk is created by the response itself."
+  },
+  {
+   "id": "W10-Q08",
+   "week": 10,
+   "clo": "CLO2",
+   "domain": "Risk",
+   "type": "tf",
+   "q": "Risks only need to be reviewed at gate meetings.",
+   "options": [
+    "True",
+    "False"
+   ],
+   "answer": 1,
+   "explanation": "Risk monitoring is continuous: triggers, new risks, and response effectiveness are tracked throughout."
+  },
+  {
+   "id": "W10-Q09",
+   "week": 10,
+   "clo": "CLO2",
+   "domain": "Risk",
+   "type": "mcq",
+   "q": "A Monte Carlo simulation gives P80 = 1,020 days. This means:",
+   "options": [
+    "The project will take exactly 1,020 days",
+    "Eighty activities are critical",
+    "There is an 80 % probability of finishing in 1,020 days or less",
+    "There is an 80 % chance of being late"
+   ],
+   "answer": 2,
+   "explanation": "P80 is the 80th percentile of the simulated finish distribution."
+  },
+  {
+   "id": "W10-Q10",
+   "week": 10,
+   "clo": "CLO2",
+   "domain": "Risk",
+   "type": "numeric",
+   "q": "Three risks: a threat 20 % × PKR 500 m, a threat 50 % × PKR 80 m, and an opportunity 40 % × PKR 150 m. What is the NET threat exposure in PKR m?",
+   "options": [],
+   "answer": 80,
+   "tolerance": 0.01,
+   "unit": "PKR m",
+   "explanation": "Threats: 100 + 40 = 140. Opportunity: 60. Net = 140 − 60 = 80."
+  },
+  {
+   "id": "W11-Q01",
+   "week": 11,
+   "clo": "CLO3",
+   "domain": "Procurement",
+   "type": "mcq",
+   "q": "Under a firm-fixed-price (FFP) contract, cost-overrun risk lies mainly with:",
+   "options": [
+    "The buyer",
+    "Both equally",
+    "The seller",
+    "The regulator"
+   ],
+   "answer": 2,
+   "explanation": "The seller must deliver at the agreed price; the buyer needs well-defined scope."
+  },
+  {
+   "id": "W11-Q02",
+   "week": 11,
+   "clo": "CLO3",
+   "domain": "Procurement",
+   "type": "mcq",
+   "q": "When scope is highly uncertain (e.g., early IT integration), which contract type is most suitable?",
+   "options": [
+    "Cost-plus-fixed-fee (cost-reimbursable)",
+    "Firm fixed price",
+    "No contract",
+    "Lump sum with no change clause"
+   ],
+   "answer": 0,
+   "explanation": "Cost-reimbursable contracts suit uncertain scope; the buyer carries more cost risk."
+  },
+  {
+   "id": "W11-Q03",
+   "week": 11,
+   "clo": "CLO3",
+   "domain": "Procurement",
+   "type": "numeric",
+   "q": "Weights: price 40 %, technical 30 %, experience 20 %, schedule 10 %. A bidder scores 8, 7, 9 and 6 (out of 10). What is the weighted score?",
+   "options": [],
+   "answer": 7.7,
+   "tolerance": 0.01,
+   "unit": "/10",
+   "explanation": "0.4×8 + 0.3×7 + 0.2×9 + 0.1×6 = 3.2 + 2.1 + 1.8 + 0.6 = 7.7."
+  },
+  {
+   "id": "W11-Q04",
+   "week": 11,
+   "clo": "CLO3",
+   "domain": "Procurement",
+   "type": "numeric",
+   "q": "FPIF: target cost PKR 100 m, target fee 10 m, buyer/seller share 80/20, ceiling 120 m. Actual cost is 90 m. What is the final price in PKR m?",
+   "options": [],
+   "answer": 102,
+   "tolerance": 0.01,
+   "unit": "PKR m",
+   "explanation": "Underrun = 10; seller keeps 20 % = 2, so fee = 12. Price = 90 + 12 = 102 (below the ceiling)."
+  },
+  {
+   "id": "W11-Q05",
+   "week": 11,
+   "clo": "CLO3",
+   "domain": "Procurement",
+   "type": "numeric",
+   "q": "Renting a crane costs PKR 1.2 m/day. Buying costs PKR 90 m plus PKR 0.3 m/day to operate. After how many days does buying break even?",
+   "options": [],
+   "answer": 100,
+   "tolerance": 0.01,
+   "unit": "days",
+   "explanation": "90 ÷ (1.2 − 0.3) = 100 days."
+  },
+  {
+   "id": "W11-Q06",
+   "week": 11,
+   "clo": "CLO3",
+   "domain": "Procurement",
+   "type": "mcq",
+   "q": "The purpose of a bidder conference is to:",
+   "options": [
+    "Award the contract",
+    "Close the procurement",
+    "Give all prospective sellers the same information at the same time",
+    "Negotiate a price with the favourite bidder"
+   ],
+   "answer": 2,
+   "explanation": "Equal access to information keeps the competition fair."
+  },
+  {
+   "id": "W11-Q07",
+   "week": 11,
+   "clo": "CLO3",
+   "domain": "Procurement",
+   "type": "tf",
+   "q": "During an active bid evaluation it is acceptable to accept a bidder's hospitality as long as nobody finds out.",
+   "options": [
+    "True",
+    "False"
+   ],
+   "answer": 1,
+   "explanation": "Conflicts of interest must be avoided and disclosed; professional responsibility requires refusing and reporting."
+  },
+  {
+   "id": "W11-Q08",
+   "week": 11,
+   "clo": "CLO3",
+   "domain": "Procurement",
+   "type": "mcq",
+   "q": "The procurement statement of work (SOW) describes:",
+   "options": [
+    "The item to be procured in enough detail for sellers to decide whether they can provide it",
+    "The full project charter",
+    "The internal team's salaries",
+    "The lessons learned"
+   ],
+   "answer": 0,
+   "explanation": "The SOW is the scope for that procurement."
+  },
+  {
+   "id": "W11-Q09",
+   "week": 11,
+   "clo": "CLO3",
+   "domain": "Procurement",
+   "type": "mcq",
+   "q": "A contractor submits a claim for extra costs caused by a disputed design change. The preferred first step is:",
+   "options": [
+    "Immediate litigation",
+    "Terminate the contract",
+    "Negotiation under the contract's claims-administration procedure",
+    "Ignore the claim"
+   ],
+   "answer": 2,
+   "explanation": "Negotiation first; alternative dispute resolution (mediation, arbitration) before courts."
+  },
+  {
+   "id": "W12-Q01",
+   "week": 12,
+   "clo": "CLO3",
+   "domain": "Communications",
+   "type": "numeric",
+   "q": "How many communication channels exist among 15 stakeholders?",
+   "options": [],
+   "answer": 105,
+   "tolerance": 0,
+   "unit": "channels",
+   "explanation": "n(n − 1) ÷ 2 = 15 × 14 ÷ 2 = 105."
+  },
+  {
+   "id": "W12-Q02",
+   "week": 12,
+   "clo": "CLO3",
+   "domain": "Communications",
+   "type": "numeric",
+   "q": "The core team grows from 10 to 14 people. By how many do the communication channels increase?",
+   "options": [],
+   "answer": 46,
+   "tolerance": 0,
+   "unit": "channels",
+   "explanation": "10 people: 45 channels; 14 people: 91 channels; increase = 46."
+  },
+  {
+   "id": "W12-Q03",
+   "week": 12,
+   "clo": "CLO3",
+   "domain": "Stakeholders",
+   "type": "mcq",
+   "q": "A provincial secretary has high power but low interest in day-to-day progress. The strategy is to:",
+   "options": [
+    "Manage closely",
+    "Keep satisfied",
+    "Monitor",
+    "Keep informed"
+   ],
+   "answer": 1,
+   "explanation": "Power/interest grid: high/high manage closely; high power/low interest keep satisfied; low/high keep informed; low/low monitor."
+  },
+  {
+   "id": "W12-Q04",
+   "week": 12,
+   "clo": "CLO3",
+   "domain": "Team",
+   "type": "mcq",
+   "q": "The civil and MEP leads argue in every meeting about responsibilities. In Tuckman's model the team is in:",
+   "options": [
+    "Forming",
+    "Adjourning",
+    "Norming",
+    "Storming"
+   ],
+   "answer": 3,
+   "explanation": "Storming is the conflict stage as roles and working styles are contested."
+  },
+  {
+   "id": "W12-Q05",
+   "week": 12,
+   "clo": "CLO3",
+   "domain": "Team",
+   "type": "mcq",
+   "q": "Which conflict-resolution mode generally produces the most lasting result?",
+   "options": [
+    "Smooth / accommodate",
+    "Force / direct",
+    "Collaborate / problem-solve",
+    "Withdraw / avoid"
+   ],
+   "answer": 2,
+   "explanation": "Collaboration addresses root causes and builds commitment (win-win)."
+  },
+  {
+   "id": "W12-Q06",
+   "week": 12,
+   "clo": "CLO3",
+   "domain": "Team",
+   "type": "mcq",
+   "q": "In a RACI matrix, how many people should be Accountable for a deliverable?",
+   "options": [
+    "None",
+    "Exactly one",
+    "Everyone involved",
+    "At least two"
+   ],
+   "answer": 1,
+   "explanation": "One \"A\" per deliverable avoids confusion; several people can be Responsible."
+  },
+  {
+   "id": "W12-Q07",
+   "week": 12,
+   "clo": "CLO3",
+   "domain": "Resources",
+   "type": "mcq",
+   "q": "Resource levelling differs from resource smoothing because levelling:",
+   "options": [
+    "Only uses free float",
+    "Never changes any dates",
+    "May change the critical path and end date to respect resource limits",
+    "Adds resources"
+   ],
+   "answer": 2,
+   "explanation": "Smoothing works within float; levelling can extend the project."
+  },
+  {
+   "id": "W12-Q08",
+   "week": 12,
+   "clo": "CLO3",
+   "domain": "Stakeholders",
+   "type": "tf",
+   "q": "The salience model classifies stakeholders by power, legitimacy and urgency.",
+   "options": [
+    "True",
+    "False"
+   ],
+   "answer": 0,
+   "explanation": "Stakeholders with all three attributes are \"definitive\" and need the most attention."
+  },
+  {
+   "id": "W12-Q09",
+   "week": 12,
+   "clo": "CLO3",
+   "domain": "Team",
+   "type": "mcq",
+   "q": "In Herzberg's theory, which is a HYGIENE factor?",
+   "options": [
+    "Achievement",
+    "Recognition",
+    "Salary and working conditions (e.g., heat shelters)",
+    "Growth"
+   ],
+   "answer": 2,
+   "explanation": "Hygiene factors prevent dissatisfaction; motivators (recognition, achievement, growth) create satisfaction."
+  },
+  {
+   "id": "W12-Q10",
+   "week": 12,
+   "clo": "CLO3",
+   "domain": "Communications",
+   "type": "mcq",
+   "q": "Stakeholders consult a live project dashboard whenever they choose. This is:",
+   "options": [
+    "Push communication",
+    "Interactive communication",
+    "Informal communication",
+    "Pull communication"
+   ],
+   "answer": 3,
+   "explanation": "Pull: recipients access information at their discretion. Push: sent to recipients. Interactive: real-time exchange."
+  },
+  {
+   "id": "W13-Q01",
+   "week": 13,
+   "clo": "CLO2",
+   "domain": "MS Project",
+   "type": "mcq",
+   "q": "A start-to-start (SS) dependency means:",
+   "options": [
+    "The successor cannot start until the predecessor starts",
+    "The successor must finish before the predecessor starts",
+    "The successor cannot start until the predecessor finishes",
+    "Both must finish together"
+   ],
+   "answer": 0,
+   "explanation": "SS links starts — e.g., markings can start once surfacing has started, with a lag."
+  },
+  {
+   "id": "W13-Q02",
+   "week": 13,
+   "clo": "CLO2",
+   "domain": "MS Project",
+   "type": "numeric",
+   "q": "A finish-to-start link has a 5-day lag. The predecessor finishes at the end of day 20. On which day can the successor start at the earliest?",
+   "options": [],
+   "answer": 25,
+   "tolerance": 0,
+   "unit": "day",
+   "explanation": "Successor ES = predecessor EF + lag = 20 + 5 = 25 (in end-of-day day numbering)."
+  },
+  {
+   "id": "W13-Q03",
+   "week": 13,
+   "clo": "CLO2",
+   "domain": "MS Project",
+   "type": "mcq",
+   "q": "On an effort-driven, fixed-work task, assigning a second identical crew will:",
+   "options": [
+    "Shorten the duration (work is shared)",
+    "Delete the task",
+    "Double the work",
+    "Leave the duration unchanged"
+   ],
+   "answer": 0,
+   "explanation": "Work = duration × units; with fixed work, more units reduce duration."
+  },
+  {
+   "id": "W13-Q04",
+   "week": 13,
+   "clo": "CLO2",
+   "domain": "MS Project",
+   "type": "mcq",
+   "q": "After saving a baseline, which view compares current dates against it?",
+   "options": [
+    "Tracking Gantt",
+    "Network diagram without baseline",
+    "Resource sheet",
+    "Calendar view"
+   ],
+   "answer": 0,
+   "explanation": "The Tracking Gantt shows baseline bars beneath current bars."
+  },
+  {
+   "id": "W13-Q05",
+   "week": 13,
+   "clo": "CLO2",
+   "domain": "MS Project",
+   "type": "mcq",
+   "q": "A milestone such as \"G2 — Runway ready for overlay\" has a duration of:",
+   "options": [
+    "Zero",
+    "One day",
+    "The duration of its predecessors",
+    "One week"
+   ],
+   "answer": 0,
+   "explanation": "Milestones mark points in time; they consume no time."
+  },
+  {
+   "id": "W13-Q06",
+   "week": 13,
+   "clo": "CLO2",
+   "domain": "MS Project",
+   "type": "tf",
+   "q": "A negative lag (lead) allows a successor to start before its predecessor finishes.",
+   "options": [
+    "True",
+    "False"
+   ],
+   "answer": 0,
+   "explanation": "Leads overlap linked activities — a form of fast-tracking."
+  },
+  {
+   "id": "W13-Q07",
+   "week": 13,
+   "clo": "CLO2",
+   "domain": "MS Project",
+   "type": "mcq",
+   "q": "A red over-allocation indicator appears on the paving crew. The usual remedy in the tool is:",
+   "options": [
+    "Deleting the resource",
+    "Hiding the indicator",
+    "Resource levelling (or reassigning work)",
+    "Changing the project start date"
+   ],
+   "answer": 2,
+   "explanation": "Levelling delays or splits tasks so demand stays within capacity."
+  },
+  {
+   "id": "W13-Q08",
+   "week": 13,
+   "clo": "CLO2",
+   "domain": "MS Project",
+   "type": "numeric",
+   "q": "Three engineers are assigned full-time to a 10-day task with 8-hour days. How many hours of work is this?",
+   "options": [],
+   "answer": 240,
+   "tolerance": 0,
+   "unit": "hours",
+   "explanation": "Work = 10 days × 8 h × 3 = 240 hours."
+  },
+  {
+   "id": "W13-Q09",
+   "week": 13,
+   "clo": "CLO2",
+   "domain": "MS Project",
+   "type": "mcq",
+   "q": "Which file format does this simulator export so the schedule opens in MS Project?",
+   "options": [
+    "PNG",
+    "MP3",
+    "MSPDI XML",
+    "DOCX"
+   ],
+   "answer": 2,
+   "explanation": "MS Project reads the Microsoft Project Data Interchange (XML) format; CSV is also offered."
+  },
+  {
+   "id": "W14-Q01",
+   "week": 14,
+   "clo": "CLO3",
+   "domain": "Communications",
+   "type": "mcq",
+   "q": "A monthly status report to the sponsor should lead with:",
+   "options": [
+    "A full list of every task",
+    "Progress against baseline, forecast (EAC, finish date), top risks and decisions needed",
+    "Team members' biographies",
+    "Technical drawings"
+   ],
+   "answer": 1,
+   "explanation": "Executives need performance, forecast, exceptions and decisions."
+  },
+  {
+   "id": "W14-Q02",
+   "week": 14,
+   "clo": "CLO3",
+   "domain": "Communications",
+   "type": "mcq",
+   "q": "Presenting to the provincial cabinet, you should tailor the message by:",
+   "options": [
+    "Starting with benefits and decisions needed, then the evidence",
+    "Avoiding numbers altogether",
+    "Showing every Gantt bar",
+    "Reading the full PMP aloud"
+   ],
+   "answer": 0,
+   "explanation": "Tailor to audience: executives want the \"so what\" first."
+  },
+  {
+   "id": "W14-Q03",
+   "week": 14,
+   "clo": "CLO2",
+   "domain": "Communications",
+   "type": "mcq",
+   "q": "Which visual best shows schedule slippage to a non-specialist audience?",
+   "options": [
+    "A fishbone diagram",
+    "A Gantt chart with baseline bars beneath current bars",
+    "A RACI matrix",
+    "A procurement SOW"
+   ],
+   "answer": 1,
+   "explanation": "Baseline vs current bars make slippage visible at a glance."
+  },
+  {
+   "id": "W14-Q04",
+   "week": 14,
+   "clo": "CLO3",
+   "domain": "Communications",
+   "type": "mcq",
+   "q": "You must report a 40-day delay. Best practice is to:",
+   "options": [
+    "Report early, explain causes, and present options with impacts",
+    "Blame the contractor",
+    "Wait until it is certain",
+    "Hide it until the gate"
+   ],
+   "answer": 0,
+   "explanation": "Bad news early, with options, preserves trust and decision time."
+  },
+  {
+   "id": "W14-Q05",
+   "week": 14,
+   "clo": "CLO2",
+   "domain": "Communications",
+   "type": "tf",
+   "q": "A good project dashboard displays every metric the system can calculate.",
+   "options": [
+    "True",
+    "False"
+   ],
+   "answer": 1,
+   "explanation": "Dashboards should show the few indicators that drive decisions, with thresholds."
+  },
+  {
+   "id": "W14-Q06",
+   "week": 14,
+   "clo": "CLO1",
+   "domain": "Communications",
+   "type": "mcq",
+   "q": "In a two-minute project pitch, which element matters most?",
+   "options": [
+    "The full risk register",
+    "The value: the problem, the benefits and why now",
+    "Every stakeholder's name",
+    "The software used"
+   ],
+   "answer": 1,
+   "explanation": "Lead with value and outcomes."
+  },
+  {
+   "id": "W14-Q07",
+   "week": 14,
+   "clo": "CLO2",
+   "domain": "Communications",
+   "type": "numeric",
+   "q": "A slide says SPI = 0.9 and PV = PKR 10 bn. What EV (PKR bn) should the chart show?",
+   "options": [],
+   "answer": 9,
+   "tolerance": 0.001,
+   "unit": "PKR bn",
+   "explanation": "EV = SPI × PV = 0.9 × 10 = 9 bn."
+  },
+  {
+   "id": "W14-Q08",
+   "week": 14,
+   "clo": "CLO2",
+   "domain": "Communications",
+   "type": "mcq",
+   "q": "An AMBER status (RAG) usually means:",
+   "options": [
+    "Failed and unrecoverable",
+    "On track",
+    "Cancelled",
+    "At risk, but recoverable with management action"
+   ],
+   "answer": 3,
+   "explanation": "Green on track; amber at risk with action; red off track needing escalation."
+  },
+  {
+   "id": "W14-Q09",
+   "week": 14,
+   "clo": "CLO3",
+   "domain": "Communications",
+   "type": "mcq",
+   "q": "An examiner asks a question you cannot answer during your presentation. The best response is to:",
+   "options": [
+    "Acknowledge it, give what you know, and commit to follow up",
+    "Ignore the question",
+    "Change the subject",
+    "Invent an answer"
+   ],
+   "answer": 0,
+   "explanation": "Honesty and follow-up maintain credibility."
+  },
+  {
+   "id": "W15-Q01",
+   "week": 15,
+   "clo": "CLO1",
+   "domain": "Closing",
+   "type": "mcq",
+   "q": "Which sequence best describes closing the project?",
+   "options": [
+    "Write the charter → close",
+    "Release resources → start → plan",
+    "Archive → begin execution",
+    "Confirm acceptance → transfer deliverables → close procurements → lessons learned → archive → release resources"
+   ],
+   "answer": 3,
+   "explanation": "Closure formalises acceptance, transfers ownership and captures knowledge before the team disperses."
+  },
+  {
+   "id": "W15-Q02",
+   "week": 15,
+   "clo": "CLO1",
+   "domain": "Closing",
+   "type": "mcq",
+   "q": "When are most benefits of the revived airport realised?",
+   "options": [
+    "At the charter signing",
+    "Never measured",
+    "After the project closes, during operations",
+    "During the earthworks"
+   ],
+   "answer": 2,
+   "explanation": "Benefits (movements, passengers, on-time performance) accrue in operations and are tracked by the benefits owner."
+  },
+  {
+   "id": "W15-Q03",
+   "week": 15,
+   "clo": "CLO2",
+   "domain": "Cost",
+   "type": "numeric",
+   "q": "Final review: at completion BAC = EV = PKR 50 bn and AC = 54 bn. What is the final CPI (two decimals)?",
+   "options": [],
+   "answer": 0.93,
+   "tolerance": 0.01,
+   "unit": "",
+   "explanation": "CPI = 50 ÷ 54 = 0.926 ≈ 0.93."
+  },
+  {
+   "id": "W15-Q04",
+   "week": 15,
+   "clo": "CLO3",
+   "domain": "Communications",
+   "type": "numeric",
+   "q": "Final review: how many communication channels exist among 8 people?",
+   "options": [],
+   "answer": 28,
+   "tolerance": 0,
+   "unit": "channels",
+   "explanation": "8 × 7 ÷ 2 = 28."
+  },
+  {
+   "id": "W15-Q05",
+   "week": 15,
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "type": "numeric",
+   "q": "Final review: O = 6, M = 9, P = 18 days. What is the PERT expected duration?",
+   "options": [],
+   "answer": 10,
+   "tolerance": 0.01,
+   "unit": "days",
+   "explanation": "(6 + 36 + 18) ÷ 6 = 60 ÷ 6 = 10 days."
+  },
+  {
+   "id": "W15-Q06",
+   "week": 15,
+   "clo": "CLO1",
+   "domain": "Closing",
+   "type": "tf",
+   "q": "Lessons learned should be collected only at the end of the project.",
+   "options": [
+    "True",
+    "False"
+   ],
+   "answer": 1,
+   "explanation": "They are captured throughout and consolidated at closure into the organisational process assets."
+  },
+  {
+   "id": "W15-Q07",
+   "week": 15,
+   "clo": "CLO3",
+   "domain": "Procurement",
+   "type": "mcq",
+   "q": "Before administrative closure, a procurement audit is performed to:",
+   "options": [
+    "Start a new tender",
+    "Review the procurement process for lessons and compliance",
+    "Increase the contract value",
+    "Choose a new vendor"
+   ],
+   "answer": 1,
+   "explanation": "The audit examines the whole procurement process so the organisation learns from it."
+  },
+  {
+   "id": "W15-Q08",
+   "week": 15,
+   "clo": "CLO3",
+   "domain": "Closing",
+   "type": "mcq",
+   "q": "ORAT (operational readiness and airport transfer) mainly ensures that:",
+   "options": [
+    "The bids are evaluated",
+    "The concrete is strong enough",
+    "People, processes and systems are ready to operate the new facility from day one",
+    "The WBS is complete"
+   ],
+   "answer": 2,
+   "explanation": "ORAT trials, training and procedures turn outputs into working operations."
+  },
+  {
+   "id": "W15-Q09",
+   "week": 15,
+   "clo": "CLO1",
+   "domain": "Closing",
+   "type": "mcq",
+   "q": "The final project report typically includes:",
+   "options": [
+    "The first draft of the charter",
+    "Only the team photo",
+    "Unapproved changes",
+    "Summary of scope, quality, cost and schedule performance against objectives, plus benefits status"
+   ],
+   "answer": 3,
+   "explanation": "It records how the project performed against its success criteria."
+  },
+  {
+   "id": "W15-Q10",
+   "week": 15,
+   "clo": "CLO2",
+   "domain": "Risk",
+   "type": "numeric",
+   "q": "Final review: a threat has a 25 % probability and a PKR 400 m impact. What is its EMV magnitude in PKR m?",
+   "options": [],
+   "answer": 100,
+   "tolerance": 0.01,
+   "unit": "PKR m",
+   "explanation": "0.25 × 400 = 100."
+  }
+ ]
+}

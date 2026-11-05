@@ -131,7 +131,7 @@ sim.download(filename, mime, text)                  // file export helper
 | `selection:changed` | `{ id }` | main |
 | `panel:opened` / `panel:closed` | `{ id }` | dashboard |
 | `decision:shown` / `decision:resolved` | `{ event, option }` | game |
-| `mission:completed` | `{ mission }` | game |
+| `mission:completed` / `mission:failed` | `{ mission }` | game |
 | `xp:gained` | `{ amount, reason, total, level }` | game |
 | `badge:earned` | `{ badge }` | game |
 | `quiz:answered` | `{ week, questionId, correct }` | assess panel |

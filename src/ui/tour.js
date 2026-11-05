@@ -204,7 +204,7 @@ export const TOUR_BEATS = [
     id: 'lessons',
     title: 'Lessons learned — and the next gateway',
     text: 'The project closes; the knowledge stays. Lessons from encroachment, monsoon, heat, procurement and Agile IT go into the organisation’s process assets for the next airport. Your scorecard maps the journey to the three course learning outcomes.',
-    lesson: 'Close the project: final report, lessons learned into OPAs, archive records, celebrate the team. Twelve PMBOK principles, eight performance domains — all of it, in one airport.',
+    lesson: 'Close the project: final report, lessons learned into OPAs, archive records, celebrate the team. Principles, performance domains and focus areas — all of them, in one airport.',
     clo: ['CLO1', 'CLO2', 'CLO3'], phase: 'closing', week: 15,
     camera: { position: [-1700, 600, 1700], target: [-120, 0, 300] },
     hour: 19.4, weather: 'clear', intensity: 0, progress: 1, duration: 14,

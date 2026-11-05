@@ -1,0 +1,417 @@
+{
+ "version": 1,
+ "title": "Project Management — 15-week course map (SKY GATEWAY HYDERABAD)",
+ "textbook": "PMBOK® Guide — 8th Edition",
+ "derivedFrom": "mission brief §5.2/§6 — replace with the official outline",
+ "clos": [
+  {
+   "id": "CLO1",
+   "text": "Understand and apply project-management concepts, life cycles, delivery approaches and frameworks (PMBOK 8 principles, performance domains and focus areas) to a real-world-scale project.",
+   "features": [
+    "missions:M01,M03,M06,M15",
+    "panels:foundations,lifecycle,approach,charter",
+    "tour:dawn-gateway,business-case,scrum-war-room,lessons",
+    "quiz:W01–W04,W15",
+    "scorecard:gates & missions"
+   ]
+  },
+  {
+   "id": "CLO2",
+   "text": "Apply quantitative tools and techniques — CPM/PERT, EVM, Monte Carlo, EMV, control charts — to plan, monitor and control scope, schedule, cost, quality and risk.",
+   "features": [
+    "missions:M05,M07,M08,M10,M11",
+    "panels:schedule,cost,risk,forecast,quality,control",
+    "decisions:D02,D03,D16,D17,D35,D36",
+    "quiz:W05–W10,W13",
+    "scorecard:SPI, CPI, quality, risk trend"
+   ]
+  },
+  {
+   "id": "CLO3",
+   "text": "Manage people, stakeholders, communication and procurement ethically and effectively in a multi-stakeholder public infrastructure context.",
+   "features": [
+    "missions:M02,M04,M09,M14,M16",
+    "panels:team,stakeholders,procurement,present",
+    "decisions:D01,D04,D11,D12,D13,D31",
+    "quiz:W11,W12,W14",
+    "scorecard:satisfaction, safety, welfare, ethics"
+   ]
+  }
+ ],
+ "objectives": [
+  {
+   "id": "O1",
+   "text": "Explain what makes work a project and how projects, programmes, portfolios and operations relate within an organisation.",
+   "clo": [
+    "CLO1"
+   ],
+   "features": [
+    "foundations panel",
+    "mission M01",
+    "tour beat dawn-gateway",
+    "quiz W01"
+   ]
+  },
+  {
+   "id": "O2",
+   "text": "Select and tailor a life cycle and delivery approach (predictive, Agile, hybrid) for a complex infrastructure programme.",
+   "clo": [
+    "CLO1"
+   ],
+   "features": [
+    "lifecycle and approach panels",
+    "agile board and mission M06",
+    "tour beat hybrid-approach",
+    "quiz W02–W03"
+   ]
+  },
+  {
+   "id": "O3",
+   "text": "Build and baseline integrated scope, schedule and cost plans, and analyse them quantitatively.",
+   "clo": [
+    "CLO2"
+   ],
+   "features": [
+    "scope, schedule and cost panels",
+    "missions M03 and M05",
+    "MS Project export (W13)",
+    "quiz W04, W05, W09"
+   ]
+  },
+  {
+   "id": "O4",
+   "text": "Monitor and control performance, quality, change and risk using data, and forecast outcomes.",
+   "clo": [
+    "CLO2"
+   ],
+   "features": [
+    "control, quality, risk and forecast panels",
+    "missions M07, M08, M10",
+    "decision cards D16, D17, D35",
+    "quiz W06, W07, W10"
+   ]
+  },
+  {
+   "id": "O5",
+   "text": "Lead teams, engage stakeholders, communicate and procure ethically through to handover and closure.",
+   "clo": [
+    "CLO3"
+   ],
+   "features": [
+    "team, stakeholders, procurement and closing panels",
+    "missions M04, M09, M14, M15",
+    "decision cards D01, D12, D13",
+    "quiz W11, W12, W15"
+   ]
+  }
+ ],
+ "weeks": [
+  {
+   "week": 1,
+   "topic": "Project management foundations: project vs operations, programme, portfolio, PMO, EEFs and OPAs, frameworks",
+   "panels": [
+    "course",
+    "foundations",
+    "charter"
+   ],
+   "mechanic": "Site walk (mode 1) of the closed terminal and runway; classify findings as EEFs or OPAs; read the charter",
+   "missions": [
+    "M01"
+   ],
+   "quizSet": "W01",
+   "tourBeat": "dawn-gateway",
+   "clo": [
+    "CLO1"
+   ],
+   "domain": "Governance / Foundations"
+  },
+  {
+   "week": 2,
+   "topic": "Project life cycle, process groups and PMBOK 8 focus areas, principles and performance domains",
+   "panels": [
+    "lifecycle",
+    "charter",
+    "course"
+   ],
+   "mechanic": "Approve stage gates G0/G1 and watch the phase indicator move through the focus areas",
+   "missions": [
+    "M01",
+    "M03"
+   ],
+   "quizSet": "W02",
+   "tourBeat": "business-case",
+   "clo": [
+    "CLO1"
+   ],
+   "domain": "Governance / Lifecycle"
+  },
+  {
+   "week": 3,
+   "topic": "Delivery approaches: predictive, Agile, hybrid; Scrum and Kanban; AI in project management",
+   "panels": [
+    "approach",
+    "agile",
+    "aipm"
+   ],
+   "mechanic": "Run Scrum sprints for terminal IT (WBS 10) on the board (B); ask MEHRAN to draft backlog items and review them",
+   "missions": [
+    "M06"
+   ],
+   "quizSet": "W03",
+   "tourBeat": "scrum-war-room",
+   "clo": [
+    "CLO1",
+    "CLO2"
+   ],
+   "domain": "Delivery approach / Agile"
+  },
+  {
+   "week": 4,
+   "topic": "Scope management: requirements, scope statement, WBS and WBS dictionary, validate and control scope",
+   "panels": [
+    "scope",
+    "charter",
+    "control"
+   ],
+   "mechanic": "Explore the 12-package WBS in 3D (click to select), trace requirements, resist scope-creep cards",
+   "missions": [
+    "M03",
+    "M07"
+   ],
+   "quizSet": "W04",
+   "tourBeat": "wbs-scope",
+   "clo": [
+    "CLO1",
+    "CLO2"
+   ],
+   "domain": "Scope"
+  },
+  {
+   "week": 5,
+   "topic": "Schedule management: CPM, PERT, crashing and fast-tracking (British Columbia Transportation case)",
+   "panels": [
+    "schedule",
+    "forecast",
+    "cases"
+   ],
+   "mechanic": "Find the critical path, crash by cost slope, and keep SPI ≥ 0.95 through the earthworks",
+   "missions": [
+    "M03",
+    "M05"
+   ],
+   "quizSet": "W05",
+   "tourBeat": "critical-path",
+   "clo": [
+    "CLO2"
+   ],
+   "domain": "Schedule"
+  },
+  {
+   "week": 6,
+   "topic": "Monitoring and controlling, integrated change control, closing a phase",
+   "panels": [
+    "control",
+    "cost",
+    "closing"
+   ],
+   "mechanic": "Raise and decide change requests at the CCB (C); review variance thresholds and phase-gate closure",
+   "missions": [
+    "M07"
+   ],
+   "quizSet": "W06",
+   "tourBeat": "change-control",
+   "clo": [
+    "CLO2"
+   ],
+   "domain": "Monitoring & Controlling / Change"
+  },
+  {
+   "week": 7,
+   "topic": "Quality management: cost of quality, control charts, Pareto, root cause, NCRs",
+   "panels": [
+    "quality",
+    "control",
+    "operations"
+   ],
+   "mechanic": "Pass the pavement quality gate with zero open NCRs; react to dust-storm and cube-failure cards",
+   "missions": [
+    "M08",
+    "M12",
+    "M13"
+   ],
+   "quizSet": "W07",
+   "tourBeat": "quality-control",
+   "clo": [
+    "CLO2"
+   ],
+   "domain": "Quality"
+  },
+  {
+   "week": 8,
+   "topic": "Mid-term review and assessment (weeks 1–7)",
+   "panels": [
+    "assess",
+    "course",
+    "missions"
+   ],
+   "mechanic": "Mid-term practice quiz drawn from weeks 1–7; mission review and scorecard snapshot",
+   "missions": [
+    "M01",
+    "M03",
+    "M05",
+    "M06",
+    "M07",
+    "M08"
+   ],
+   "quizSet": "W08",
+   "tourBeat": "control-view",
+   "clo": [
+    "CLO1",
+    "CLO2"
+   ],
+   "domain": "Assessment"
+  },
+  {
+   "week": 9,
+   "topic": "Cost management: estimating, budgeting, reserves, earned value and forecasting",
+   "panels": [
+    "cost",
+    "forecast",
+    "control"
+   ],
+   "mechanic": "Track PV/EV/AC, EAC and TCPI; absorb a PKR devaluation through reserves or hedging",
+   "missions": [
+    "M11"
+   ],
+   "quizSet": "W09",
+   "tourBeat": "earthworks",
+   "clo": [
+    "CLO2"
+   ],
+   "domain": "Finance / Cost"
+  },
+  {
+   "week": 10,
+   "topic": "Risk management: identification, qualitative and quantitative analysis, responses (AstraZeneca pandemic case)",
+   "panels": [
+    "risk",
+    "forecast",
+    "cases"
+   ],
+   "mechanic": "Size reserves with EMV and Monte Carlo; survive the monsoon flash flood with the drainage complete",
+   "missions": [
+    "M10"
+   ],
+   "quizSet": "W10",
+   "tourBeat": "monsoon",
+   "clo": [
+    "CLO2"
+   ],
+   "domain": "Risk"
+  },
+  {
+   "week": 11,
+   "topic": "Procurement management: make-or-buy, contract types, weighted bid evaluation, claims and ethics",
+   "panels": [
+    "procurement",
+    "cost",
+    "team"
+   ],
+   "mechanic": "Evaluate bids with weighted scoring, award packages, handle a vendor bribe attempt and a cash-flow crisis",
+   "missions": [
+    "M09",
+    "M11"
+   ],
+   "quizSet": "W11",
+   "tourBeat": "terminal-steel",
+   "clo": [
+    "CLO3"
+   ],
+   "domain": "Procurement"
+  },
+  {
+   "week": 12,
+   "topic": "Resources, team, stakeholders and communications",
+   "panels": [
+    "team",
+    "stakeholders",
+    "present"
+   ],
+   "mechanic": "Clear the encroachment without losing the community; heat-wave and union cards; tailor the communications plan",
+   "missions": [
+    "M02",
+    "M04",
+    "M16"
+   ],
+   "quizSet": "W12",
+   "tourBeat": "encroachment",
+   "clo": [
+    "CLO3"
+   ],
+   "domain": "Stakeholders / Resources"
+  },
+  {
+   "week": 13,
+   "topic": "MS Project workshop: tasks, links, lags, resources, baselines and tracking",
+   "panels": [
+    "msproject",
+    "schedule",
+    "session"
+   ],
+   "mechanic": "Export the schedule as MSPDI XML / CSV, rebuild it in MS Project and compare the critical path",
+   "missions": [
+    "M03",
+    "M12"
+   ],
+   "quizSet": "W13",
+   "tourBeat": "night-agl",
+   "clo": [
+    "CLO2"
+   ],
+   "domain": "Schedule tools"
+  },
+  {
+   "week": 14,
+   "topic": "Project presentations (I): status reporting and storytelling with data",
+   "panels": [
+    "present",
+    "missions",
+    "stakeholders"
+   ],
+   "mechanic": "Presentation mode (R): build a status report from live data and present a tour segment",
+   "missions": [
+    "M13",
+    "M14"
+   ],
+   "quizSet": "W14",
+   "tourBeat": "certification",
+   "clo": [
+    "CLO3",
+    "CLO1"
+   ],
+   "domain": "Communications"
+  },
+  {
+   "week": 15,
+   "topic": "Project presentations (II), closing the project and final review",
+   "panels": [
+    "closing",
+    "operations",
+    "assess"
+   ],
+   "mechanic": "Hand over to operations, log lessons learned, print the scorecard certificate; final review quiz",
+   "missions": [
+    "M14",
+    "M15"
+   ],
+   "quizSet": "W15",
+   "tourBeat": "lessons",
+   "clo": [
+    "CLO1",
+    "CLO2",
+    "CLO3"
+   ],
+   "domain": "Closing / Benefits"
+  }
+ ]
+}
