@@ -1,15 +1,23 @@
 import * as THREE from 'three';
-import { fbm2, ridged2, worley2, valueNoise2, hash2i, clamp, lerp, smoothstep, makeRng } from './noise.js';
+import { fbm2, worley2, valueNoise2, hash2i, clamp, lerp, smoothstep, makeRng } from './noise.js';
 
 /**
- * Procedural material library.
+ * Procedural texture library (A3).
  *
- * The simulator ships as a single HTML file with no external assets, so every
- * surface - weathered limestone, Aswan granite, Sahara sand, mud brick, cedar,
- * plaster, water - is synthesised at load time from noise.  Each builder runs
- * ONE noise evaluation per texel and derives the normal and roughness maps from
- * the cached height field, which keeps the whole library under ~1 s even on a
- * low-power laptop.
+ * The simulator ships as ONE offline HTML file, so every surface — faded
+ * runway asphalt with crack sealing and rubber, fresh SMA, slab concrete,
+ * Sindh alluvial sand, cut/fill soils, aggregate layers, Sindhi fired brick,
+ * terrazzo floors and the Ajrak block-print screens — is synthesised at load
+ * time on a canvas.  Each set is built from ONE sampler pass per texel; the
+ * normal map comes from a Sobel filter over the cached height field and the
+ * ambient-occlusion channel from a cavity term (local mean height minus
+ * height), so the whole library warms in well under two seconds.
+ *
+ * Every set returns { map, normalMap, ormMap, roughnessMap, aoMap }:
+ *   ormMap  R = ambient occlusion, G = roughness, B = metalness
+ *   (three reads aoMap.r, roughnessMap.g and metalnessMap.b, so ONE texture
+ *    serves all three slots; roughnessMap / aoMap are aliases of ormMap).
+ * Textures tile seamlessly (all noise is evaluated on a wrapped lattice).
  */
 
 function createCanvas(w, h) {
@@ -19,40 +27,133 @@ function createCanvas(w, h) {
   return c;
 }
 
-/** Wrap an index into [0,n) so generated maps tile seamlessly. */
 function wrapIndex(i, n) {
-  return i < 0 ? i + n : i >= n ? i - n : i;
+  return ((i % n) + n) % n;
+}
+
+/** Periodic value noise: lattice coordinates wrap at `period` so tiles are seamless. */
+function pnoise(x, y, period, seed) {
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const xf = x - xi;
+  const yf = y - yi;
+  const u = xf * xf * xf * (xf * (xf * 6 - 15) + 10);
+  const v = yf * yf * yf * (yf * (yf * 6 - 15) + 10);
+  const x0 = wrapIndex(xi, period);
+  const x1 = wrapIndex(xi + 1, period);
+  const y0 = wrapIndex(yi, period);
+  const y1 = wrapIndex(yi + 1, period);
+  const a = hash2i(x0, y0, seed);
+  const b = hash2i(x1, y0, seed);
+  const c = hash2i(x0, y1, seed);
+  const d = hash2i(x1, y1, seed);
+  return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v;
+}
+
+/** Periodic fbm in [0,1]; `freq` must be an integer so the tile wraps. */
+function pfbm(u, v, freq, octaves, seed, gain = 0.5) {
+  let amp = 1;
+  let f = freq;
+  let sum = 0;
+  let norm = 0;
+  for (let i = 0; i < octaves; i++) {
+    sum += amp * pnoise(u * f, v * f, f, seed + i * 131);
+    norm += amp;
+    amp *= gain;
+    f *= 2;
+  }
+  return sum / norm;
+}
+
+/** Periodic Worley F1 / F2-F1 (cell edges), `freq` integer. */
+function pworley(u, v, freq, seed, out) {
+  const x = u * freq;
+  const y = v * freq;
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  let f1 = 9;
+  let f2 = 9;
+  let id = 0;
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const cx = xi + dx;
+      const cy = yi + dy;
+      const wx = wrapIndex(cx, freq);
+      const wy = wrapIndex(cy, freq);
+      const px = cx + hash2i(wx, wy, seed);
+      const py = cy + hash2i(wx, wy, seed + 9871);
+      const d = (px - x) * (px - x) + (py - y) * (py - y);
+      if (d < f1) {
+        f2 = f1;
+        f1 = d;
+        id = hash2i(wx, wy, seed + 4242);
+      } else if (d < f2) f2 = d;
+    }
+  }
+  out.f1 = Math.sqrt(f1);
+  out.f2 = Math.sqrt(f2);
+  out.id = id;
+  return out;
 }
 
 /**
- * Build an albedo / normal / roughness set from a single per-texel sampler.
- * `sample(u, v, x, y)` must return { h, r, g, b, rough } with 0..1 channels.
+ * Build albedo / normal / ORM maps from a per-texel sampler.
+ * `sample(u, v, x, y, o)` writes o.h, o.r, o.g, o.b, o.rough, o.metal (0..1).
  */
 function buildTextureSet(size, sample, opts = {}) {
-  const { normalStrength = 2.0, repeat = 1, anisotropy = 4 } = opts;
-  const height = new Float32Array(size * size);
-  const albedo = new Uint8ClampedArray(size * size * 4);
-  const rough = new Uint8ClampedArray(size * size * 4);
+  const { normalStrength = 2.0, aoStrength = 2.5, aoRadius = 3, anisotropy = 4 } = opts;
+  const n = size * size;
+  const height = new Float32Array(n);
+  const albedo = new Uint8ClampedArray(n * 4);
+  const orm = new Uint8ClampedArray(n * 4);
+  const o = { h: 0, r: 0, g: 0, b: 0, rough: 1, metal: 0 };
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const i = y * size + x;
-      const s = sample(x / size, y / size, x, y);
-      height[i] = s.h;
-      albedo[i * 4] = s.r * 255;
-      albedo[i * 4 + 1] = s.g * 255;
-      albedo[i * 4 + 2] = s.b * 255;
-      albedo[i * 4 + 3] = 255;
-      const rq = s.rough * 255;
-      rough[i * 4] = rq;
-      rough[i * 4 + 1] = rq;
-      rough[i * 4 + 2] = rq;
-      rough[i * 4 + 3] = 255;
+      o.metal = 0;
+      sample(x / size, y / size, x, y, o);
+      height[i] = o.h;
+      const k = i * 4;
+      albedo[k] = o.r * 255;
+      albedo[k + 1] = o.g * 255;
+      albedo[k + 2] = o.b * 255;
+      albedo[k + 3] = 255;
+      orm[k + 1] = o.rough * 255;
+      orm[k + 2] = o.metal * 255;
+      orm[k + 3] = 255;
     }
   }
 
-  // Sobel-derived tangent-space normals from the cached height field.
-  const normal = new Uint8ClampedArray(size * size * 4);
+  // Cavity AO: separable box blur of the height field (wrapped).
+  const tmp = new Float32Array(n);
+  const blur = new Float32Array(n);
+  const r = aoRadius;
+  const inv = 1 / (2 * r + 1);
+  for (let y = 0; y < size; y++) {
+    const row = y * size;
+    let acc = 0;
+    for (let k = -r; k <= r; k++) acc += height[row + wrapIndex(k, size)];
+    for (let x = 0; x < size; x++) {
+      tmp[row + x] = acc * inv;
+      acc += height[row + wrapIndex(x + r + 1, size)] - height[row + wrapIndex(x - r, size)];
+    }
+  }
+  for (let x = 0; x < size; x++) {
+    let acc = 0;
+    for (let k = -r; k <= r; k++) acc += tmp[wrapIndex(k, size) * size + x];
+    for (let y = 0; y < size; y++) {
+      blur[y * size + x] = acc * inv;
+      acc += tmp[wrapIndex(y + r + 1, size) * size + x] - tmp[wrapIndex(y - r, size) * size + x];
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    const cavity = Math.max(0, blur[i] - height[i]);
+    orm[i * 4] = clamp(1 - cavity * aoStrength, 0.25, 1) * 255;
+  }
+
+  // Sobel tangent-space normals (OpenGL convention, +Y = +v).
+  const normal = new Uint8ClampedArray(n * 4);
   for (let y = 0; y < size; y++) {
     const ym = wrapIndex(y - 1, size) * size;
     const yp = wrapIndex(y + 1, size) * size;
@@ -66,356 +167,626 @@ function buildTextureSet(size, sample, opts = {}) {
       const dy =
         height[yp + xm] + 2 * height[yp + x] + height[yp + xp] -
         (height[ym + xm] + 2 * height[ym + x] + height[ym + xp]);
-      let nx = -dx * normalStrength;
-      let ny = -dy * normalStrength;
-      const nz = 1;
-      const len = Math.hypot(nx, ny, nz);
-      nx /= len;
-      ny /= len;
+      const nx = -dx * normalStrength;
+      const ny = dy * normalStrength;
+      const len = Math.hypot(nx, ny, 1);
       const i = (y0 + x) * 4;
-      normal[i] = (nx * 0.5 + 0.5) * 255;
-      normal[i + 1] = (ny * 0.5 + 0.5) * 255;
-      normal[i + 2] = (nz / len) * 0.5 * 255 + 127.5;
+      normal[i] = (nx / len) * 127.5 + 127.5;
+      normal[i + 1] = (ny / len) * 127.5 + 127.5;
+      normal[i + 2] = (1 / len) * 127.5 + 127.5;
       normal[i + 3] = 255;
     }
   }
 
   const make = (data, colorSpace) => {
     const canvas = createCanvas(size, size);
-    const ctx = canvas.getContext('2d');
-    ctx.putImageData(new ImageData(data, size, size), 0, 0);
+    canvas.getContext('2d').putImageData(new ImageData(data, size, size), 0, 0);
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(repeat, repeat);
     tex.anisotropy = anisotropy;
     tex.colorSpace = colorSpace;
+    tex.generateMipmaps = true;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
     tex.needsUpdate = true;
     return tex;
   };
-
+  const ormMap = make(orm, THREE.NoColorSpace);
   return {
     map: make(albedo, THREE.SRGBColorSpace),
     normalMap: make(normal, THREE.NoColorSpace),
-    roughnessMap: make(rough, THREE.NoColorSpace),
+    ormMap,
+    roughnessMap: ormMap,
+    aoMap: ormMap,
+    size,
   };
 }
 
-/* ------------------------------------------------------------------ stone */
+const W = { f1: 0, f2: 0, id: 0 };
+const W2 = { f1: 0, f2: 0, id: 0 };
 
-/** Nummulitic Mokattam limestone: the local plateau stone used for the core. */
-function limestoneSet(size, seed) {
-  return buildTextureSet(
-    size,
-    (u, v) => {
-      const n1 = fbm2(u * 7, v * 7, 5, 2.1, 0.55, seed);
-      const n2 = fbm2(u * 31, v * 31, 4, 2.0, 0.5, seed + 17);
-      const pits = 1 - worley2(u * 13, v * 13, seed + 5);
-      const shells = smoothstep(0.62, 0.78, valueNoise2(u * 55, v * 55, seed + 91));
-      const cracks = smoothstep(0.06, 0.0, worley2(u * 5.5, v * 5.5, seed + 41));
-      const h = clamp(n1 * 0.55 + n2 * 0.28 + pits * 0.2 - cracks * 0.5 + shells * 0.1, 0, 1);
-      const tone = 0.62 + n1 * 0.26 + n2 * 0.1;
-      const warm = 0.02 + shells * 0.05;
-      return {
-        h,
-        r: clamp(tone * 0.96 + warm, 0, 1),
-        g: clamp(tone * 0.90 + warm * 0.75, 0, 1),
-        b: clamp(tone * 0.76 + warm * 0.35, 0, 1),
-        rough: clamp(0.74 + n2 * 0.2 - shells * 0.18, 0.3, 1),
-      };
-    },
-    { normalStrength: 2.6 }
-  );
+/* ------------------------------------------------------------- pavements */
+
+/**
+ * Existing 1960s-era runway asphalt: oxidised to a pale grey, coarse exposed
+ * aggregate, block cracking sealed with black bitumen bands, a darker patch
+ * repair, and longitudinal rubber streaks (texture v runs along the runway).
+ */
+function asphaltOldSet(size, seed) {
+  return buildTextureSet(size, (u, v, x, y, o) => {
+    const macro = pfbm(u, v, 3, 4, seed);
+    const fine = pnoise(u * 160, v * 160, 160, seed + 3);
+    pworley(u, v, 90, seed + 7, W);
+    const stone = smoothstep(0.42, 0.18, W.f1);           // exposed aggregate
+    const stoneTone = W.id;
+    pworley(u, v, 5, seed + 11, W2);
+    const crackEdge = W2.f2 - W2.f1;
+    const crackWobble = (pfbm(u, v, 24, 3, seed + 13) - 0.5) * 0.05;
+    const crack = smoothstep(0.035, 0.0, crackEdge + crackWobble);
+    const seal = smoothstep(0.11, 0.05, crackEdge + crackWobble * 0.6) * (1 - crack);
+    // Rectangular patch repair (one per tile, wrapped).
+    const pu = (u + 0.63) % 1;
+    const pv = (v + 0.21) % 1;
+    const patch = smoothstep(0.0, 0.01, pu) * smoothstep(0.34, 0.33, pu) * smoothstep(0.0, 0.01, pv) * smoothstep(0.22, 0.21, pv);
+    // Rubber: streaks running along v, modulated in density.
+    const streak = pnoise(u * 64, v * 2, 64, seed + 21) * pnoise(u * 9, v * 1, 9, seed + 23);
+    const rubber = smoothstep(0.32, 0.75, streak) * (0.4 + macro * 0.6);
+    let tone = 0.36 + macro * 0.10 + (fine - 0.5) * 0.05;
+    tone = lerp(tone, 0.24 + stoneTone * 0.42, stone * 0.55);
+    tone = lerp(tone, 0.13 + macro * 0.04, patch * 0.85);
+    tone = lerp(tone, 0.06, seal * 0.8);
+    tone = lerp(tone, 0.03, crack);
+    tone = lerp(tone, tone * 0.45, rubber * 0.75);
+    o.h = clamp(0.55 + stone * 0.25 * (1 - patch) + fine * 0.1 - crack * 0.6 + seal * 0.08, 0, 1);
+    o.r = clamp(tone * 1.0, 0, 1);
+    o.g = clamp(tone * 0.99, 0, 1);
+    o.b = clamp(tone * 0.965, 0, 1);
+    o.rough = clamp(0.86 + fine * 0.1 - rubber * 0.18 - seal * 0.25, 0.4, 1);
+  }, { normalStrength: 2.4, aoStrength: 3.0, aoRadius: 2 });
 }
 
-/** Tura casing limestone: fine, near-white, polished to a 0.5 mm joint. */
-function casingSet(size, seed) {
-  return buildTextureSet(
-    size,
-    (u, v) => {
-      const fine = fbm2(u * 23, v * 23, 4, 2.0, 0.5, seed);
-      const veil = fbm2(u * 3.5, v * 3.5, 3, 2.0, 0.5, seed + 3);
-      const h = clamp(fine * 0.35 + veil * 0.2 + 0.3, 0, 1);
-      const tone = 0.85 + veil * 0.12 + fine * 0.05;
-      return {
-        h,
-        r: clamp(tone, 0, 1),
-        g: clamp(tone * 0.985, 0, 1),
-        b: clamp(tone * 0.93, 0, 1),
-        rough: clamp(0.32 + fine * 0.22, 0.2, 0.8),
-      };
-    },
-    { normalStrength: 0.8 }
-  );
-}
-
-/** Aswan red granite: feldspar / quartz / biotite speckle. */
-function graniteSet(size, seed) {
-  return buildTextureSet(
-    size,
-    (u, v) => {
-      const feld = valueNoise2(u * 22, v * 22, seed);
-      const quartz = valueNoise2(u * 31, v * 31, seed + 31);
-      const biotite = smoothstep(0.72, 0.86, valueNoise2(u * 44, v * 44, seed + 61));
-      const band = fbm2(u * 5, v * 5, 4, 2.0, 0.5, seed + 7);
-      const h = clamp(feld * 0.4 + quartz * 0.3 + band * 0.3, 0, 1);
-      let r = 0.44 + feld * 0.34 + band * 0.06;
-      let g = 0.24 + feld * 0.16 + quartz * 0.14;
-      let b = 0.21 + quartz * 0.2 + band * 0.04;
-      if (quartz > 0.68) {
-        const t = smoothstep(0.68, 0.9, quartz);
-        r = lerp(r, 0.78, t);
-        g = lerp(g, 0.74, t);
-        b = lerp(b, 0.7, t);
-      }
-      r = lerp(r, 0.07, biotite);
-      g = lerp(g, 0.07, biotite);
-      b = lerp(b, 0.08, biotite);
-      return { h, r, g, b, rough: clamp(0.42 + biotite * 0.25 - quartz * 0.12, 0.16, 0.9) };
-    },
-    { normalStrength: 1.2 }
-  );
-}
-
-/** Basalt paving of the mortuary temple courtyard. */
-function basaltSet(size, seed) {
-  return buildTextureSet(
-    size,
-    (u, v) => {
-      const vesicles = 1 - worley2(u * 26, v * 26, seed);
-      const grain = fbm2(u * 40, v * 40, 4, 2.0, 0.5, seed + 12);
-      const h = clamp(grain * 0.5 + vesicles * 0.45, 0, 1);
-      const tone = 0.13 + grain * 0.12 + vesicles * 0.05;
-      return { h, r: tone, g: tone * 1.02, b: tone * 1.12, rough: clamp(0.6 + grain * 0.25, 0.3, 1) };
-    },
-    { normalStrength: 2.0 }
-  );
+/** Fresh stone-mastic asphalt: near-black, fine closed texture. */
+function asphaltNewSet(size, seed) {
+  return buildTextureSet(size, (u, v, x, y, o) => {
+    const macro = pfbm(u, v, 4, 3, seed);
+    pworley(u, v, 120, seed + 5, W);
+    const stone = smoothstep(0.45, 0.2, W.f1);
+    const fine = pnoise(u * 256, v * 256, 256, seed + 9);
+    const tone = 0.075 + macro * 0.035 + stone * W.id * 0.07 + fine * 0.02;
+    o.h = clamp(0.5 + stone * 0.3 + fine * 0.15, 0, 1);
+    o.r = tone;
+    o.g = tone * 1.0;
+    o.b = tone * 1.04;
+    o.rough = clamp(0.78 + fine * 0.12 - stone * 0.12, 0.4, 1);
+  }, { normalStrength: 2.0, aoStrength: 2.2, aoRadius: 2 });
 }
 
 /**
- * Dressed ashlar masonry: courses of large blocks with fine joints, over a
- * stone base.  This is what turns the interior chambers from smooth boxes into
- * something that reads as built - the King's Chamber granite is laid in five
- * courses, and you can see every one of them.
+ * Pavement-quality concrete: `slabs` x `slabs` slabs per tile with sawn,
+ * sealed joints, transverse broom texture, per-slab tone shift, hairline
+ * cracks and (for aprons) oil drips and tyre scuffs.
  */
-function ashlarSet(size, seed, kind) {
-  const rows = 2;      // courses per texture tile
-  const cols = 1;      // blocks per tile across
-  const joint = 0.012; // joint width as a fraction of a block
-  return buildTextureSet(
-    size,
-    (u, v) => {
-      const ry = v * rows;
-      const row = Math.floor(ry);
-      const offset = (row % 2) * 0.5;
-      const rx = u * cols + offset;
-      const col = Math.floor(rx);
-      const fx = rx - col;
-      const fy = ry - row;
-      const face =
-        smoothstep(0, joint * 3, fx) * smoothstep(1, 1 - joint * 3, fx) *
-        smoothstep(0, joint * 6, fy) * smoothstep(1, 1 - joint * 6, fy);
-      const jitter = hash2i(col, row, seed);
-      const grain = fbm2(u * 26, v * 26, 4, 2.0, 0.5, seed + 3);
-
-      let r;
-      let g;
-      let b;
-      let rough;
-      let relief;
-      if (kind === 'granite') {
-        const feld = valueNoise2(u * 38, v * 38, seed + 11);
-        const quartz = valueNoise2(u * 54, v * 54, seed + 31);
-        const biotite = smoothstep(0.76, 0.93, valueNoise2(u * 74, v * 74, seed + 61)) * 0.75;
-        // Aswan granite is pink-grey, not terracotta: a modest red bias over a
-        // neutral base, with grey quartz and near-black biotite.
-        r = 0.52 + feld * 0.22 + jitter * 0.04;
-        g = 0.40 + feld * 0.15 + quartz * 0.10;
-        b = 0.37 + quartz * 0.15;
-        if (quartz > 0.7) {
-          const t = smoothstep(0.7, 0.92, quartz);
-          r = lerp(r, 0.74, t);
-          g = lerp(g, 0.70, t);
-          b = lerp(b, 0.66, t);
-        }
-        r = lerp(r, 0.22, biotite);
-        g = lerp(g, 0.20, biotite);
-        b = lerp(b, 0.22, biotite);
-        rough = 0.36 + biotite * 0.2 + grain * 0.1;
-        relief = grain * 0.3 + feld * 0.2;
-      } else {
-        const fine = fbm2(u * 18, v * 18, 4, 2.0, 0.5, seed + 7);
-        const tone = 0.70 + fine * 0.18 + jitter * 0.10;
-        r = tone;
-        g = tone * 0.965;
-        b = tone * 0.885;
-        rough = 0.5 + fine * 0.28;
-        relief = fine * 0.45;
-      }
-
-      // Joints: recessed, darker, and rougher than the dressed face.
-      const shade = lerp(0.55, 1.0, face);
-      const h = clamp(relief * 0.5 + face * 0.5, 0, 1);
-      return {
-        h,
-        r: clamp(r * shade, 0, 1),
-        g: clamp(g * shade, 0, 1),
-        b: clamp(b * shade, 0, 1),
-        rough: clamp(lerp(0.95, rough, face), 0.15, 1),
-      };
-    },
-    { normalStrength: kind === 'granite' ? 1.6 : 2.0 }
-  );
+function concreteSet(size, seed, { slabs = 2, apron = false } = {}) {
+  return buildTextureSet(size, (u, v, x, y, o) => {
+    const su = u * slabs;
+    const sv = v * slabs;
+    const cx = Math.floor(su);
+    const cy = Math.floor(sv);
+    const fx = su - cx;
+    const fy = sv - cy;
+    const jw = 0.0045 * slabs;
+    const joint = Math.max(smoothstep(jw, 0, fx) + smoothstep(1 - jw, 1, fx), smoothstep(jw, 0, fy) + smoothstep(1 - jw, 1, fy));
+    const slabTone = hash2i(cx % slabs, cy % slabs, seed);
+    const macro = pfbm(u, v, 4, 4, seed + 3);
+    const broom = pnoise(u * 6, v * 380, 6, seed + 7) * 0.6 + pnoise(u * 12, v * 760, 12, seed + 8) * 0.4;
+    const pores = smoothstep(0.82, 0.95, pnoise(u * 220, v * 220, 220, seed + 9));
+    pworley(u, v, 3, seed + 15, W);
+    const hair = smoothstep(0.012, 0.0, W.f2 - W.f1 + (pfbm(u, v, 32, 2, seed + 17) - 0.5) * 0.02) * 0.8;
+    let stain = 0;
+    if (apron) {
+      const drip = smoothstep(0.62, 0.8, pfbm(u, v, 8, 3, seed + 31));
+      const scuff = smoothstep(0.55, 0.85, pnoise(u * 2, v * 40, 2, seed + 33)) * smoothstep(0.4, 0.7, pfbm(u, v, 3, 2, seed + 35));
+      stain = drip * 0.55 + scuff * 0.3;
+    }
+    let tone = (apron ? 0.56 : 0.62) + slabTone * 0.07 + (macro - 0.5) * 0.12 + (broom - 0.5) * 0.035 - pores * 0.06;
+    tone *= 1 - stain * 0.55;
+    tone = lerp(tone, 0.1, joint * 0.85);
+    tone = lerp(tone, tone * 0.6, hair);
+    o.h = clamp(0.6 + broom * 0.12 - pores * 0.25 - joint * 0.55 - hair * 0.2, 0, 1);
+    o.r = clamp(tone * 1.0, 0, 1);
+    o.g = clamp(tone * 0.985, 0, 1);
+    o.b = clamp(tone * 0.95, 0, 1);
+    o.rough = clamp(0.84 + broom * 0.1 - stain * 0.35 - joint * 0.1, 0.35, 1);
+  }, { normalStrength: 1.6, aoStrength: 3.0, aoRadius: 2 });
 }
 
-/* ------------------------------------------------------------- ground/misc */
+/* ------------------------------------------------------------------ ground */
 
-/** Wind-rippled Sahara sand. */
+/** Indus-plain alluvial sand: pale khaki, wind ripples, darker silt patches. */
 function sandSet(size, seed) {
-  return buildTextureSet(
-    size,
-    (u, v) => {
-      const ripple = Math.sin((u * 11 + fbm2(u * 4, v * 4, 3, 2, 0.5, seed) * 2.4) * Math.PI * 2) * 0.5 + 0.5;
-      const grain = valueNoise2(u * 96, v * 96, seed + 3);
-      const drift = fbm2(u * 9, v * 9, 4, 2.0, 0.5, seed + 21);
-      const h = clamp(ripple * 0.42 + grain * 0.18 + drift * 0.4, 0, 1);
-      const tone = 0.66 + drift * 0.2 + ripple * 0.08 + grain * 0.06;
-      return {
-        h,
-        r: clamp(tone * 1.0, 0, 1),
-        g: clamp(tone * 0.84, 0, 1),
-        b: clamp(tone * 0.58, 0, 1),
-        rough: clamp(0.86 + grain * 0.12, 0.5, 1),
-      };
-    },
-    { normalStrength: 1.6 }
-  );
+  return buildTextureSet(size, (u, v, x, y, o) => {
+    const warp = pfbm(u, v, 4, 3, seed) * 2.2;
+    const ripple = Math.sin((v * 22 + warp) * Math.PI * 2) * 0.5 + 0.5;
+    const ripple2 = Math.pow(ripple, 1.6);
+    const grain = pnoise(u * 256, v * 256, 256, seed + 3);
+    const drift = pfbm(u, v, 3, 4, seed + 21);
+    const silt = smoothstep(0.55, 0.75, pfbm(u, v, 5, 3, seed + 41));
+    const pebble = smoothstep(0.9, 0.97, pnoise(u * 96, v * 96, 96, seed + 51));
+    const tone = 0.62 + drift * 0.16 + ripple2 * 0.06 + (grain - 0.5) * 0.08 - silt * 0.1 - pebble * 0.2;
+    o.h = clamp(ripple2 * 0.35 + grain * 0.15 + drift * 0.35 + pebble * 0.3, 0, 1);
+    o.r = clamp(tone * 0.98, 0, 1);
+    o.g = clamp(tone * 0.86, 0, 1);
+    o.b = clamp(tone * 0.66, 0, 1);
+    o.rough = clamp(0.9 + grain * 0.08 - silt * 0.05, 0.5, 1);
+  }, { normalStrength: 1.5, aoStrength: 2.0, aoRadius: 3 });
 }
 
-/** Exposed plateau bedrock with wind-scoured flutes. */
-function bedrockSet(size, seed) {
-  return buildTextureSet(
-    size,
-    (u, v) => {
-      const flute = ridged2(u * 6, v * 14, 5, seed);
-      const grain = fbm2(u * 44, v * 44, 4, 2.0, 0.5, seed + 8);
-      const bed = smoothstep(0.42, 0.58, fbm2(u * 2.5, v * 9, 3, 2, 0.5, seed + 19));
-      const h = clamp(flute * 0.62 + grain * 0.34 + bed * 0.12, 0, 1);
-      // Mokattam limestone: pale grey-buff, noticeably cooler than the sand
-      // that drifts over it, with bedding planes picked out in the relief.
-      const tone = 0.40 + flute * 0.20 + grain * 0.11 + bed * 0.06;
-      return {
-        h,
-        r: clamp(tone * 1.02, 0, 1),
-        g: clamp(tone * 0.99, 0, 1),
-        b: clamp(tone * 0.90, 0, 1),
-        rough: clamp(0.78 + grain * 0.17, 0.4, 1),
-      };
-    },
-    { normalStrength: 2.4 }
-  );
+/** Freshly cut clayey silt: darker, moister, bucket-tooth scrapes along v. */
+function soilCutSet(size, seed) {
+  return buildTextureSet(size, (u, v, x, y, o) => {
+    const macro = pfbm(u, v, 3, 4, seed);
+    const teeth = Math.abs(Math.sin((u * 18 + pfbm(u, v, 6, 2, seed + 4) * 0.8) * Math.PI));
+    const scrape = smoothstep(0.0, 0.25, teeth);
+    pworley(u, v, 26, seed + 7, W);
+    const clod = smoothstep(0.5, 0.15, W.f1) * W.id;
+    const moist = smoothstep(0.4, 0.7, pfbm(u, v, 4, 3, seed + 9));
+    const tone = 0.40 + macro * 0.14 - moist * 0.1 + clod * 0.06 - (1 - scrape) * 0.05;
+    o.h = clamp(scrape * 0.4 + clod * 0.4 + macro * 0.3, 0, 1);
+    o.r = clamp(tone * 0.92, 0, 1);
+    o.g = clamp(tone * 0.72, 0, 1);
+    o.b = clamp(tone * 0.52, 0, 1);
+    o.rough = clamp(0.88 - moist * 0.16, 0.4, 1);
+  }, { normalStrength: 2.4, aoStrength: 2.5, aoRadius: 3 });
 }
 
-/** Nile-silt mud brick used throughout Heit el-Ghurab, the workers' town. */
-function mudbrickSet(size, seed) {
+/** Engineered fill: lighter, compacted, roller drum bands along v. */
+function soilFillSet(size, seed) {
+  return buildTextureSet(size, (u, v, x, y, o) => {
+    const macro = pfbm(u, v, 3, 4, seed);
+    const band = Math.floor(u * 4);
+    const bandTone = hash2i(band, 0, seed + 2);
+    const edge = smoothstep(0.03, 0.0, Math.abs((u * 4) % 1 - 0.5) - 0.47);
+    const grit = pnoise(u * 200, v * 200, 200, seed + 5);
+    pworley(u, v, 40, seed + 9, W);
+    const stone = smoothstep(0.32, 0.12, W.f1);
+    const tone = 0.55 + macro * 0.12 + bandTone * 0.05 + (grit - 0.5) * 0.06 - edge * 0.06 + stone * (W.id - 0.5) * 0.2;
+    o.h = clamp(0.5 + grit * 0.15 + stone * 0.3 - edge * 0.2, 0, 1);
+    o.r = clamp(tone * 0.96, 0, 1);
+    o.g = clamp(tone * 0.83, 0, 1);
+    o.b = clamp(tone * 0.64, 0, 1);
+    o.rough = clamp(0.92 + grit * 0.06, 0.5, 1);
+  }, { normalStrength: 1.8, aoStrength: 2.0, aoRadius: 2 });
+}
+
+/** Granular sub-base / crushed base: graded stones in a fines matrix. */
+function gravelSet(size, seed, crushed) {
+  return buildTextureSet(size, (u, v, x, y, o) => {
+    pworley(u, v, crushed ? 70 : 42, seed, W);
+    const stone = smoothstep(crushed ? 0.62 : 0.55, crushed ? 0.3 : 0.25, W.f1);
+    const edge = smoothstep(0.0, 0.12, W.f2 - W.f1);
+    const fines = pnoise(u * 256, v * 256, 256, seed + 3);
+    const macro = pfbm(u, v, 3, 3, seed + 5);
+    const sTone = crushed ? 0.42 + W.id * 0.25 : 0.38 + W.id * 0.3;
+    const mTone = crushed ? 0.36 : 0.45;
+    const tone = lerp(mTone + fines * 0.08, sTone, stone * edge) + (macro - 0.5) * 0.08;
+    o.h = clamp(stone * edge * 0.8 + fines * 0.15, 0, 1);
+    if (crushed) {
+      o.r = clamp(tone * 0.95, 0, 1);
+      o.g = clamp(tone * 0.95, 0, 1);
+      o.b = clamp(tone * 0.97, 0, 1);
+    } else {
+      o.r = clamp(tone * 1.0, 0, 1);
+      o.g = clamp(tone * 0.9, 0, 1);
+      o.b = clamp(tone * 0.76, 0, 1);
+    }
+    o.rough = clamp(0.88 - stone * edge * 0.12 + fines * 0.06, 0.4, 1);
+  }, { normalStrength: 3.0, aoStrength: 4.0, aoRadius: 2 });
+}
+
+/** Sun-bleached grass/scrub with soil showing between tufts. */
+function dryGrassSet(size, seed) {
+  return buildTextureSet(size, (u, v, x, y, o) => {
+    const clump = pfbm(u, v, 6, 4, seed);
+    const blades = pnoise(u * 300, v * 60, 300, seed + 3) * 0.6 + pnoise(u * 180, v * 140, 180, seed + 4) * 0.4;
+    const cover = smoothstep(0.38, 0.6, clump);
+    const green = smoothstep(0.6, 0.85, pfbm(u, v, 4, 2, seed + 9)) * 0.5;
+    const soil = 0.42 + pnoise(u * 90, v * 90, 90, seed + 7) * 0.08;
+    const grass = 0.55 + blades * 0.25;
+    const t = cover * smoothstep(0.25, 0.6, blades);
+    o.h = clamp(t * 0.7 + blades * 0.2, 0, 1);
+    o.r = clamp(lerp(soil * 0.95, grass * (0.92 - green * 0.3), t), 0, 1);
+    o.g = clamp(lerp(soil * 0.8, grass * (0.80 + green * 0.05), t), 0, 1);
+    o.b = clamp(lerp(soil * 0.6, grass * (0.45 - green * 0.05), t), 0, 1);
+    o.rough = 0.95;
+  }, { normalStrength: 2.0, aoStrength: 3.0, aoRadius: 2 });
+}
+
+/* -------------------------------------------------------------- buildings */
+
+/** Sindhi fired brick, stretcher bond, lime mortar. 8 courses x 4 bricks per tile. */
+function brickSet(size, seed) {
   const rows = 8;
   const cols = 4;
-  return buildTextureSet(
-    size,
-    (u, v) => {
-      const ry = v * rows;
-      const row = Math.floor(ry);
-      const offset = (row % 2) * 0.5;
-      const rx = u * cols + offset;
-      const col = Math.floor(rx);
-      const fx = rx - col;
-      const fy = ry - row;
-      const mortar = smoothstep(0.0, 0.06, fx) * smoothstep(1.0, 0.94, fx) *
-        smoothstep(0.0, 0.09, fy) * smoothstep(1.0, 0.91, fy);
-      const jitter = hash2i(col, row, seed);
-      const straw = smoothstep(0.78, 0.95, valueNoise2(u * 150, v * 90, seed + 13));
-      const grain = fbm2(u * 36, v * 36, 4, 2.0, 0.5, seed + 5);
-      const h = clamp(mortar * 0.7 + grain * 0.2 + jitter * 0.08, 0, 1);
-      const base = lerp(0.42, 0.6, jitter) * lerp(0.8, 1.05, grain);
-      const tone = lerp(base * 0.72, base, mortar);
-      return {
-        h,
-        r: clamp(tone * 1.02 + straw * 0.2, 0, 1),
-        g: clamp(tone * 0.8 + straw * 0.18, 0, 1),
-        b: clamp(tone * 0.6 + straw * 0.08, 0, 1),
-        rough: clamp(0.88 - straw * 0.1, 0.5, 1),
-      };
-    },
-    { normalStrength: 2.2 }
-  );
+  return buildTextureSet(size, (u, v, x, y, o) => {
+    const ry = v * rows;
+    const row = Math.floor(ry);
+    const rx = u * cols + (row % 2) * 0.5;
+    const col = Math.floor(rx);
+    const fx = rx - col;
+    const fy = ry - row;
+    const face = smoothstep(0.0, 0.035, fx) * smoothstep(1.0, 0.965, fx) * smoothstep(0.0, 0.08, fy) * smoothstep(1.0, 0.92, fy);
+    const jitter = hash2i(wrapIndex(col, cols), wrapIndex(row, rows), seed);
+    const grain = pfbm(u, v, 16, 3, seed + 5);
+    const burn = smoothstep(0.75, 0.95, jitter) * 0.35;
+    const base = 0.48 + jitter * 0.12 + (grain - 0.5) * 0.1;
+    const mortar = 0.66 + grain * 0.08;
+    o.h = clamp(face * 0.7 + grain * 0.25, 0, 1);
+    o.r = clamp(lerp(mortar * 0.96, base * 1.12 * (1 - burn), face), 0, 1);
+    o.g = clamp(lerp(mortar * 0.92, base * 0.58 * (1 - burn), face), 0, 1);
+    o.b = clamp(lerp(mortar * 0.84, base * 0.40 * (1 - burn * 0.6), face), 0, 1);
+    o.rough = clamp(lerp(0.95, 0.82 + grain * 0.1, face), 0.5, 1);
+  }, { normalStrength: 2.4, aoStrength: 3.0, aoRadius: 2 });
 }
 
-/** Cedar of Lebanon / acacia timber for sledges, scaffolding and barges. */
-function woodSet(size, seed) {
-  return buildTextureSet(
-    size,
-    (u, v) => {
-      const rings = Math.abs(Math.sin((v * 9 + fbm2(u * 3, v * 3, 3, 2, 0.5, seed) * 3) * Math.PI));
-      const fibre = valueNoise2(u * 12, v * 220, seed + 4);
-      const knot = smoothstep(0.9, 1.0, 1 - worley2(u * 3, v * 3, seed + 44));
-      const h = clamp(rings * 0.4 + fibre * 0.3 + knot * 0.4, 0, 1);
-      const tone = 0.3 + rings * 0.22 + fibre * 0.14 - knot * 0.12;
-      return {
-        h,
-        r: clamp(tone * 1.25, 0, 1),
-        g: clamp(tone * 0.86, 0, 1),
-        b: clamp(tone * 0.52, 0, 1),
-        rough: clamp(0.72 + fibre * 0.2, 0.4, 1),
-      };
-    },
-    { normalStrength: 1.4 }
-  );
-}
-
-/** Lime plaster ground for painted temple reliefs. */
+/** Lime/cement render, warm off-white with trowel marks and weather streaks. */
 function plasterSet(size, seed) {
-  return buildTextureSet(
-    size,
-    (u, v) => {
-      const wash = fbm2(u * 6, v * 6, 4, 2.0, 0.5, seed);
-      const trowel = valueNoise2(u * 26, v * 18, seed + 6);
-      const crackle = smoothstep(0.05, 0.0, worley2(u * 9, v * 9, seed + 27));
-      const h = clamp(wash * 0.4 + trowel * 0.35 - crackle * 0.5 + 0.3, 0, 1);
-      const tone = 0.8 + wash * 0.14 - crackle * 0.2;
-      return {
-        h,
-        r: clamp(tone, 0, 1),
-        g: clamp(tone * 0.95, 0, 1),
-        b: clamp(tone * 0.85, 0, 1),
-        rough: clamp(0.7 + trowel * 0.2, 0.4, 1),
-      };
-    },
-    { normalStrength: 1.1 }
-  );
+  return buildTextureSet(size, (u, v, x, y, o) => {
+    const wash = pfbm(u, v, 4, 4, seed);
+    const trowel = pnoise(u * 26, v * 18, 26, seed + 6);
+    const streak = smoothstep(0.55, 0.8, pnoise(u * 30, v * 2, 30, seed + 9)) * smoothstep(0.3, 1.0, 1 - v) * 0.5;
+    const tone = 0.78 + wash * 0.12 - streak * 0.12;
+    o.h = clamp(wash * 0.4 + trowel * 0.4, 0, 1);
+    o.r = clamp(tone, 0, 1);
+    o.g = clamp(tone * 0.955, 0, 1);
+    o.b = clamp(tone * 0.88, 0, 1);
+    o.rough = clamp(0.78 + trowel * 0.15, 0.4, 1);
+  }, { normalStrength: 0.9, aoStrength: 1.5, aoRadius: 3 });
+}
+
+/** Terminal floor: 1.2 m polished terrazzo tiles, 2 x 2 per tile, fine grout. */
+function tileSet(size, seed) {
+  return buildTextureSet(size, (u, v, x, y, o) => {
+    const su = u * 2;
+    const sv = v * 2;
+    const fx = su - Math.floor(su);
+    const fy = sv - Math.floor(sv);
+    const g = 0.004;
+    const grout = Math.max(smoothstep(g, 0, fx) + smoothstep(1 - g, 1, fx), smoothstep(g, 0, fy) + smoothstep(1 - g, 1, fy));
+    const tileTone = hash2i(Math.floor(su) % 2, Math.floor(sv) % 2, seed) * 0.03;
+    pworley(u, v, 140, seed + 3, W);
+    const chip = smoothstep(0.35, 0.2, W.f1);
+    const chipTone = W.id;
+    const cloud = pfbm(u, v, 4, 3, seed + 9);
+    let r = 0.80 + cloud * 0.05 + tileTone;
+    let gg = 0.78 + cloud * 0.05 + tileTone;
+    let b = 0.74 + cloud * 0.04 + tileTone;
+    if (chip > 0) {
+      const cr = chipTone < 0.3 ? 0.25 : chipTone < 0.55 ? 0.62 : chipTone < 0.7 ? 0.58 : 0.92;
+      const cg = chipTone < 0.3 ? 0.24 : chipTone < 0.55 ? 0.55 : chipTone < 0.7 ? 0.32 : 0.9;
+      const cb = chipTone < 0.3 ? 0.26 : chipTone < 0.55 ? 0.48 : chipTone < 0.7 ? 0.28 : 0.86;
+      r = lerp(r, cr, chip * 0.8);
+      gg = lerp(gg, cg, chip * 0.8);
+      b = lerp(b, cb, chip * 0.8);
+    }
+    r = lerp(r, 0.45, grout);
+    gg = lerp(gg, 0.44, grout);
+    b = lerp(b, 0.42, grout);
+    o.h = clamp(0.8 - grout * 0.6, 0, 1);
+    o.r = r;
+    o.g = gg;
+    o.b = b;
+    o.rough = clamp(0.16 + cloud * 0.08 + grout * 0.6, 0.05, 1);
+  }, { normalStrength: 1.2, aoStrength: 1.5, aoRadius: 1 });
+}
+
+/** Standing-seam metal roof: seams along v, 8 per tile, faint chalking. */
+function roofMetalSet(size, seed) {
+  return buildTextureSet(size, (u, v, x, y, o) => {
+    const s = (u * 8) % 1;
+    const seam = smoothstep(0.035, 0.0, Math.abs(s - 0.5) - 0.0) ;
+    const rib = smoothstep(0.06, 0.0, Math.abs(s - 0.5));
+    const pan = smoothstep(0.5, 0.1, Math.abs(s - 0.5)) * 0.1;
+    const chalk = pfbm(u, v, 5, 4, seed);
+    const streak = pnoise(u * 64, v * 3, 64, seed + 3);
+    const tone = 0.62 + chalk * 0.12 + (streak - 0.5) * 0.06 - seam * 0.05;
+    o.h = clamp(0.4 + rib * 0.6 + pan, 0, 1);
+    o.r = clamp(tone * 0.97, 0, 1);
+    o.g = clamp(tone * 0.98, 0, 1);
+    o.b = clamp(tone * 1.0, 0, 1);
+    o.rough = clamp(0.32 + chalk * 0.25 + streak * 0.08, 0.1, 1);
+    o.metal = 0.85;
+  }, { normalStrength: 3.0, aoStrength: 1.5, aoRadius: 2 });
+}
+
+/** Painted-steel wear map (greyscale albedo multiplier + roughness variation). */
+function paintWearSet(size, seed) {
+  return buildTextureSet(size, (u, v, x, y, o) => {
+    const macro = pfbm(u, v, 4, 4, seed);
+    const chip = smoothstep(0.78, 0.86, pfbm(u, v, 12, 3, seed + 5));
+    const streak = pnoise(u * 48, v * 3, 48, seed + 7);
+    const t = 0.92 + macro * 0.08 - chip * 0.45 - streak * 0.04;
+    o.h = clamp(0.7 - chip * 0.3 + macro * 0.1, 0, 1);
+    o.r = t;
+    o.g = t;
+    o.b = t;
+    o.rough = clamp(0.42 + macro * 0.2 + chip * 0.35, 0.1, 1);
+    o.metal = chip * 0.6;
+  }, { normalStrength: 0.8, aoStrength: 1.0, aoRadius: 2 });
+}
+
+/** Retro-reflective road paint: white base with asphalt showing through wear. */
+function markingWearSet(size, seed) {
+  return buildTextureSet(size, (u, v, x, y, o) => {
+    const wear = pfbm(u, v, 6, 4, seed);
+    const pits = smoothstep(0.8, 0.9, pnoise(u * 180, v * 180, 180, seed + 3));
+    const rubber = smoothstep(0.45, 0.85, pnoise(u * 20, v * 2, 20, seed + 5)) * 0.4;
+    const t = clamp(0.95 - smoothstep(0.62, 0.8, wear) * 0.55 - pits * 0.5 - rubber * 0.5, 0.15, 1);
+    o.h = clamp(0.6 + wear * 0.2 - pits * 0.4, 0, 1);
+    o.r = t;
+    o.g = t;
+    o.b = t;
+    o.rough = clamp(0.55 + pits * 0.3 + wear * 0.1, 0.2, 1);
+  }, { normalStrength: 1.2, aoStrength: 1.5, aoRadius: 1 });
+}
+
+/* ------------------------------------------------------------------ Ajrak */
+
+export const AJRAK = {
+  crimson: '#9B1B30',
+  indigo: '#1E2A6E',
+  black: '#14110f',
+  white: '#F2EBDD',
+};
+
+function starPath(ctx, cx, cy, ro, ri, points, rot = 0) {
+  ctx.beginPath();
+  for (let i = 0; i < points * 2; i++) {
+    const r = i % 2 ? ri : ro;
+    const a = rot + (i * Math.PI) / points;
+    const x = cx + Math.cos(a) * r;
+    const y = cy + Math.sin(a) * r;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+}
+
+function trefoilPath(ctx, cx, cy, r, rot) {
+  ctx.beginPath();
+  for (let k = 0; k < 3; k++) {
+    const a = rot + (k * Math.PI * 2) / 3;
+    ctx.moveTo(cx + Math.cos(a) * r * 0.62 + r * 0.48, cy + Math.sin(a) * r * 0.62);
+    ctx.arc(cx + Math.cos(a) * r * 0.62, cy + Math.sin(a) * r * 0.62, r * 0.48, 0, Math.PI * 2);
+  }
+}
+
+/**
+ * Ajrak block-print tile (Sindhi resist-dyed textile): a 2 x 2 lattice of
+ * eight-pointed stars on crimson, indigo lozenge frames, trefoil corner
+ * motifs, black outline lines and white "chhapa" dots.  Returns the colour
+ * canvas and a matching perforation alpha canvas (white = solid screen,
+ * black = cut-out) used by the terminal's perforated metal screens.
+ */
+function ajrakCanvases(size) {
+  const color = createCanvas(size, size);
+  const alpha = createCanvas(size, size);
+  const c = color.getContext('2d');
+  const a = alpha.getContext('2d');
+  c.fillStyle = AJRAK.crimson;
+  c.fillRect(0, 0, size, size);
+  a.fillStyle = '#fff';
+  a.fillRect(0, 0, size, size);
+  const cell = size / 2;
+  const lw = Math.max(1, size / 256);
+
+  for (let gy = 0; gy < 3; gy++) {
+    for (let gx = 0; gx < 3; gx++) {
+      // Lozenge grid lines between cells (drawn on a 3x3 lattice for wrap).
+      const x0 = gx * cell;
+      const y0 = gy * cell;
+      c.strokeStyle = AJRAK.black;
+      c.lineWidth = lw * 3;
+      c.beginPath();
+      c.moveTo(x0 - cell / 2, y0);
+      c.lineTo(x0, y0 - cell / 2);
+      c.lineTo(x0 + cell / 2, y0);
+      c.lineTo(x0, y0 + cell / 2);
+      c.closePath();
+      c.stroke();
+      c.strokeStyle = AJRAK.white;
+      c.lineWidth = lw;
+      c.stroke();
+      // Trefoils at lattice nodes (cell corners).
+      c.fillStyle = AJRAK.indigo;
+      trefoilPath(c, x0, y0, cell * 0.11, Math.PI / 2);
+      c.fill();
+      c.strokeStyle = AJRAK.black;
+      c.lineWidth = lw * 1.5;
+      c.stroke();
+      a.fillStyle = '#000';
+      trefoilPath(a, x0, y0, cell * 0.085, Math.PI / 2);
+      a.fill();
+    }
+  }
+
+  for (let gy = 0; gy < 2; gy++) {
+    for (let gx = 0; gx < 2; gx++) {
+      const cx = gx * cell + cell / 2;
+      const cy = gy * cell + cell / 2;
+      // Indigo medallion behind the star.
+      c.fillStyle = AJRAK.indigo;
+      c.beginPath();
+      c.arc(cx, cy, cell * 0.34, 0, Math.PI * 2);
+      c.fill();
+      c.strokeStyle = AJRAK.black;
+      c.lineWidth = lw * 2.5;
+      c.stroke();
+      // Ring of white dots around the medallion.
+      c.fillStyle = AJRAK.white;
+      for (let k = 0; k < 24; k++) {
+        const ang = (k / 24) * Math.PI * 2;
+        c.beginPath();
+        c.arc(cx + Math.cos(ang) * cell * 0.39, cy + Math.sin(ang) * cell * 0.39, cell * 0.014, 0, Math.PI * 2);
+        c.fill();
+      }
+      // Eight-pointed star: crimson body, black edge, white inner star.
+      starPath(c, cx, cy, cell * 0.3, cell * 0.17, 8, Math.PI / 8);
+      c.fillStyle = AJRAK.crimson;
+      c.fill();
+      c.strokeStyle = AJRAK.black;
+      c.lineWidth = lw * 2;
+      c.stroke();
+      starPath(c, cx, cy, cell * 0.16, cell * 0.08, 8, 0);
+      c.fillStyle = AJRAK.white;
+      c.fill();
+      c.fillStyle = AJRAK.black;
+      c.beginPath();
+      c.arc(cx, cy, cell * 0.035, 0, Math.PI * 2);
+      c.fill();
+      // Perforation: the outer star ring and the inner star are cut out,
+      // the centre boss and the dot ring stay solid.
+      a.fillStyle = '#000';
+      starPath(a, cx, cy, cell * 0.27, cell * 0.15, 8, Math.PI / 8);
+      a.fill();
+      a.fillStyle = '#fff';
+      starPath(a, cx, cy, cell * 0.16, cell * 0.08, 8, 0);
+      a.fill();
+      a.fillStyle = '#000';
+      starPath(a, cx, cy, cell * 0.12, cell * 0.05, 8, 0);
+      a.fill();
+      a.fillStyle = '#fff';
+      a.beginPath();
+      a.arc(cx, cy, cell * 0.04, 0, Math.PI * 2);
+      a.fill();
+      a.fillStyle = '#000';
+      for (let k = 0; k < 12; k++) {
+        const ang = (k / 12) * Math.PI * 2 + Math.PI / 12;
+        a.beginPath();
+        a.arc(cx + Math.cos(ang) * cell * 0.42, cy + Math.sin(ang) * cell * 0.42, cell * 0.022, 0, Math.PI * 2);
+        a.fill();
+      }
+    }
+  }
+
+  // Block-print texture: slight ink unevenness so it reads as printed cloth/metal.
+  const img = c.getImageData(0, 0, size, size);
+  const d = img.data;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = (y * size + x) * 4;
+      const n = 0.88 + pfbm(x / size, y / size, 16, 3, 77) * 0.2;
+      d[i] *= n;
+      d[i + 1] *= n;
+      d[i + 2] *= n;
+    }
+  }
+  c.putImageData(img, 0, 0);
+  return { color, alpha };
+}
+
+/* ----------------------------------------------------------------- glyphs */
+
+// Blocky runway-numeral segments on a 3 x 5 grid (x0, y0, x1, y1), ICAO style.
+const DIGIT_SEGMENTS = {
+  0: [[0, 0, 3, 1], [0, 4, 3, 5], [0, 0, 1, 5], [2, 0, 3, 5]],
+  1: [[1, 0, 2, 5], [0.4, 0, 1, 1]],
+  2: [[0, 0, 3, 1], [2, 0, 3, 2.5], [0, 2, 3, 3], [0, 2.5, 1, 5], [0, 4, 3, 5]],
+  3: [[0, 0, 3, 1], [2, 0, 3, 5], [0.6, 2, 3, 3], [0, 4, 3, 5]],
+  4: [[0, 0, 1, 3], [0, 2, 3, 3], [2, 0, 3, 5]],
+  5: [[0, 0, 3, 1], [0, 0, 1, 2.5], [0, 2, 3, 3], [2, 2.5, 3, 5], [0, 4, 3, 5]],
+  6: [[0, 0, 3, 1], [0, 0, 1, 5], [0, 2, 3, 3], [2, 2.5, 3, 5], [0, 4, 3, 5]],
+  7: [[0, 0, 3, 1], [2, 0, 3, 5]],
+  8: [[0, 0, 3, 1], [0, 2, 3, 3], [0, 4, 3, 5], [0, 0, 1, 5], [2, 0, 3, 5]],
+  9: [[0, 0, 3, 1], [0, 0, 1, 2.5], [0, 2, 3, 3], [2, 0, 3, 5], [0, 4, 3, 5]],
+  L: [[0, 0, 1, 5], [0, 4, 3, 5]],
+  R: [[0, 0, 3, 1], [0, 0, 1, 5], [2, 0, 3, 2.5], [0, 2, 3, 3], [1.6, 3, 2.6, 5]],
+  C: [[0, 0, 3, 1], [0, 0, 1, 5], [0, 4, 3, 5]],
+};
+
+/**
+ * Runway designator canvas ("02" / "20"): white blocky numerals on a
+ * transparent ground, proportioned 9 m tall glyphs (Annex 14 style).
+ * The texture's +v points towards the threshold (read by landing pilots).
+ */
+function designatorTexture(text, height = 512) {
+  const glyphs = String(text).split('');
+  const unit = height / 6;
+  const gw = unit * 3;
+  const gap = unit * 1.2;
+  const width = Math.ceil(glyphs.length * gw + (glyphs.length - 1) * gap + unit);
+  const canvas = createCanvas(THREE.MathUtils.ceilPowerOfTwo(width), height);
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#fff';
+  const ox0 = (canvas.width - (glyphs.length * gw + (glyphs.length - 1) * gap)) / 2;
+  glyphs.forEach((ch, gi) => {
+    const segs = DIGIT_SEGMENTS[ch];
+    if (!segs) return;
+    const ox = ox0 + gi * (gw + gap);
+    const oy = unit * 0.5;
+    for (const [x0, y0, x1, y1] of segs) ctx.fillRect(ox + x0 * unit, oy + y0 * unit, (x1 - x0) * unit, (y1 - y0) * unit);
+  });
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  tex.needsUpdate = true;
+  tex.userData.aspect = canvas.width / canvas.height;
+  return tex;
 }
 
 /* ---------------------------------------------------------------- sprites */
 
-/** Radial falloff sprite used for torch glow, sun bloom and dust motes. */
-function radialSprite(size, inner, outer, rgb) {
+function radialSprite(size, rgb, falloff = 1.0) {
   const canvas = createCanvas(size, size);
   const ctx = canvas.getContext('2d');
-  const g = ctx.createRadialGradient(size / 2, size / 2, size * inner, size / 2, size / 2, size * outer);
-  g.addColorStop(0, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},1)`);
-  g.addColorStop(0.35, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.45)`);
-  g.addColorStop(1, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0)`);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, size, size);
+  const img = ctx.createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const d = Math.hypot(x + 0.5 - size / 2, y + 0.5 - size / 2) / (size / 2);
+      const a = Math.pow(clamp(1 - d, 0, 1), 2 * falloff);
+      const i = (y * size + x) * 4;
+      img.data[i] = rgb[0];
+      img.data[i + 1] = rgb[1];
+      img.data[i + 2] = rgb[2];
+      img.data[i + 3] = a * 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.needsUpdate = true;
   return tex;
 }
 
-/** Soft elongated footprint decal stamped into the sand behind the player. */
+/** Soft billowing dust puff (alpha), used by the dust-storm sheets and kick-up. */
+function dustPuffTexture(size = 128, seed = 31) {
+  const canvas = createCanvas(size, size);
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const u = x / size;
+      const v = y / size;
+      const d = Math.hypot(u - 0.5, v - 0.5) * 2;
+      const n = fbm2(u * 4, v * 4, 5, 2.0, 0.55, seed);
+      const a = clamp((1 - d) * 1.4, 0, 1) * smoothstep(0.25, 0.75, n + (1 - d) * 0.3);
+      const i = (y * size + x) * 4;
+      img.data[i] = 255;
+      img.data[i + 1] = 255;
+      img.data[i + 2] = 255;
+      img.data[i + 3] = a * 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+/** Footprint decal (kept from the benchmark: used for sand footsteps). */
 function footprintTexture(size = 64) {
   const canvas = createCanvas(size, size);
   const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, size, size);
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
   ctx.beginPath();
   ctx.ellipse(size * 0.5, size * 0.58, size * 0.17, size * 0.34, 0, 0, Math.PI * 2);
@@ -424,7 +795,6 @@ function footprintTexture(size = 64) {
   ctx.ellipse(size * 0.5, size * 0.22, size * 0.13, size * 0.14, 0, 0, Math.PI * 2);
   ctx.fill();
   const img = ctx.getImageData(0, 0, size, size);
-  // Feather the stamp so it reads as displaced sand rather than a decal sticker.
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const i = (y * size + x) * 4;
@@ -438,61 +808,25 @@ function footprintTexture(size = 64) {
   return tex;
 }
 
-/** Animated-looking flame billboard (three stacked lobes + noise erosion). */
-function flameTexture(size = 128) {
-  const canvas = createCanvas(size, size);
-  const ctx = canvas.getContext('2d');
-  const img = ctx.createImageData(size, size);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const u = x / size - 0.5;
-      const v = 1 - y / size;
-      const width = 0.30 * Math.pow(1 - v, 0.55) + 0.02;
-      const d = Math.abs(u) / width;
-      const flick = fbm2(x * 0.06, y * 0.05, 3, 2, 0.5, 17);
-      let a = clamp(1 - d, 0, 1) * clamp(1 - Math.pow(Math.abs(v - 0.28) * 1.7, 1.6), 0, 1);
-      a *= 0.6 + flick * 0.8;
-      a = clamp(a, 0, 1);
-      const core = clamp(1 - d * 1.9, 0, 1);
-      const i = (y * size + x) * 4;
-      img.data[i] = 255;
-      img.data[i + 1] = clamp(90 + core * 165 + v * 30, 0, 255);
-      img.data[i + 2] = clamp(20 + core * core * 150, 0, 255);
-      img.data[i + 3] = a * 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
-/** Nile water: dual-scale ripple normal map, scrolled in the shader. */
+/** Ripple normal map for water / puddles (seamless). */
 function waterNormalTexture(size = 256, seed = 5) {
   const height = new Float32Array(size * size);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const u = x / size;
       const v = y / size;
-      height[y * size + x] =
-        fbm2(u * 12, v * 12, 4, 2.0, 0.5, seed) * 0.6 +
-        fbm2(u * 33, v * 33, 3, 2.0, 0.5, seed + 4) * 0.4;
+      height[y * size + x] = pfbm(u, v, 8, 4, seed) * 0.6 + pfbm(u, v, 24, 3, seed + 4) * 0.4;
     }
   }
   const data = new Uint8ClampedArray(size * size * 4);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const xm = wrapIndex(x - 1, size);
-      const xp = wrapIndex(x + 1, size);
-      const ym = wrapIndex(y - 1, size) * size;
-      const yp = wrapIndex(y + 1, size) * size;
-      const y0 = y * size;
-      const dx = height[y0 + xp] - height[y0 + xm];
-      const dy = height[yp + x] - height[ym + x];
-      let nx = -dx * 4;
-      let ny = -dy * 4;
+      const dx = height[y * size + wrapIndex(x + 1, size)] - height[y * size + wrapIndex(x - 1, size)];
+      const dy = height[wrapIndex(y + 1, size) * size + x] - height[wrapIndex(y - 1, size) * size + x];
+      const nx = -dx * 6;
+      const ny = dy * 6;
       const len = Math.hypot(nx, ny, 1);
-      const i = (y0 + x) * 4;
+      const i = (y * size + x) * 4;
       data[i] = (nx / len) * 127.5 + 127.5;
       data[i + 1] = (ny / len) * 127.5 + 127.5;
       data[i + 2] = (1 / len) * 127.5 + 127.5;
@@ -508,74 +842,46 @@ function waterNormalTexture(size = 256, seed = 5) {
 }
 
 /**
- * Procedural hieroglyphic register: a cartouche band over sunk-relief columns.
- * Not a transcription - a stylised, historically-flavoured wall treatment.
+ * Low-frequency variation map (RGBA = four independent seamless fbm fields)
+ * sampled at kilometre scale by the material library to break up tiling.
  */
-function hieroglyphTexture(size = 512, seed = 9) {
-  const canvas = createCanvas(size, size);
-  const ctx = canvas.getContext('2d');
-  const rng = makeRng(seed);
-  ctx.fillStyle = '#c8b48c';
-  ctx.fillRect(0, 0, size, size);
-  ctx.strokeStyle = 'rgba(60,42,24,0.55)';
-  ctx.fillStyle = 'rgba(60,42,24,0.7)';
-  const cols = 8;
-  const cw = size / cols;
-  for (let c = 0; c < cols; c++) {
-    const x = c * cw;
-    ctx.globalAlpha = 0.35;
-    ctx.strokeRect(x + cw * 0.08, size * 0.02, cw * 0.84, size * 0.96);
-    ctx.globalAlpha = 0.85;
-    let y = size * 0.05;
-    while (y < size * 0.95) {
-      const gh = cw * (0.35 + rng() * 0.55);
-      const gx = x + cw * 0.2;
-      const gw = cw * 0.6;
-      const kind = Math.floor(rng() * 6);
-      ctx.beginPath();
-      if (kind === 0) {
-        ctx.rect(gx, y, gw, gh * 0.6);
-      } else if (kind === 1) {
-        ctx.ellipse(gx + gw / 2, y + gh / 2, gw / 2, gh / 2, 0, 0, Math.PI * 2);
-      } else if (kind === 2) {
-        ctx.moveTo(gx, y + gh);
-        ctx.lineTo(gx + gw / 2, y);
-        ctx.lineTo(gx + gw, y + gh);
-        ctx.closePath();
-      } else if (kind === 3) {
-        ctx.moveTo(gx, y + gh * 0.5);
-        ctx.quadraticCurveTo(gx + gw * 0.5, y - gh * 0.2, gx + gw, y + gh * 0.5);
-        ctx.quadraticCurveTo(gx + gw * 0.5, y + gh * 1.1, gx, y + gh * 0.5);
-      } else if (kind === 4) {
-        ctx.rect(gx + gw * 0.35, y, gw * 0.3, gh);
-        ctx.rect(gx, y + gh * 0.3, gw, gh * 0.16);
-      } else {
-        ctx.arc(gx + gw / 2, y + gh / 2, gw * 0.42, 0.4, Math.PI * 1.7);
-      }
-      ctx.fill();
-      y += gh + cw * 0.18;
+function macroTexture(size = 256, seed = 1234) {
+  const data = new Uint8ClampedArray(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const u = x / size;
+      const v = y / size;
+      const i = (y * size + x) * 4;
+      data[i] = pfbm(u, v, 4, 5, seed) * 255;
+      data[i + 1] = pfbm(u, v, 8, 4, seed + 10) * 255;
+      data[i + 2] = pfbm(u, v, 16, 3, seed + 20) * 255;
+      data[i + 3] = pfbm(u, v, 3, 4, seed + 30) * 255;
     }
   }
-  ctx.globalAlpha = 1;
-  const img = ctx.getImageData(0, 0, size, size);
-  for (let i = 0; i < img.data.length; i += 4) {
-    const p = i / 4;
-    const n = fbm2((p % size) * 0.03, Math.floor(p / size) * 0.03, 4, 2, 0.5, seed + 2);
-    const w = 0.82 + n * 0.36;
-    img.data[i] *= w;
-    img.data[i + 1] *= w * 0.99;
-    img.data[i + 2] *= w * 0.95;
-  }
-  ctx.putImageData(img, 0, 0);
+  const canvas = createCanvas(size, size);
+  canvas.getContext('2d').putImageData(new ImageData(data, size, size), 0, 0);
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.colorSpace = THREE.NoColorSpace;
+  // Premultiplication would corrupt the alpha-channel noise field.
+  tex.premultiplyAlpha = false;
+  tex.needsUpdate = true;
   return tex;
 }
 
+/* ---------------------------------------------------------------- library */
+
+/** Names `preload()` warms, in priority order (most visible first). */
+const PRELOAD = [
+  'macro', 'asphaltOld', 'asphaltNew', 'concrete', 'concreteApron', 'sand', 'soilCut', 'soilFill',
+  'gravelSubbase', 'crushedBase', 'dryGrass', 'markingWear', 'paintWear', 'roofMetal', 'plaster',
+  'brick', 'tile', 'ajrak', 'waterNormal', 'glow', 'dustPuff',
+];
+
 /**
- * Lazily-built, cached texture library.  Nothing is generated until the first
- * material that needs it is created, and everything is disposable.
+ * Lazily-built, cached texture library. Every accessor builds on first use;
+ * `preload(nextFrame)` warms everything with a yield between sets so the boot
+ * screen keeps animating.
  */
 export class TextureLibrary {
   constructor(quality) {
@@ -583,12 +889,15 @@ export class TextureLibrary {
     this.cache = new Map();
   }
 
+  /** Texel size per tier. Hero sets (pavements, sand, floor) get the larger size. */
   _size(hero) {
-    const tier = this.quality.tier;
-    // Interior walls are read at arm's length, so even the low tier needs
-    // enough texels to keep the ashlar joints crisp rather than blotchy.
-    const base = tier === 'ultra' ? 1024 : tier === 'high' ? 512 : tier === 'medium' ? 384 : 256;
-    return hero ? base : Math.max(128, base / 2);
+    const tier = this.quality ? this.quality.tier : 'medium';
+    const base = tier === 'ultra' ? 1024 : tier === 'high' ? 512 : tier === 'medium' ? 512 : 256;
+    return hero ? base : Math.max(256, base / 2);
+  }
+
+  get anisotropy() {
+    return this.quality && this.quality.anisotropy ? this.quality.anisotropy : 4;
   }
 
   _get(key, factory) {
@@ -600,56 +909,58 @@ export class TextureLibrary {
     return v;
   }
 
-  limestone() {
-    return this._get('limestone', () => limestoneSet(this._size(true), 101));
+  asphaltOld() { return this._get('asphaltOld', () => asphaltOldSet(this._size(true), 1101)); }
+  asphaltNew() { return this._get('asphaltNew', () => asphaltNewSet(this._size(true), 1202)); }
+  concrete() { return this._get('concrete', () => concreteSet(this._size(true), 1303, { slabs: 2 })); }
+  concreteApron() { return this._get('concreteApron', () => concreteSet(this._size(true), 1404, { slabs: 2, apron: true })); }
+  sand() { return this._get('sand', () => sandSet(this._size(true), 1505)); }
+  soilCut() { return this._get('soilCut', () => soilCutSet(this._size(false), 1606)); }
+  soilFill() { return this._get('soilFill', () => soilFillSet(this._size(false), 1707)); }
+  gravelSubbase() { return this._get('gravelSubbase', () => gravelSet(this._size(false), 1808, false)); }
+  crushedBase() { return this._get('crushedBase', () => gravelSet(this._size(false), 1909, true)); }
+  dryGrass() { return this._get('dryGrass', () => dryGrassSet(this._size(false), 2010)); }
+  brick() { return this._get('brick', () => brickSet(this._size(false), 2111)); }
+  plaster() { return this._get('plaster', () => plasterSet(this._size(false), 2212)); }
+  tile() { return this._get('tile', () => tileSet(this._size(true), 2313)); }
+  roofMetal() { return this._get('roofMetal', () => roofMetalSet(this._size(false), 2414)); }
+  paintWear() { return this._get('paintWear', () => paintWearSet(256, 2515)); }
+  markingWear() { return this._get('markingWear', () => markingWearSet(256, 2616)); }
+  macro() { return this._get('macro', () => macroTexture(256, 2717)); }
+
+  /** { map, alphaMap, size } — Ajrak block print and its perforation mask. */
+  ajrak() {
+    return this._get('ajrak', () => {
+      const size = this._size(true) >= 1024 ? 1024 : 512;
+      const { color, alpha } = ajrakCanvases(size);
+      const map = new THREE.CanvasTexture(color);
+      map.colorSpace = THREE.SRGBColorSpace;
+      map.wrapS = map.wrapT = THREE.RepeatWrapping;
+      map.anisotropy = this.anisotropy;
+      const alphaMap = new THREE.CanvasTexture(alpha);
+      alphaMap.colorSpace = THREE.NoColorSpace;
+      alphaMap.wrapS = alphaMap.wrapT = THREE.RepeatWrapping;
+      alphaMap.anisotropy = this.anisotropy;
+      return { map, alphaMap, size };
+    });
   }
-  casing() {
-    return this._get('casing', () => casingSet(this._size(true), 202));
+
+  /** Runway designator glyph texture ("02", "20", "02L"…); `texture.userData.aspect` = w/h. */
+  designator(text) {
+    return this._get(`designator:${text}`, () => designatorTexture(text, 512));
   }
-  granite() {
-    return this._get('granite', () => graniteSet(this._size(true), 303));
-  }
-  graniteAshlar() {
-    return this._get('graniteAshlar', () => ashlarSet(this._size(true), 313, 'granite'));
-  }
-  limestoneAshlar() {
-    return this._get('limestoneAshlar', () => ashlarSet(this._size(true), 323, 'limestone'));
-  }
-  basalt() {
-    return this._get('basalt', () => basaltSet(this._size(false), 404));
-  }
-  sand() {
-    return this._get('sand', () => sandSet(this._size(true), 505));
-  }
-  bedrock() {
-    return this._get('bedrock', () => bedrockSet(this._size(false), 606));
-  }
-  mudbrick() {
-    return this._get('mudbrick', () => mudbrickSet(this._size(false), 707));
-  }
-  wood() {
-    return this._get('wood', () => woodSet(this._size(false), 808));
-  }
-  plaster() {
-    return this._get('plaster', () => plasterSet(this._size(false), 909));
-  }
-  hieroglyphs() {
-    return this._get('glyphs', () => hieroglyphTexture(Math.max(256, this._size(true)), 9));
-  }
-  waterNormal() {
-    return this._get('waterN', () => waterNormalTexture(this._size(false), 5));
-  }
-  flame() {
-    return this._get('flame', () => flameTexture(128));
-  }
-  glow() {
-    return this._get('glow', () => radialSprite(128, 0.0, 0.5, [255, 178, 96]));
-  }
-  dust() {
-    return this._get('dust', () => radialSprite(64, 0.0, 0.5, [235, 220, 190]));
-  }
-  footprint() {
-    return this._get('footprint', () => footprintTexture(64));
+
+  waterNormal() { return this._get('waterNormal', () => waterNormalTexture(256, 5)); }
+  glow() { return this._get('glow', () => radialSprite(128, [255, 214, 160], 1.0)); }
+  dust() { return this._get('dust', () => radialSprite(64, [235, 220, 190], 0.8)); }
+  dustPuff() { return this._get('dustPuff', () => dustPuffTexture(128, 31)); }
+  footprint() { return this._get('footprint', () => footprintTexture(64)); }
+
+  /** Warm every texture with a yield between sets. `nextFrame` returns a Promise. */
+  async preload(nextFrame = null) {
+    for (const name of PRELOAD) {
+      this[name]();
+      if (nextFrame) await nextFrame();
+    }
   }
 
   dispose() {
@@ -662,3 +973,5 @@ export class TextureLibrary {
     this.cache.clear();
   }
 }
+
+export { makeRng, worley2 };

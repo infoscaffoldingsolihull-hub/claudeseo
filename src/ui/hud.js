@@ -320,10 +320,14 @@ export class HUD {
         ]),
         el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Close help', onclick: () => this.toggleHelp(false) }, [icon('close', 18)]),
       ]),
-      el('h3', { class: 'section', text: 'Keyboard' }),
-      el('div', { class: 'keys' }, KEY_BINDINGS.map(([k, d]) => el('div', {}, [el('kbd', { text: k }), el('span', { text: d })]))),
-      el('h3', { class: 'section', text: 'Phone & tablet' }),
-      el('div', { class: 'keys' }, touchKeys.map(([k, d]) => el('div', {}, [el('kbd', { text: k }), el('span', { text: d })]))),
+      el('section', { class: 'help-keys' }, [
+        el('h3', { class: 'section', text: 'Keyboard' }),
+        el('div', { class: 'keys' }, KEY_BINDINGS.map(([k, d]) => el('div', {}, [el('kbd', { text: k }), el('span', { text: d })]))),
+      ]),
+      el('section', { class: 'help-touch' }, [
+        el('h3', { class: 'section', text: 'Phone & tablet' }),
+        el('div', { class: 'keys' }, touchKeys.map(([k, d]) => el('div', {}, [el('kbd', { text: k }), el('span', { text: d })]))),
+      ]),
       el('h3', { class: 'section', text: 'Five modes' }),
       el('div', { class: 'mode-cards' }, MODES.map((m) => el('button', {
         type: 'button', class: 'mode-card', onclick: () => { this.toggleHelp(false); if (this.sim.setMode) this.sim.setMode(m.id); },

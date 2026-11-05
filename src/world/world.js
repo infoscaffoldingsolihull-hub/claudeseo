@@ -3,10 +3,15 @@ import { CollisionWorld } from './collision.js';
 import { SkySystem } from '../engine/sky.js';
 import { WeatherSystem } from '../engine/weather.js';
 import { WORLD_LINKS, MASTERPLAN, RUNWAY, GEO } from './layout.js';
-import { TerrainSystem, terrainHeight } from './terrain.js';
+import { TerrainSystem, terrainHeight, cityDensity, farmDensity, gradedMask } from './terrain.js';
 import { Airfield, STANDS, TAXILANE_X } from './airfield.js';
-import { WorldMaterials, DustPuffs, BirdFlock } from './props.js';
-/*@IMPORTS@*/
+import { WorldMaterials, DustPuffs, BirdFlock, Vegetation } from './props.js';
+import { Terminal } from './terminal.js';
+import { Tower } from './tower.js';
+import { Landside } from './landside.js';
+import { City } from './city.js';
+import { Construction } from './construction.js';
+import { makeRng } from '../engine/noise.js';
 
 /**
  * World — everything that exists in 3D at Hyderabad Airport (HDD / OPKD),
@@ -93,7 +98,13 @@ export class World {
       ['Raising the Sindh sky over the Indus plain', () => this._buildSky()],
       ['Surveying the alluvial plain at 41 m above sea level', () => this._buildTerrain()],
       ['Laying runway 02/20 — the existing 2,133 m pavement and the Code E extension', () => this._buildAirfield()],
-      /*@STEPS@*/
+      ['Raising the Sindhi-inspired terminal under its mangho windcatchers', () => this._buildTerminal()],
+      ['Slip-forming the air traffic control tower', () => this._buildTower()],
+      ['Building the forecourt, car park, cargo, fuel farm and fire station', () => this._buildLandside()],
+      ['Sketching Hyderabad on the horizon', () => this._buildCity()],
+      ['Mobilising cranes, the batch plant and site offices', () => this._buildConstruction()],
+      ['Planting date palms, neem and kikar across the plain', () => this._buildVegetation()],
+      ['Mustering vehicles, workers and passengers', () => this._buildAgents()],
       ['Wiring airfield lighting, navaids and points of interest', () => this._finalise()],
     ];
     for (let i = 0; i < steps.length; i++) {
@@ -160,7 +171,117 @@ export class World {
     this._register(this.airfield);
   }
 
-  /*@BUILDERS@*/
+  _buildTerminal() {
+    this.terminal = new Terminal(this._ctx());
+    this._register(this.terminal);
+  }
+
+  _buildTower() {
+    this.tower = new Tower(this._ctx());
+    this._register(this.tower);
+    this.towerCabView = this.tower.cabView;
+  }
+
+  _buildLandside() {
+    this.landside = new Landside(this._ctx());
+    this._register(this.landside);
+  }
+
+  _buildCity() {
+    this.city = new City(this._ctx());
+    this._register(this.city);
+  }
+
+  _buildConstruction() {
+    this.construction = new Construction(this._ctx(), { showPlant: !this.systemsIn.VehicleFleet });
+    this._register(this.construction);
+  }
+
+  /** Keep-out rectangles for trees (buildings, pavements, approach funnels). */
+  _treeBlocked(x, z) {
+    const P = MASTERPLAN.perimeter;
+    const inside = x > P.x0 - 20 && x < P.x1 + 20 && z > P.z0 - 20 && z < P.z1 + 20;
+    if (inside) return true;
+    if (Math.abs(x) < 400 && (z > P.z1 - 100 || z < P.z0 + 100) && Math.abs(x) < 150 + Math.abs(z - (z > 0 ? P.z1 : P.z0)) * 0.15) return true;
+    const road = this.landside ? this.landside.roadPath : null;
+    if (road) {
+      for (let i = 0; i < road.length - 1; i++) {
+        const [ax, az] = road[i]; const [bx, bz] = road[i + 1];
+        const dx = bx - ax; const dz = bz - az; const L2 = dx * dx + dz * dz;
+        const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2));
+        if (Math.hypot(x - ax - dx * t, z - az - dz * t) < 16) return true;
+      }
+    }
+    return false;
+  }
+
+  _buildVegetation() {
+    const rng = makeRng(8080);
+    const n = this.counts.trees;
+    const palm = []; const neem = []; const kikar = []; const scrub = [];
+    let guard = 0;
+    while (palm.length + neem.length + kikar.length < n && guard++ < n * 30) {
+      const a = rng() * Math.PI * 2;
+      const r = 900 + Math.pow(rng(), 1.4) * 6500;
+      const x = -300 + Math.cos(a) * r; const z = 600 + Math.sin(a) * r;
+      if (this._treeBlocked(x, z)) continue;
+      const city = cityDensity(x, z); const farm = farmDensity(x, z);
+      if (rng() < city * 0.85) continue;
+      const pAccept = 0.25 + farm * 0.6 + (r < 2500 ? 0.3 : 0);
+      if (rng() > pAccept) continue;
+      // Clumps: a tree often has neighbours (field boundaries, village groves).
+      const clump = 1 + Math.floor(rng() * (farm > 0.3 ? 5 : 3));
+      const kind = farm > 0.35 ? (rng() < 0.45 ? 'palm' : 'neem') : (rng() < 0.6 ? 'kikar' : rng() < 0.5 ? 'neem' : 'palm');
+      for (let k = 0; k < clump; k++) {
+        const tx = x + (rng() - 0.5) * 30; const tz = z + (rng() - 0.5) * 30;
+        if (this._treeBlocked(tx, tz)) continue;
+        const y = terrainHeight(tx, tz) - 0.1;
+        const t = { x: tx, y, z: tz, ry: rng() * 6.28 };
+        if (kind === 'palm') palm.push({ ...t, h: 9 + rng() * 6 });
+        else if (kind === 'neem') neem.push({ ...t, h: 7 + rng() * 5 });
+        else kikar.push({ ...t, h: 5 + rng() * 4 });
+      }
+    }
+    // A few kikar and neem inside the fence on the landside verges and around the encroachments.
+    for (const pocket of MASTERPLAN.encroachments) {
+      for (let k = 0; k < 10; k++) {
+        const a = rng() * 6.28; const r = rng() * pocket.r;
+        neem.push({ x: pocket.x + Math.cos(a) * r, y: 0, z: pocket.z + Math.sin(a) * r, ry: rng() * 6.28, h: 6 + rng() * 4 });
+      }
+    }
+    const ns = this.counts.scrub;
+    guard = 0;
+    while (scrub.length < ns && guard++ < ns * 8) {
+      const x = -300 + (rng() - 0.5) * 7000; const z = 600 + (rng() - 0.5) * 9000;
+      if (gradedMask(x, z) > 0.2 || cityDensity(x, z) > 0.3 || farmDensity(x, z) > 0.4) continue;
+      if (this._scrubBlocked(x, z)) continue;
+      scrub.push({ x, y: terrainHeight(x, z) - 0.05, z, ry: rng() * 6.28, h: 0.7 + rng() * 1.4, w: 1.2 + rng() * 0.8 });
+    }
+    this.vegetation = new Vegetation(this.scene, { palm, neem, kikar, scrub }, { seed: 12 });
+  }
+
+  _scrubBlocked(x, z) {
+    const MP = MASTERPLAN;
+    const rects = [MP.terminal, MP.apron, MP.cargo, MP.arff, MP.substation, MP.solar, MP.landside.carPark, MP.landside.forecourt, MP.site.laydown];
+    for (const r of rects) if (x > r.x0 - 25 && x < r.x1 + 25 && z > r.z0 - 25 && z < r.z1 + 25) return true;
+    for (const p of [MP.fuelFarm, MP.waterWorks, MP.site.batchPlant, MP.site.offices, MP.tower]) if (Math.hypot(x - p.x, z - p.z) < 60) return true;
+    if (x > -400 && x < -190 && z > -780 && z < -560) return true;
+    return this._treeBlocked(x, z) && !(x > MP.perimeter.x0 && x < MP.perimeter.x1 && z > MP.perimeter.z0 && z < MP.perimeter.z1) ;
+  }
+
+  _buildAgents() {
+    const S = this.systemsIn || {};
+    const layout = { RUNWAY, MASTERPLAN, WORLD_LINKS, GEO, STANDS, TAXILANE_X, rapidExits: this.airfield ? this.airfield.rapidPaths : [], groundAt: (x, z) => this.collision.groundAt(x, z) };
+    this.layoutForAgents = layout;
+    const tryMake = (name, fn) => {
+      try { return fn(); } catch (err) { console.error(`world: ${name} unavailable`, err); return null; }
+    };
+    if (typeof S.VehicleFleet === 'function') this.vehicles = tryMake('VehicleFleet', () => new S.VehicleFleet(this.scene, this.quality, this.M, layout));
+    if (typeof S.WorkerCrowd === 'function') this.workers = tryMake('WorkerCrowd', () => new S.WorkerCrowd(this.scene, this.quality, layout));
+    if (typeof S.PassengerCrowd === 'function') this.passengers = tryMake('PassengerCrowd', () => new S.PassengerCrowd(this.scene, this.quality, layout));
+    if (typeof S.Traffic === 'function') this.operations = tryMake('Traffic', () => new S.Traffic(this.scene, { quality: this.quality, materials: this.M, layout, createAircraft: S.createAircraft }));
+    if (typeof S.createAircraft === 'function') this.createAircraft = S.createAircraft;
+  }
 
   _register(system) {
     if (!system) return;

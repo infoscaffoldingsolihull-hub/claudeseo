@@ -73,7 +73,7 @@ export function terrainHeight(x, z) {
 }
 
 /** Where the scrub lives (0 on graded/paved/built ground). */
-function gradedMask(x, z) {
+export function gradedMask(x, z) {
   // Runway strip + extension + RESA.
   let g = 0;
   if (z > -1450 && z < 2780) g = Math.max(g, smoothstep(170, 120, Math.abs(x)));

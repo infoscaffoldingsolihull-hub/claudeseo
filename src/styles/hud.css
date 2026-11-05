@@ -528,3 +528,14 @@ body.panel-open .ticker { display: none; }
 @media (max-width: 480px) {
   .xp-chip { display: none; }
 }
+@media (max-height: 460px) {
+  .touch-utility, .xp-float, .mission-hud { display: none !important; }
+  .card-stack, body.touch-mode .card-stack { top: var(--below-inst); max-height: calc(100vh - var(--below-inst) - 0.5rem); width: min(21rem, 45vw); }
+  .toast-stack { top: calc(var(--below-inst) + 0.3rem); }
+  .toast { padding: 0.35rem 0.8rem; font-size: 0.82rem; }
+  .touch-hint { bottom: 5rem; }
+}
+.help-card { display: flex; flex-direction: column; }
+.help-card > .help-head { order: -3; }
+body.touch-mode .help-card > .help-touch { order: -2; }
+.help-card > section { margin-top: 1.3rem; }
