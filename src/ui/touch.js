@@ -1,36 +1,49 @@
-import { el } from './dom.js';
+import { el, icon } from './dom.js';
 
 /**
  * On-screen controls for phones and tablets.
  *
- * Three things live here: a virtual stick that draws itself wherever the left
- * thumb lands, a pad of action buttons on the right, and a small set of
- * layout rules that keep the pad out of the way when a dashboard panel is
- * open.  Buttons drive the simulation through the same key codes the keyboard
- * uses - `InputManager.setVirtualKey` - so nothing downstream has to know
- * whether the player is on a desk or a train.
+ * A virtual stick that draws itself wherever the left thumb lands (the input
+ * manager does the maths), drag-to-look and pinch-to-zoom on the right, a pad
+ * of per-mode action buttons, and a utility strip (previous/next mode, speed,
+ * dashboard, MEHRAN). Movement buttons drive the simulation through the same
+ * key codes the keyboard uses (`InputManager.setVirtualKey`); actions that
+ * main.js handles on keydown (inspect, photo, tour beats) call `sim` directly.
  *
- * The layer stays hidden until either the device reports a coarse pointer or
- * a finger actually touches the canvas, so a mouse user never sees it.
+ * The layer stays hidden until the device reports touch or a finger lands on
+ * the canvas, so mouse users never see it. T (or Settings) forces it.
  */
 
-/** Buttons shown per mode. `hold` keys stay down while pressed. */
+const ORDER = ['inspector', 'manager', 'tour', 'drone', 'ops'];
+
+/** Per-mode buttons. `hold`: key held while pressed · `toggle`: latch · `run(sim)`: direct action. */
 const BUTTONS = {
-  archaeologist: [
-    { id: 'jump', label: 'Jump', code: 'Space', hold: true, glyph: '⤒' },
-    { id: 'run', label: 'Run', code: 'ShiftLeft', hold: true, glyph: '»' },
-    { id: 'crouch', label: 'Crouch', code: 'KeyC', hold: true, toggle: true, glyph: '⤓' },
-    { id: 'use', label: 'Enter', code: 'KeyE', tap: true, glyph: '⏎' },
-  ],
-  drone: [
-    { id: 'up', label: 'Rise', code: 'Space', hold: true, glyph: '⤒' },
-    { id: 'down', label: 'Dive', code: 'KeyQ', hold: true, glyph: '⤓' },
-    { id: 'run', label: 'Boost', code: 'ShiftLeft', hold: true, glyph: '»' },
+  inspector: [
+    { id: 'jump', label: 'Jump', code: 'Space', hold: true, icon: 'up' },
+    { id: 'sprint', label: 'Sprint', code: 'ShiftLeft', hold: true, icon: 'next' },
+    { id: 'crouch', label: 'Crouch', code: 'ControlLeft', toggle: true, icon: 'down' },
+    { id: 'use', label: 'Inspect', icon: 'eye', run: (sim) => sim.interact && sim.interact() },
   ],
   manager: [
-    { id: 'use', label: 'Inspect', code: 'KeyE', tap: true, glyph: '⏎' },
+    { id: 'zin', label: 'Zoom in', code: 'KeyE', hold: true, icon: 'up' },
+    { id: 'zout', label: 'Zoom out', code: 'KeyQ', hold: true, icon: 'down' },
+    { id: 'dash', label: 'Panels', icon: 'menu', run: (sim) => sim.dashboard && sim.dashboard.toggle(sim.dashboard.openId || 'charter') },
   ],
-  tour: [],
+  drone: [
+    { id: 'up', label: 'Rise', code: 'Space', hold: true, icon: 'up' },
+    { id: 'down', label: 'Dive', code: 'KeyQ', hold: true, icon: 'down' },
+    { id: 'boost', label: 'Boost', code: 'ShiftLeft', hold: true, icon: 'next' },
+    { id: 'photo', label: 'Photo', icon: 'camera', run: (sim) => (sim.photoMode ? sim.capturePNG && sim.capturePNG() : sim.setPhotoMode && sim.setPhotoMode(true)) },
+  ],
+  tour: [
+    { id: 'prev', label: 'Previous', icon: 'prev', run: (sim) => sim.tour && sim.tour.previous && sim.tour.previous() },
+    { id: 'next', label: 'Next', icon: 'next', run: (sim) => sim.tour && sim.tour.next && sim.tour.next() },
+  ],
+  ops: [
+    { id: 'zin', label: 'Zoom in', code: 'KeyE', hold: true, icon: 'up' },
+    { id: 'zout', label: 'Zoom out', code: 'KeyQ', hold: true, icon: 'down' },
+    { id: 'tower', label: 'KPIs', icon: 'tower', run: (sim) => sim.dashboard && sim.dashboard.toggle('operations') },
+  ],
 };
 
 export class TouchControls {
@@ -41,52 +54,58 @@ export class TouchControls {
     this.mode = null;
     this.enabled = false;
     this.forced = false;
+    this.buttons = [];
 
-    this.layer = el('div', { class: 'touch-layer' });
-    this.stick = el('div', { class: 'touch-stick' }, [el('i', { class: 'touch-knob' })]);
+    this.layer = el('div', { class: 'touch-layer', 'aria-label': 'Touch controls' });
+    this.stick = el('div', { class: 'touch-stick', 'aria-hidden': 'true' }, [el('i', { class: 'touch-knob' })]);
     this.knob = this.stick.firstChild;
-    this.pad = el('div', { class: 'touch-pad' });
-    this.utility = el('div', { class: 'touch-utility' });
-    this.hint = el('div', {
-      class: 'touch-hint',
-      text: 'Left thumb to move · drag the right side to look · pinch to zoom',
-    });
+    this.pad = el('div', { class: 'touch-pad', role: 'group', 'aria-label': 'Actions' });
+    this.utility = el('div', { class: 'touch-utility', role: 'group', 'aria-label': 'Mode and speed' });
+    this.hint = el('div', { class: 'touch-hint', text: 'Left thumb to move · drag the right side to look · pinch to zoom' });
     this.layer.append(this.stick, this.pad, this.utility, this.hint);
     root.appendChild(this.layer);
 
     this._buildUtility();
     this.setMode(sim.mode);
-
-    // Reveal the moment a finger lands, even on a device we could not sniff.
-    this.input.onTouchUsed = () => this.setEnabled(true);
-    if (this.input.hasTouch) this.setEnabled(true);
+    if (this.input) {
+      this.input.onTouchUsed = () => this.setEnabled(true);
+      if (this.input.hasTouch) this.setEnabled(true);
+    }
     this._hintUntil = 14;
   }
 
   _buildUtility() {
-    const mk = (label, title, onclick) =>
-      el('button', { class: 'touch-util', title, type: 'button', onclick }, [label]);
+    const mk = (glyph, label, onclick, cls = '') => el('button', { type: 'button', class: `touch-util ${cls}`.trim(), title: label, 'aria-label': label, onclick }, [icon(glyph, 17)]);
+    this.speedLabel = el('span', { class: 'touch-speed', text: '×10' });
+    const speedBtn = el('button', { type: 'button', class: 'touch-util wide', title: 'Simulation speed', 'aria-label': 'Simulation speed', onclick: () => this.sim.hud && this.sim.hud.cycleSpeed && this.sim.hud.cycleSpeed() }, [icon('play', 15), this.speedLabel]);
     this.utility.append(
-      mk('◀', 'Previous mode', () => this._cycleMode(-1)),
-      mk('▶', 'Next mode', () => this._cycleMode(1)),
-      mk('⏱', 'Simulation speed', () => this.sim.hud.cycleSpeed())
+      mk('prev', 'Previous mode', () => this._cycleMode(-1)),
+      mk('next', 'Next mode', () => this._cycleMode(1)),
+      speedBtn,
+      mk('menu', 'Dashboard', () => this.sim.dashboard && this.sim.dashboard.toggle(this.sim.dashboard.openId || 'charter')),
+      mk('chat', 'MEHRAN', () => this.sim.chat && this.sim.chat.toggle && this.sim.chat.toggle()),
     );
   }
 
   _cycleMode(step) {
-    const order = ['archaeologist', 'manager', 'tour', 'drone'];
-    const i = order.indexOf(this.sim.mode);
-    this.sim.setMode(order[(i + step + order.length) % order.length]);
+    if (this.sim.hud && this.sim.hud.cycleMode) {
+      this.sim.hud.cycleMode(step);
+      return;
+    }
+    const i = ORDER.indexOf(this.sim.mode);
+    if (this.sim.setMode) this.sim.setMode(ORDER[(i + step + ORDER.length) % ORDER.length]);
   }
 
   setEnabled(on) {
+    on = !!on;
     if (this.enabled === on) return;
     this.enabled = on;
     this.layer.classList.toggle('on', on);
     document.body.classList.toggle('touch-mode', on);
+    if (!on) this._releaseAll();
   }
 
-  /** Force the layer on or off from the settings panel or a QA hook. */
+  /** Force the layer on or off (T key, Settings, QA). Returns the new state. */
   toggle() {
     this.forced = !this.enabled;
     this.setEnabled(this.forced);
@@ -100,14 +119,14 @@ export class TouchControls {
     this.pad.replaceChildren();
     this.buttons = [];
     for (const spec of BUTTONS[mode] || []) {
-      const node = el('button', { class: 'touch-btn', type: 'button', 'aria-label': spec.label }, [
-        el('b', { text: spec.glyph }),
+      const node = el('button', { type: 'button', class: 'touch-btn', 'aria-label': spec.label, dataset: { id: spec.id } }, [
+        icon(spec.icon, 22),
         el('span', { text: spec.label }),
       ]);
       const press = (ev) => {
         ev.preventDefault();
-        if (spec.tap) {
-          this.input.tapVirtualKey(spec.code);
+        if (spec.run) {
+          spec.run(this.sim);
           node.classList.add('hit');
           setTimeout(() => node.classList.remove('hit'), 160);
           return;
@@ -115,17 +134,18 @@ export class TouchControls {
         if (spec.toggle) {
           const on = !node.classList.contains('held');
           node.classList.toggle('held', on);
-          this.input.setVirtualKey(spec.code, on);
+          node.setAttribute('aria-pressed', on ? 'true' : 'false');
+          if (this.input) this.input.setVirtualKey(spec.code, on);
           return;
         }
         node.classList.add('held');
-        this.input.setVirtualKey(spec.code, true);
+        if (this.input) this.input.setVirtualKey(spec.code, true);
       };
       const release = (ev) => {
-        if (spec.tap || spec.toggle) return;
-        if (ev) ev.preventDefault();
+        if (spec.run || spec.toggle) return;
+        if (ev && ev.cancelable) ev.preventDefault();
         node.classList.remove('held');
-        this.input.setVirtualKey(spec.code, false);
+        if (this.input) this.input.setVirtualKey(spec.code, false);
       };
       node.addEventListener('touchstart', press, { passive: false });
       node.addEventListener('touchend', release, { passive: false });
@@ -133,7 +153,9 @@ export class TouchControls {
       node.addEventListener('mousedown', press);
       node.addEventListener('mouseup', release);
       node.addEventListener('mouseleave', release);
-      node.dataset.code = spec.code;
+      node.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') press(e); });
+      node.addEventListener('keyup', (e) => { if (e.key === 'Enter' || e.key === ' ') release(e); });
+      if (spec.code) node.dataset.code = spec.code;
       this.pad.appendChild(node);
       this.buttons.push({ spec, node });
     }
@@ -142,29 +164,34 @@ export class TouchControls {
   _releaseAll() {
     for (const b of this.buttons || []) {
       b.node.classList.remove('held');
-      this.input.setVirtualKey(b.spec.code, false);
+      if (b.spec.code && this.input) this.input.setVirtualKey(b.spec.code, false);
     }
   }
 
-  /** Follow the stick and hide the pad while a dashboard panel is open. */
+  /** Follow the stick, keep the speed label current, dim while a panel or the tour owns the screen. */
   update(dt = 0) {
     if (!this.enabled) return;
     if (this._hintUntil > 0) {
-      // The hint retires as soon as the player has moved, or after a while.
-      if (this.input.stick.active) this._hintUntil = Math.min(this._hintUntil, 1.4);
+      if (this.input && this.input.stick && this.input.stick.active) this._hintUntil = Math.min(this._hintUntil, 1.4);
       this._hintUntil -= dt;
       this.hint.style.display = this._hintUntil > 0 ? 'block' : 'none';
       this.hint.style.opacity = Math.min(1, this._hintUntil / 1.4).toFixed(2);
     }
     if (this.mode !== this.sim.mode) this.setMode(this.sim.mode);
-    const s = this.input.stick;
-    this.stick.classList.toggle('on', s.active);
-    if (s.active) {
-      this.stick.style.transform = `translate(${s.baseX - 68}px, ${s.baseY - 68}px)`;
-      this.knob.style.transform = `translate(${s.knobX - s.baseX}px, ${s.knobY - s.baseY}px)`;
+    const s = this.input && this.input.stick;
+    if (s) {
+      this.stick.classList.toggle('on', !!s.active);
+      if (s.active) {
+        this.stick.style.transform = `translate(${s.baseX - 68}px, ${s.baseY - 68}px)`;
+        this.knob.style.transform = `translate(${s.knobX - s.baseX}px, ${s.knobY - s.baseY}px)`;
+      }
     }
-    const busy = !!this.sim.dashboard.openId || this.sim.mode === 'tour';
+    const v = this.sim.simulationSpeed;
+    const label = v ? `×${v}` : '❚❚';
+    if (this.speedLabel.textContent !== label) this.speedLabel.textContent = label;
+    const busy = !!(this.sim.dashboard && this.sim.dashboard.openId);
     this.layer.classList.toggle('dim', busy);
+    this.layer.classList.toggle('stickless', this.sim.mode === 'tour');
   }
 
   dispose() {

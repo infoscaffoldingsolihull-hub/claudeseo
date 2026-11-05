@@ -1,0 +1,3760 @@
+{
+ "_readme": "MEHRAN glossary — original wording written for this simulator. clo = course learning outcome tag (CLO1 concepts & governance, CLO2 planning & control techniques, CLO3 people, stakeholders, agile & AI). Formulas follow standard PM practice.",
+ "version": 1,
+ "terms": [
+  {
+   "term": "Project",
+   "definition": "A temporary endeavour with a definite start and end, undertaken to create a unique product, service or result. Temporary refers to the effort, not to the outcome: a runway lasts decades, the project that builds it does not.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Operations",
+    "Programme",
+    "Portfolio"
+   ]
+  },
+  {
+   "term": "Operations",
+   "definition": "Ongoing, repetitive work that sustains an organisation, such as running the airport day to day after handover. Projects change things; operations keep them running.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Project",
+    "Operational Readiness and Airport Transfer",
+    "Benefits Realisation"
+   ]
+  },
+  {
+   "term": "Project Management",
+   "definition": "Applying knowledge, skills, tools and techniques to project activities so that the project meets its requirements and delivers the intended value.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Project Manager",
+    "PMBOK Guide"
+   ]
+  },
+  {
+   "term": "Project Manager",
+   "abbr": "PM",
+   "definition": "The person assigned by the performing organisation to lead the team responsible for achieving the project objectives. Accountable for integration, but not the owner of the business case.",
+   "clo": "CLO1",
+   "domain": "Governance",
+   "related": [
+    "Project Sponsor",
+    "RACI Matrix",
+    "Servant Leadership"
+   ]
+  },
+  {
+   "term": "Project Sponsor",
+   "definition": "The senior person or group who provides resources and support, owns the business case, and is the escalation point for decisions outside the project manager's authority.",
+   "clo": "CLO1",
+   "domain": "Governance",
+   "related": [
+    "Business Case",
+    "Project Charter",
+    "Management Reserve"
+   ]
+  },
+  {
+   "term": "PMBOK Guide",
+   "abbr": "PMBOK",
+   "aliases": [
+    "pmbok 8",
+    "pmbok guide 8th edition"
+   ],
+   "definition": "A Guide to the Project Management Body of Knowledge, the PMI standard describing principles, performance domains and practices. The 8th edition frames the discipline around principles, performance domains and focus areas, and treats delivery approaches (predictive, agile, hybrid) as tailoring choices.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Performance Domain",
+    "Project Management Principle",
+    "Focus Area",
+    "Tailoring"
+   ]
+  },
+  {
+   "term": "Project Management Principle",
+   "aliases": [
+    "principles",
+    "pmbok principles"
+   ],
+   "definition": "A foundational norm that guides behaviour across every project, regardless of approach. Principles are not processes: they tell you how to think when the processes do not cover the situation.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "PMBOK Guide",
+    "Performance Domain"
+   ]
+  },
+  {
+   "term": "Holistic View",
+   "definition": "Principle: treat the project as a system of interacting parts (scope, schedule, cost, people, risk, environment) and consider how a change in one ripples through the others before acting.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Project Management Principle",
+    "Integrated Change Control",
+    "Systems Thinking"
+   ]
+  },
+  {
+   "term": "Focus on Value",
+   "definition": "Principle: judge decisions by the value they create for the sponsor, users and society, not merely by finishing tasks. Output is not the same as outcome.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Business Case",
+    "Benefits Realisation",
+    "Project Management Principle"
+   ]
+  },
+  {
+   "term": "Embed Quality",
+   "definition": "Principle: build quality into processes and deliverables from the start rather than inspecting it in at the end. Prevention costs less than failure.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Cost of Quality",
+    "Quality Assurance",
+    "Project Management Principle"
+   ]
+  },
+  {
+   "term": "Accountable Leadership",
+   "definition": "Principle: leaders take ownership of outcomes, act ethically, communicate openly and create the conditions for the team to succeed.",
+   "clo": "CLO3",
+   "domain": "Governance",
+   "related": [
+    "Servant Leadership",
+    "Project Management Principle"
+   ]
+  },
+  {
+   "term": "Sustainability",
+   "definition": "Principle: weigh the environmental, social and economic effects of the project across its whole life cycle — for an airport, noise, dust, energy, water and community impacts as well as cost.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Project Management Principle",
+    "Environmental Impact Assessment"
+   ]
+  },
+  {
+   "term": "Empowered Culture",
+   "definition": "Principle: create an environment of trust, psychological safety and shared ownership in which team members can decide, speak up and improve how work is done.",
+   "clo": "CLO3",
+   "domain": "Resources",
+   "related": [
+    "Servant Leadership",
+    "Self-Organising Team",
+    "Project Management Principle"
+   ]
+  },
+  {
+   "term": "Performance Domain",
+   "aliases": [
+    "performance domains",
+    "domains"
+   ],
+   "definition": "A group of related activities critical to delivering project outcomes. In the PMBOK 8th edition the seven domains are Governance, Scope, Schedule, Finance, Stakeholders, Resources and Risk. They interact continuously rather than running in sequence.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "PMBOK Guide",
+    "Focus Area"
+   ]
+  },
+  {
+   "term": "Governance Domain",
+   "definition": "Performance domain covering the decision rights, oversight, policies, gates and escalation paths that keep the project aligned with organisational strategy.",
+   "clo": "CLO1",
+   "domain": "Governance",
+   "related": [
+    "Phase Gate",
+    "Change Control Board",
+    "Project Management Office"
+   ]
+  },
+  {
+   "term": "Finance Domain",
+   "definition": "Performance domain covering estimating, budgeting, funding, cost control and financial forecasting, including earned value management and reserves.",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Budget at Completion",
+    "Earned Value Management",
+    "Contingency Reserve"
+   ]
+  },
+  {
+   "term": "Focus Area",
+   "aliases": [
+    "focus areas"
+   ],
+   "definition": "In the PMBOK 8th edition, a grouping of work by purpose — Initiating, Planning, Executing, Monitoring and Controlling, Closing. Focus areas overlap in time; they are not strict phases.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Process Group",
+    "Project Life Cycle"
+   ]
+  },
+  {
+   "term": "Process Group",
+   "aliases": [
+    "process groups"
+   ],
+   "definition": "The earlier PMBOK term for the five logical groupings of processes: Initiating, Planning, Executing, Monitoring and Controlling, Closing.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Focus Area",
+    "Project Life Cycle"
+   ]
+  },
+  {
+   "term": "Initiating",
+   "definition": "Focus area that defines a new project or phase and obtains authorisation: business case review, charter, initial stakeholder identification.",
+   "clo": "CLO1",
+   "domain": "Governance",
+   "related": [
+    "Project Charter",
+    "Stakeholder Register",
+    "Business Case"
+   ]
+  },
+  {
+   "term": "Planning",
+   "definition": "Focus area that establishes scope, refines objectives and defines the course of action: WBS, schedule, budget, risk, quality, communications and procurement plans.",
+   "clo": "CLO2",
+   "domain": "Scope",
+   "related": [
+    "Project Management Plan",
+    "Work Breakdown Structure",
+    "Rolling Wave Planning"
+   ]
+  },
+  {
+   "term": "Executing",
+   "definition": "Focus area that completes the work defined in the plan: directing the team, managing quality, procurement, communications and stakeholder engagement.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Monitoring and Controlling",
+    "Work Performance Data"
+   ]
+  },
+  {
+   "term": "Monitoring and Controlling",
+   "definition": "Focus area that tracks, reviews and regulates progress and performance, identifies variances and initiates corrective or preventive action through change control.",
+   "clo": "CLO2",
+   "domain": "Governance",
+   "related": [
+    "Earned Value Management",
+    "Integrated Change Control",
+    "Variance Analysis"
+   ]
+  },
+  {
+   "term": "Closing",
+   "definition": "Focus area that formally completes the project or phase: acceptance, contract closure, lessons learned, archiving and release of resources.",
+   "clo": "CLO1",
+   "domain": "Governance",
+   "related": [
+    "Lessons Learned",
+    "Final Acceptance",
+    "Contract Closure"
+   ]
+  },
+  {
+   "term": "Project Life Cycle",
+   "definition": "The series of phases a project passes through from start to completion. It can be predictive, iterative, incremental, adaptive or hybrid.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Predictive Approach",
+    "Adaptive Approach",
+    "Hybrid Approach",
+    "Phase Gate"
+   ]
+  },
+  {
+   "term": "Predictive Approach",
+   "aliases": [
+    "plan-driven",
+    "predictive"
+   ],
+   "definition": "A delivery approach in which scope, schedule and cost are determined early and change is managed formally — appropriate for well-understood, high-consequence work such as pavement and airfield lighting.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Waterfall",
+    "Adaptive Approach",
+    "Hybrid Approach"
+   ]
+  },
+  {
+   "term": "Waterfall",
+   "definition": "Informal name for a sequential predictive life cycle in which each phase finishes before the next begins.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Predictive Approach"
+   ]
+  },
+  {
+   "term": "Adaptive Approach",
+   "aliases": [
+    "adaptive",
+    "change-driven"
+   ],
+   "definition": "A delivery approach (agile, iterative or incremental) in which requirements are elaborated during delivery through short feedback cycles — suited to uncertain work such as passenger-facing digital systems.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Agile",
+    "Scrum",
+    "Kanban",
+    "Predictive Approach"
+   ]
+  },
+  {
+   "term": "Hybrid Approach",
+   "aliases": [
+    "hybrid"
+   ],
+   "definition": "A combination of predictive and adaptive elements, chosen per work package. In this simulator the civil works are predictive while terminal IT and wayfinding are agile.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Predictive Approach",
+    "Adaptive Approach",
+    "Tailoring"
+   ]
+  },
+  {
+   "term": "Tailoring",
+   "definition": "Deliberately adapting the approach, governance and processes to suit the project, its environment and its risks, rather than applying a method mechanically.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Hybrid Approach",
+    "PMBOK Guide"
+   ]
+  },
+  {
+   "term": "Business Case",
+   "definition": "A documented economic feasibility study that justifies the project by comparing benefits, costs, risks and options. It is the reference for every later go/no-go decision.",
+   "clo": "CLO1",
+   "domain": "Governance",
+   "related": [
+    "Benefits Realisation",
+    "Net Present Value",
+    "Project Sponsor"
+   ]
+  },
+  {
+   "term": "Benefits Realisation",
+   "aliases": [
+    "benefits management plan"
+   ],
+   "definition": "Ensuring that the outcomes promised in the business case are actually achieved after handover, measured with agreed indicators (for an airport: movements, passengers, punctuality).",
+   "clo": "CLO1",
+   "domain": "Governance",
+   "related": [
+    "Business Case",
+    "Operations",
+    "Focus on Value"
+   ]
+  },
+  {
+   "term": "Net Present Value",
+   "abbr": "NPV",
+   "definition": "The present value of future cash inflows minus the present value of outflows, discounted at a chosen rate. A positive NPV indicates the investment adds value at that rate.",
+   "formula": "NPV = Σ CFt / (1 + r)^t",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Business Case",
+    "Internal Rate of Return",
+    "Payback Period"
+   ]
+  },
+  {
+   "term": "Internal Rate of Return",
+   "abbr": "IRR",
+   "definition": "The discount rate at which a project's NPV equals zero. Higher is better when comparing options of similar risk.",
+   "formula": "NPV(IRR) = 0",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Net Present Value",
+    "Business Case"
+   ]
+  },
+  {
+   "term": "Payback Period",
+   "definition": "The time needed for cumulative net cash inflows to recover the initial investment. Simple to explain, but it ignores the time value of money and benefits after payback.",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Net Present Value",
+    "Business Case"
+   ]
+  },
+  {
+   "term": "Project Charter",
+   "definition": "The document issued by the sponsor that formally authorises the project and gives the project manager authority to apply organisational resources. It records purpose, high-level requirements, milestones, budget and key stakeholders.",
+   "clo": "CLO1",
+   "domain": "Governance",
+   "related": [
+    "Project Sponsor",
+    "Initiating",
+    "Business Case"
+   ]
+  },
+  {
+   "term": "Project Management Plan",
+   "definition": "The integrated document that describes how the project will be executed, monitored, controlled and closed. It contains the baselines and the subsidiary management plans.",
+   "clo": "CLO2",
+   "domain": "Governance",
+   "related": [
+    "Performance Measurement Baseline",
+    "Planning"
+   ]
+  },
+  {
+   "term": "Performance Measurement Baseline",
+   "abbr": "PMB",
+   "definition": "The approved, integrated scope-schedule-cost baseline against which execution is measured. Changes to it go through formal change control.",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Baseline",
+    "Earned Value Management",
+    "Integrated Change Control"
+   ]
+  },
+  {
+   "term": "Baseline",
+   "definition": "An approved version of a work product (scope, schedule or cost) used as the basis for comparison. Changing a baseline requires an approved change request.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Performance Measurement Baseline",
+    "Re-baselining"
+   ]
+  },
+  {
+   "term": "Re-baselining",
+   "definition": "Formally replacing a baseline after an approved major change. Done too often it hides poor performance; never done, it leaves the team measuring against a fiction.",
+   "clo": "CLO2",
+   "domain": "Governance",
+   "related": [
+    "Baseline",
+    "Integrated Change Control"
+   ]
+  },
+  {
+   "term": "Enterprise Environmental Factors",
+   "abbr": "EEF",
+   "aliases": [
+    "eefs"
+   ],
+   "definition": "Conditions outside the project team's control that influence the project — regulation, market conditions, climate, culture, infrastructure. Heat, dust storms and monsoon rain are EEFs at Hyderabad.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Organisational Process Assets"
+   ]
+  },
+  {
+   "term": "Organisational Process Assets",
+   "abbr": "OPA",
+   "aliases": [
+    "opas"
+   ],
+   "definition": "Plans, processes, policies, templates and knowledge bases specific to the performing organisation, including lessons learned from earlier projects.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Enterprise Environmental Factors",
+    "Lessons Learned"
+   ]
+  },
+  {
+   "term": "Project Management Office",
+   "abbr": "PMO",
+   "definition": "An organisational unit that standardises project governance and facilitates sharing of resources, methods and tools. It can be supportive, controlling or directive.",
+   "clo": "CLO1",
+   "domain": "Governance",
+   "related": [
+    "Portfolio",
+    "Programme",
+    "Governance Domain"
+   ]
+  },
+  {
+   "term": "Programme",
+   "aliases": [
+    "program"
+   ],
+   "definition": "A group of related projects and programme activities managed in a coordinated way to obtain benefits not available from managing them individually — for example a runway, terminal and access-road project delivered together.",
+   "clo": "CLO1",
+   "domain": "Governance",
+   "related": [
+    "Project",
+    "Portfolio",
+    "Benefits Realisation"
+   ]
+  },
+  {
+   "term": "Portfolio",
+   "definition": "Projects, programmes and operations managed as a group to achieve strategic objectives. Portfolio management decides which projects to do at all.",
+   "clo": "CLO1",
+   "domain": "Governance",
+   "related": [
+    "Programme",
+    "Project Management Office"
+   ]
+  },
+  {
+   "term": "Phase Gate",
+   "aliases": [
+    "stage gate",
+    "gate",
+    "kill point"
+   ],
+   "definition": "A review at the end of a phase where performance and the business case are checked and a decision is made to continue, modify or stop. Also called a stage gate or kill point.",
+   "clo": "CLO1",
+   "domain": "Governance",
+   "related": [
+    "Governance Domain",
+    "Project Life Cycle"
+   ]
+  },
+  {
+   "term": "Integration Management",
+   "definition": "Coordinating all aspects of the project so that scope, schedule, cost, quality, resources, risks and stakeholders fit together. The project manager is the integrator.",
+   "clo": "CLO1",
+   "domain": "Governance",
+   "related": [
+    "Holistic View",
+    "Integrated Change Control"
+   ]
+  },
+  {
+   "term": "Systems Thinking",
+   "definition": "Seeing the project as interacting feedback loops: adding labour to a crowded work face can lower output; deferring maintenance raises later failure costs.",
+   "clo": "CLO1",
+   "domain": "Foundations",
+   "related": [
+    "Holistic View"
+   ]
+  },
+  {
+   "term": "Scope",
+   "definition": "The sum of the products, services and results to be provided as a project (product scope) and the work needed to deliver them (project scope).",
+   "clo": "CLO2",
+   "domain": "Scope",
+   "related": [
+    "Work Breakdown Structure",
+    "Scope Creep",
+    "Requirements"
+   ]
+  },
+  {
+   "term": "Requirements",
+   "definition": "Conditions or capabilities that must be present in a deliverable to satisfy an agreement or need. Good requirements are testable and traceable to a source.",
+   "clo": "CLO2",
+   "domain": "Scope",
+   "related": [
+    "Requirements Traceability Matrix",
+    "Acceptance Criteria"
+   ]
+  },
+  {
+   "term": "Requirements Traceability Matrix",
+   "abbr": "RTM",
+   "aliases": [
+    "traceability matrix"
+   ],
+   "definition": "A grid linking each requirement to its source, the WBS elements that deliver it and the test that verifies it, so nothing is lost or gold-plated.",
+   "clo": "CLO2",
+   "domain": "Scope",
+   "related": [
+    "Requirements",
+    "Work Breakdown Structure"
+   ]
+  },
+  {
+   "term": "Work Breakdown Structure",
+   "abbr": "WBS",
+   "definition": "A hierarchical decomposition of the total scope of work into deliverables and work packages. The 100% rule says the children of each element add up to exactly the parent.",
+   "clo": "CLO2",
+   "domain": "Scope",
+   "related": [
+    "Work Package",
+    "WBS Dictionary",
+    "100% Rule"
+   ]
+  },
+  {
+   "term": "Work Package",
+   "definition": "The lowest level of the WBS, at which cost and duration can be estimated and managed and which has a single owner.",
+   "clo": "CLO2",
+   "domain": "Scope",
+   "related": [
+    "Work Breakdown Structure",
+    "Control Account"
+   ]
+  },
+  {
+   "term": "WBS Dictionary",
+   "definition": "A document giving the detail for each WBS element: description, deliverables, acceptance criteria, owner, assumptions and associated risks.",
+   "clo": "CLO2",
+   "domain": "Scope",
+   "related": [
+    "Work Breakdown Structure",
+    "Acceptance Criteria"
+   ]
+  },
+  {
+   "term": "100% Rule",
+   "definition": "WBS rule that the work at each level must represent 100% of the work of its parent — no more and no less.",
+   "clo": "CLO2",
+   "domain": "Scope",
+   "related": [
+    "Work Breakdown Structure"
+   ]
+  },
+  {
+   "term": "Control Account",
+   "definition": "A management control point where scope, budget and schedule are integrated and compared to earned value. It contains one or more work packages.",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Work Package",
+    "Earned Value Management"
+   ]
+  },
+  {
+   "term": "Scope Creep",
+   "definition": "Uncontrolled expansion of scope without adjustment of time, cost and resources. The cure is integrated change control, not saying no to everything.",
+   "clo": "CLO2",
+   "domain": "Scope",
+   "related": [
+    "Gold Plating",
+    "Integrated Change Control"
+   ]
+  },
+  {
+   "term": "Gold Plating",
+   "definition": "Adding features beyond the agreed requirements, usually by the team, without a change request. It consumes contingency and adds risk.",
+   "clo": "CLO2",
+   "domain": "Scope",
+   "related": [
+    "Scope Creep"
+   ]
+  },
+  {
+   "term": "Acceptance Criteria",
+   "definition": "The conditions a deliverable must satisfy before it is accepted. For a runway section: friction, roughness and compaction within specification.",
+   "clo": "CLO2",
+   "domain": "Scope",
+   "related": [
+    "Definition of Done",
+    "Validate Scope"
+   ]
+  },
+  {
+   "term": "Validate Scope",
+   "definition": "Formalising acceptance of completed deliverables with the customer or sponsor. Control Quality checks correctness; Validate Scope checks acceptance.",
+   "clo": "CLO2",
+   "domain": "Scope",
+   "related": [
+    "Acceptance Criteria",
+    "Quality Control"
+   ]
+  },
+  {
+   "term": "Rolling Wave Planning",
+   "definition": "Iterative planning in which near-term work is planned in detail and later work at a higher level, refined as information emerges.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Progressive Elaboration",
+    "Planning"
+   ]
+  },
+  {
+   "term": "Progressive Elaboration",
+   "definition": "Continuously improving and detailing a plan as more specific information and more accurate estimates become available.",
+   "clo": "CLO2",
+   "domain": "Scope",
+   "related": [
+    "Rolling Wave Planning"
+   ]
+  },
+  {
+   "term": "Deliverable",
+   "definition": "Any unique, verifiable product, result or capability that must be produced to complete a process, phase or project.",
+   "clo": "CLO2",
+   "domain": "Scope",
+   "related": [
+    "Work Package",
+    "Acceptance Criteria"
+   ]
+  },
+  {
+   "term": "Critical Path Method",
+   "abbr": "CPM",
+   "aliases": [
+    "cpm"
+   ],
+   "definition": "A scheduling technique that computes early and late start and finish dates with forward and backward passes, finds total float, and identifies the longest path through the network.",
+   "formula": "ES/EF forward pass; LS/LF backward pass; TF = LS − ES",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Critical Path",
+    "Total Float",
+    "Forward Pass",
+    "Backward Pass"
+   ]
+  },
+  {
+   "term": "Critical Path",
+   "definition": "The longest sequence of dependent activities through the network; it determines the shortest possible project duration. Any delay on it delays the finish unless recovered.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Critical Path Method",
+    "Total Float",
+    "Near-Critical Path"
+   ]
+  },
+  {
+   "term": "Near-Critical Path",
+   "definition": "A path whose total float is small enough that a modest slip would make it critical. Crashing the critical path too far often hands the role to a near-critical path.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Critical Path",
+    "Crashing"
+   ]
+  },
+  {
+   "term": "Total Float",
+   "abbr": "TF",
+   "aliases": [
+    "float",
+    "slack",
+    "total slack"
+   ],
+   "definition": "The amount of time an activity can be delayed from its early start without delaying the project finish date. Critical activities have zero (or the least) total float.",
+   "formula": "TF = LS − ES = LF − EF",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Free Float",
+    "Critical Path"
+   ]
+  },
+  {
+   "term": "Free Float",
+   "abbr": "FF",
+   "aliases": [
+    "free slack"
+   ],
+   "definition": "The amount of time an activity can be delayed without delaying the early start of any successor.",
+   "formula": "FF = min(ES of successors) − EF",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Total Float"
+   ]
+  },
+  {
+   "term": "Forward Pass",
+   "definition": "Calculation through the network from start to finish that determines early start and early finish dates.",
+   "formula": "EF = ES + duration; ES = max(EF of predecessors)",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Backward Pass",
+    "Critical Path Method"
+   ]
+  },
+  {
+   "term": "Backward Pass",
+   "definition": "Calculation from the finish back to the start that determines late start and late finish dates.",
+   "formula": "LS = LF − duration; LF = min(LS of successors)",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Forward Pass",
+    "Critical Path Method"
+   ]
+  },
+  {
+   "term": "Precedence Diagramming Method",
+   "abbr": "PDM",
+   "aliases": [
+    "activity on node"
+   ],
+   "definition": "Activity-on-node network technique using four dependency types: finish-to-start, start-to-start, finish-to-finish and start-to-finish.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Finish-to-Start",
+    "Lead",
+    "Lag"
+   ]
+  },
+  {
+   "term": "Finish-to-Start",
+   "abbr": "FS",
+   "definition": "The most common dependency: the successor cannot start until the predecessor finishes (e.g. base course before asphalt surfacing).",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Precedence Diagramming Method",
+    "Start-to-Start",
+    "Finish-to-Finish"
+   ]
+  },
+  {
+   "term": "Start-to-Start",
+   "abbr": "SS",
+   "definition": "The successor cannot start until the predecessor has started; often used with a lag for overlapping work.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Precedence Diagramming Method",
+    "Lag",
+    "Fast-Tracking"
+   ]
+  },
+  {
+   "term": "Finish-to-Finish",
+   "abbr": "FF dependency",
+   "definition": "The successor cannot finish until the predecessor has finished — e.g. testing cannot finish before installation finishes.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Precedence Diagramming Method"
+   ]
+  },
+  {
+   "term": "Start-to-Finish",
+   "abbr": "SF",
+   "definition": "The rarest dependency: the successor cannot finish until the predecessor starts, such as an old system running until the new one starts.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Precedence Diagramming Method"
+   ]
+  },
+  {
+   "term": "Lag",
+   "definition": "A mandated delay between a predecessor and its successor (e.g. concrete curing time).",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Lead",
+    "Precedence Diagramming Method"
+   ]
+  },
+  {
+   "term": "Lead",
+   "definition": "An acceleration that lets a successor begin before its predecessor is complete; a negative lag.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Lag",
+    "Fast-Tracking"
+   ]
+  },
+  {
+   "term": "Mandatory Dependency",
+   "aliases": [
+    "hard logic"
+   ],
+   "definition": "A dependency inherent in the nature of the work or required contractually — hard logic, such as foundations before columns.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Discretionary Dependency",
+    "External Dependency"
+   ]
+  },
+  {
+   "term": "Discretionary Dependency",
+   "aliases": [
+    "soft logic",
+    "preferential logic"
+   ],
+   "definition": "A dependency chosen by the team based on best practice; it can be relaxed when fast-tracking. Also called preferred or soft logic.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Mandatory Dependency",
+    "Fast-Tracking"
+   ]
+  },
+  {
+   "term": "External Dependency",
+   "definition": "A dependency on something outside the project, such as a regulator's inspection or a utility diversion.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Mandatory Dependency"
+   ]
+  },
+  {
+   "term": "Milestone",
+   "definition": "A significant point or event in the project with zero duration, such as runway handover or terminal opening.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Milestone Chart",
+    "Phase Gate"
+   ]
+  },
+  {
+   "term": "Gantt Chart",
+   "aliases": [
+    "bar chart"
+   ],
+   "definition": "A bar chart of schedule information with activities on the vertical axis, dates on the horizontal axis and bars showing durations.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Milestone Chart",
+    "Critical Path"
+   ]
+  },
+  {
+   "term": "Milestone Chart",
+   "definition": "A summary schedule that shows only milestones — useful for sponsors and regulators.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Milestone",
+    "Gantt Chart"
+   ]
+  },
+  {
+   "term": "Crashing",
+   "aliases": [
+    "crash"
+   ],
+   "definition": "Compressing the schedule by adding resources to critical activities at the lowest cost per day saved. Only critical-path activities are worth crashing.",
+   "formula": "Cost slope = (crash cost − normal cost) / (normal duration − crash duration)",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Cost Slope",
+    "Fast-Tracking",
+    "Schedule Compression"
+   ]
+  },
+  {
+   "term": "Cost Slope",
+   "definition": "The extra cost of shortening an activity by one day. Crash the cheapest critical activity first, and re-check the critical path after each step.",
+   "formula": "Slope = ΔCost / ΔDuration",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Crashing"
+   ]
+  },
+  {
+   "term": "Fast-Tracking",
+   "aliases": [
+    "fast track",
+    "fast-track"
+   ],
+   "definition": "Compressing the schedule by doing activities in parallel that were planned in sequence. Costs little up front but increases risk and potential rework.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Crashing",
+    "Discretionary Dependency",
+    "Schedule Compression"
+   ]
+  },
+  {
+   "term": "Schedule Compression",
+   "definition": "Techniques to shorten the schedule without reducing scope: crashing and fast-tracking.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Crashing",
+    "Fast-Tracking"
+   ]
+  },
+  {
+   "term": "Resource Levelling",
+   "aliases": [
+    "resource leveling",
+    "levelling"
+   ],
+   "definition": "Adjusting start and finish dates to balance demand with supply. It can extend the critical path.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Resource Smoothing",
+    "Over-allocation"
+   ]
+  },
+  {
+   "term": "Resource Smoothing",
+   "definition": "Adjusting activities within their float so resource demand stays within limits without changing the critical path or finish date.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Resource Levelling",
+    "Total Float"
+   ]
+  },
+  {
+   "term": "Over-allocation",
+   "aliases": [
+    "overallocation",
+    "over allocated"
+   ],
+   "definition": "When a resource is assigned more work than it can do in the time available (demand above capacity). Fix with levelling, extra supply or re-sequencing.",
+   "formula": "Utilisation = demand / capacity > 100%",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Resource Levelling",
+    "Resource Histogram"
+   ]
+  },
+  {
+   "term": "Resource Histogram",
+   "definition": "A bar chart showing resource demand per period against capacity; peaks above the line indicate over-allocation.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Over-allocation",
+    "Resource Levelling"
+   ]
+  },
+  {
+   "term": "PERT",
+   "aliases": [
+    "program evaluation and review technique"
+   ],
+   "definition": "Programme Evaluation and Review Technique: estimates activity duration from optimistic, most likely and pessimistic values using a weighted (beta) average and estimates uncertainty with a standard deviation.",
+   "formula": "tE = (O + 4M + P) / 6; σ = (P − O) / 6",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Three-Point Estimate",
+    "Monte Carlo Simulation",
+    "Standard Deviation"
+   ]
+  },
+  {
+   "term": "Three-Point Estimate",
+   "definition": "Estimating with optimistic (O), most likely (M) and pessimistic (P) values. The triangular mean is (O+M+P)/3; the PERT beta mean is (O+4M+P)/6.",
+   "formula": "Triangular: (O+M+P)/3 · Beta: (O+4M+P)/6",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "PERT",
+    "Analogous Estimating"
+   ]
+  },
+  {
+   "term": "Standard Deviation",
+   "abbr": "σ",
+   "aliases": [
+    "sigma"
+   ],
+   "definition": "A measure of spread. For a path, PERT adds activity variances (σ²) and takes the square root; about 68% of outcomes fall within ±1σ, 95% within ±2σ, 99.7% within ±3σ.",
+   "formula": "σpath = √(Σ σi²)",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "PERT",
+    "Control Chart"
+   ]
+  },
+  {
+   "term": "Analogous Estimating",
+   "definition": "Top-down estimating that uses actual values from a similar past project. Quick and cheap, but only as accurate as the analogy.",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Parametric Estimating",
+    "Bottom-Up Estimating"
+   ]
+  },
+  {
+   "term": "Parametric Estimating",
+   "definition": "Estimating with a statistical relationship between historical data and variables, e.g. cost per square metre of pavement multiplied by area.",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Analogous Estimating",
+    "Bottom-Up Estimating"
+   ]
+  },
+  {
+   "term": "Bottom-Up Estimating",
+   "definition": "Estimating each work package in detail and rolling the estimates up the WBS. Most accurate and most expensive to prepare.",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Work Breakdown Structure",
+    "Parametric Estimating"
+   ]
+  },
+  {
+   "term": "Monte Carlo Simulation",
+   "aliases": [
+    "monte carlo",
+    "mc simulation"
+   ],
+   "definition": "Running the schedule or cost model thousands of times with durations drawn from their distributions to obtain a probability distribution of outcomes (P10, P50, P80…).",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "P50 / P80",
+    "PERT",
+    "Tornado Diagram"
+   ]
+  },
+  {
+   "term": "P50 / P80",
+   "aliases": [
+    "p50",
+    "p80",
+    "p90",
+    "percentile"
+   ],
+   "definition": "Percentile outcomes from a Monte Carlo run: there is a 50% (or 80%) chance of finishing on or before that date or cost. Commit to P80 when the sponsor needs a date they can rely on.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Monte Carlo Simulation",
+    "Confidence Level"
+   ]
+  },
+  {
+   "term": "Confidence Level",
+   "definition": "The probability that the actual outcome will be at or below a given estimate. A higher confidence level requires a larger reserve.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "P50 / P80",
+    "Contingency Reserve"
+   ]
+  },
+  {
+   "term": "Tornado Diagram",
+   "definition": "A sensitivity chart that ranks variables by their influence on an outcome, with the widest bar at the top — it shows which estimates matter most.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Monte Carlo Simulation",
+    "Sensitivity Analysis"
+   ]
+  },
+  {
+   "term": "Sensitivity Analysis",
+   "definition": "Determining which risks or variables have the most potential impact on outcomes by varying one input at a time.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Tornado Diagram"
+   ]
+  },
+  {
+   "term": "Schedule Variance in Days",
+   "abbr": "SVt",
+   "aliases": [
+    "svt"
+   ],
+   "definition": "The earned-schedule version of schedule variance, expressed in time units rather than money, so it stays meaningful late in the project.",
+   "formula": "SVt = ES − AT",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Earned Schedule",
+    "Schedule Variance"
+   ]
+  },
+  {
+   "term": "Earned Schedule",
+   "abbr": "ES",
+   "aliases": [
+    "earned schedule",
+    "spi(t)",
+    "spit"
+   ],
+   "definition": "The time at which the current earned value should have been earned according to the baseline. It converts EV into time and fixes SPI's drift to 1.0 at the end.",
+   "formula": "SPI(t) = ES / AT",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Schedule Variance in Days",
+    "Schedule Performance Index"
+   ]
+  },
+  {
+   "term": "Leads and Lags Analysis",
+   "definition": "Reviewing leads and lags to find legitimate overlaps or required waiting times when optimising the schedule.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Lead",
+    "Lag"
+   ]
+  },
+  {
+   "term": "Earned Value Management",
+   "abbr": "EVM",
+   "aliases": [
+    "earned value",
+    "evm"
+   ],
+   "definition": "An integrated method for measuring performance that compares planned value, earned value and actual cost to compute variances, indices and forecasts.",
+   "formula": "SV = EV − PV; CV = EV − AC; SPI = EV/PV; CPI = EV/AC",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Planned Value",
+    "Earned Value",
+    "Actual Cost",
+    "Cost Performance Index"
+   ]
+  },
+  {
+   "term": "Planned Value",
+   "abbr": "PV",
+   "aliases": [
+    "bcws"
+   ],
+   "definition": "The authorised budget assigned to the work scheduled to be done by a given date. Also called BCWS.",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Earned Value",
+    "Actual Cost"
+   ]
+  },
+  {
+   "term": "Earned Value",
+   "abbr": "EV",
+   "aliases": [
+    "bcwp"
+   ],
+   "definition": "The budgeted value of the work actually completed by a given date. Also called BCWP. It is the only measure that tells you how much work is really done.",
+   "formula": "EV = % complete × BAC",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Planned Value",
+    "Actual Cost"
+   ]
+  },
+  {
+   "term": "Actual Cost",
+   "abbr": "AC",
+   "aliases": [
+    "acwp"
+   ],
+   "definition": "The realised cost incurred for the work performed by a given date. Also called ACWP.",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Earned Value",
+    "Cost Variance"
+   ]
+  },
+  {
+   "term": "Budget at Completion",
+   "abbr": "BAC",
+   "aliases": [
+    "bac"
+   ],
+   "definition": "The total budget established for all the work to be performed (excluding management reserve).",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Estimate at Completion",
+    "Performance Measurement Baseline"
+   ]
+  },
+  {
+   "term": "Schedule Variance",
+   "abbr": "SV",
+   "definition": "The amount by which the project is ahead of or behind the planned delivery, in money terms. Negative means behind.",
+   "formula": "SV = EV − PV",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Schedule Performance Index",
+    "Schedule Variance in Days"
+   ]
+  },
+  {
+   "term": "Cost Variance",
+   "abbr": "CV",
+   "definition": "The budget deficit or surplus at a point in time. Negative means over budget.",
+   "formula": "CV = EV − AC",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Cost Performance Index"
+   ]
+  },
+  {
+   "term": "Schedule Performance Index",
+   "abbr": "SPI",
+   "definition": "A measure of schedule efficiency: value earned per unit of value planned. Below 1.0 means behind schedule; SPI 0.9 means only 90% of the planned work has been done.",
+   "formula": "SPI = EV / PV",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Schedule Variance",
+    "Earned Schedule",
+    "Cost Performance Index"
+   ]
+  },
+  {
+   "term": "Cost Performance Index",
+   "abbr": "CPI",
+   "definition": "A measure of cost efficiency: value earned per rupee spent. Below 1.0 means over budget; CPI 0.9 means every PKR 1 spent earns only PKR 0.90 of work. It is the most stable early predictor of final cost.",
+   "formula": "CPI = EV / AC",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Cost Variance",
+    "Estimate at Completion",
+    "To-Complete Performance Index"
+   ]
+  },
+  {
+   "term": "Estimate at Completion",
+   "abbr": "EAC",
+   "aliases": [
+    "eac"
+   ],
+   "definition": "The expected total cost of completing all the work. Choose the formula that matches your assumption about future performance.",
+   "formula": "EAC = BAC/CPI (typical) · AC + (BAC − EV) (atypical) · AC + (BAC − EV)/(CPI × SPI) (composite) · AC + bottom-up ETC",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Estimate to Complete",
+    "Variance at Completion",
+    "Cost Performance Index"
+   ]
+  },
+  {
+   "term": "Estimate to Complete",
+   "abbr": "ETC",
+   "definition": "The expected cost to finish all the remaining work.",
+   "formula": "ETC = EAC − AC",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Estimate at Completion"
+   ]
+  },
+  {
+   "term": "Variance at Completion",
+   "abbr": "VAC",
+   "definition": "The projected budget surplus or deficit at the end of the project. Negative means a forecast overrun.",
+   "formula": "VAC = BAC − EAC",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Estimate at Completion",
+    "Budget at Completion"
+   ]
+  },
+  {
+   "term": "To-Complete Performance Index",
+   "abbr": "TCPI",
+   "aliases": [
+    "tcpi",
+    "to complete performance index"
+   ],
+   "definition": "The cost efficiency that must be achieved on the remaining work to meet a target (BAC or an approved EAC). TCPI above 1.10 against BAC is usually unrealistic.",
+   "formula": "TCPI(BAC) = (BAC − EV) / (BAC − AC); TCPI(EAC) = (BAC − EV) / (EAC − AC)",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Cost Performance Index",
+    "Estimate at Completion"
+   ]
+  },
+  {
+   "term": "S-Curve",
+   "definition": "A graph of cumulative cost or progress over time; PV, EV and AC are usually plotted as S-curves to visualise variances.",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Earned Value Management",
+    "Planned Value"
+   ]
+  },
+  {
+   "term": "Contingency Reserve",
+   "aliases": [
+    "contingency"
+   ],
+   "definition": "Budget (or time) within the cost baseline for identified risks — the known-unknowns. The project manager draws on it as risks occur.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Management Reserve",
+    "Expected Monetary Value",
+    "Cost Baseline"
+   ]
+  },
+  {
+   "term": "Management Reserve",
+   "aliases": [
+    "management reserves"
+   ],
+   "definition": "Budget outside the cost baseline but inside the total budget, held by the sponsor for unknown-unknowns. Using it requires a change to the baseline.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Contingency Reserve",
+    "Project Sponsor"
+   ]
+  },
+  {
+   "term": "Cost Baseline",
+   "definition": "The approved, time-phased budget excluding management reserve; it includes contingency reserves.",
+   "formula": "Cost baseline = Σ work-package estimates + contingency reserves",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Budget at Completion",
+    "Contingency Reserve"
+   ]
+  },
+  {
+   "term": "Funding Limit Reconciliation",
+   "definition": "Adjusting the timing of planned expenditure so it stays within the periodic funding ceilings (for example annual budget releases).",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Cost Baseline"
+   ]
+  },
+  {
+   "term": "Sunk Cost",
+   "definition": "Money already spent that cannot be recovered. It should not influence decisions about the future — only future costs and benefits matter.",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Business Case"
+   ]
+  },
+  {
+   "term": "Life-Cycle Costing",
+   "definition": "Considering the total cost of ownership — design, build, operate, maintain, dispose — rather than build cost alone. Cheap pavement can be expensive runway.",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Sustainability",
+    "Business Case"
+   ]
+  },
+  {
+   "term": "Variance Analysis",
+   "definition": "Determining the cause and degree of difference between baseline and actual performance, and deciding whether corrective action is needed.",
+   "clo": "CLO2",
+   "domain": "Governance",
+   "related": [
+    "Earned Value Management",
+    "Root Cause Analysis"
+   ]
+  },
+  {
+   "term": "Risk",
+   "definition": "An uncertain event or condition that, if it occurs, has a positive (opportunity) or negative (threat) effect on one or more objectives.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Threat",
+    "Opportunity",
+    "Risk Register"
+   ]
+  },
+  {
+   "term": "Threat",
+   "definition": "A risk that would have a negative effect on objectives. Responses: avoid, transfer, mitigate, accept, escalate.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Opportunity",
+    "Risk Response Strategy"
+   ]
+  },
+  {
+   "term": "Opportunity",
+   "definition": "A risk that would have a positive effect on objectives. Responses: exploit, share, enhance, accept, escalate.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Threat",
+    "Risk Response Strategy"
+   ]
+  },
+  {
+   "term": "Risk Register",
+   "definition": "The repository of identified risks with their probability, impact, score, owner, trigger, response and status.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Risk Owner",
+    "Risk Trigger",
+    "Probability and Impact Matrix"
+   ]
+  },
+  {
+   "term": "Risk Breakdown Structure",
+   "abbr": "RBS",
+   "definition": "A hierarchical representation of risk sources (technical, external, organisational, project management) used to prompt identification.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Risk Register"
+   ]
+  },
+  {
+   "term": "Probability and Impact Matrix",
+   "aliases": [
+    "risk matrix",
+    "heat map",
+    "pi matrix"
+   ],
+   "definition": "A grid that combines probability and impact scores to prioritise risks into high, medium and low bands.",
+   "formula": "Risk score = probability score × impact score",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Qualitative Risk Analysis",
+    "Risk Register"
+   ]
+  },
+  {
+   "term": "Qualitative Risk Analysis",
+   "definition": "Prioritising risks by assessing probability, impact and other characteristics on ordinal scales. Fast and subjective.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Quantitative Risk Analysis",
+    "Probability and Impact Matrix"
+   ]
+  },
+  {
+   "term": "Quantitative Risk Analysis",
+   "definition": "Numerically analysing the combined effect of risks on objectives using EMV, decision trees and Monte Carlo simulation.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Expected Monetary Value",
+    "Decision Tree",
+    "Monte Carlo Simulation"
+   ]
+  },
+  {
+   "term": "Expected Monetary Value",
+   "abbr": "EMV",
+   "aliases": [
+    "emv"
+   ],
+   "definition": "The probability-weighted value of a risk. Threats carry negative EMV, opportunities positive. Summed EMV informs the contingency reserve.",
+   "formula": "EMV = probability × impact",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Decision Tree",
+    "Contingency Reserve"
+   ]
+  },
+  {
+   "term": "Decision Tree",
+   "definition": "A diagram of decisions, chance events and outcomes; rolling back EMVs from right to left identifies the option with the best expected value.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Expected Monetary Value"
+   ]
+  },
+  {
+   "term": "Risk Response Strategy",
+   "aliases": [
+    "risk response",
+    "risk responses"
+   ],
+   "definition": "The chosen way to deal with a risk. Threats: avoid, transfer, mitigate, accept, escalate. Opportunities: exploit, share, enhance, accept, escalate.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Avoid",
+    "Transfer",
+    "Mitigate",
+    "Accept"
+   ]
+  },
+  {
+   "term": "Avoid",
+   "definition": "Threat response that eliminates the threat or protects the project from it, typically by changing the plan (e.g. rerouting haul roads away from the residential edge).",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Risk Response Strategy",
+    "Mitigate"
+   ]
+  },
+  {
+   "term": "Transfer",
+   "definition": "Threat response that shifts ownership and impact to a third party — insurance, performance bonds, fixed-price contracts. The risk does not disappear.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Risk Response Strategy",
+    "Firm Fixed Price"
+   ]
+  },
+  {
+   "term": "Mitigate",
+   "definition": "Threat response that reduces the probability and/or impact to an acceptable threshold, such as night paving in summer heat.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Risk Response Strategy",
+    "Residual Risk"
+   ]
+  },
+  {
+   "term": "Accept",
+   "aliases": [
+    "acceptance"
+   ],
+   "definition": "Response that acknowledges a risk without proactive action. Active acceptance sets aside contingency; passive acceptance does nothing.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Contingency Reserve",
+    "Risk Response Strategy"
+   ]
+  },
+  {
+   "term": "Escalate",
+   "aliases": [
+    "escalation"
+   ],
+   "definition": "Response used when a risk is outside the project's authority or scope; it is passed to the programme, portfolio or sponsor who owns it.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Risk Response Strategy",
+    "Project Sponsor"
+   ]
+  },
+  {
+   "term": "Exploit",
+   "definition": "Opportunity response that ensures the opportunity is realised, for instance assigning the best crew to capture an early-completion bonus.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Opportunity",
+    "Enhance",
+    "Share"
+   ]
+  },
+  {
+   "term": "Enhance",
+   "definition": "Opportunity response that increases the probability or impact of an opportunity.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Opportunity",
+    "Exploit"
+   ]
+  },
+  {
+   "term": "Share",
+   "definition": "Opportunity response that allocates ownership to a third party best able to capture the benefit, such as a joint venture.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Opportunity",
+    "Exploit"
+   ]
+  },
+  {
+   "term": "Residual Risk",
+   "definition": "The risk that remains after a response has been implemented.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Secondary Risk",
+    "Mitigate"
+   ]
+  },
+  {
+   "term": "Secondary Risk",
+   "definition": "A new risk created directly by implementing a risk response — e.g. night paving reduces heat risk but raises safety and noise risk.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Residual Risk"
+   ]
+  },
+  {
+   "term": "Risk Trigger",
+   "aliases": [
+    "trigger"
+   ],
+   "definition": "An early-warning sign that a risk is about to occur or has occurred, such as a dust-storm forecast or a supplier missing a delivery.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Risk Register",
+    "Risk Owner"
+   ]
+  },
+  {
+   "term": "Risk Owner",
+   "definition": "The named person responsible for monitoring a risk and implementing its response.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Risk Register"
+   ]
+  },
+  {
+   "term": "Risk Appetite",
+   "definition": "The degree of uncertainty an organisation is willing to accept in anticipation of a reward. Risk thresholds turn appetite into measurable limits.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Risk Threshold"
+   ]
+  },
+  {
+   "term": "Risk Threshold",
+   "definition": "A measure of acceptable variation around an objective (e.g. no more than 5% cost overrun) above which a risk must be actively treated.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Risk Appetite"
+   ]
+  },
+  {
+   "term": "Risk Exposure",
+   "definition": "The aggregate potential effect of the open risks, often expressed as the sum of their EMVs.",
+   "formula": "Exposure = Σ (probability × impact)",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Expected Monetary Value",
+    "Contingency Reserve"
+   ]
+  },
+  {
+   "term": "Workaround",
+   "definition": "An unplanned response to a threat that has occurred and for which no response had been prepared.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Issue Log",
+    "Contingency Plan"
+   ]
+  },
+  {
+   "term": "Contingency Plan",
+   "aliases": [
+    "fallback plan"
+   ],
+   "definition": "A response planned in advance and executed only if a specified trigger occurs. A fallback plan is used if the contingency plan itself fails.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Risk Trigger",
+    "Workaround"
+   ]
+  },
+  {
+   "term": "Issue Log",
+   "aliases": [
+    "issue",
+    "issues"
+   ],
+   "definition": "A record of current problems (risks that have happened, disputes, blockers) with an owner, due date and status.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Workaround",
+    "Risk Register"
+   ]
+  },
+  {
+   "term": "Quality",
+   "definition": "The degree to which a set of inherent characteristics fulfils requirements. Grade is a category; low grade can be acceptable, low quality never is.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Grade",
+    "Cost of Quality"
+   ]
+  },
+  {
+   "term": "Grade",
+   "definition": "A category assigned to deliverables having the same functional use but different technical characteristics.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Quality"
+   ]
+  },
+  {
+   "term": "Quality Assurance",
+   "abbr": "QA",
+   "definition": "Process-focused activities that give confidence that quality requirements will be met — audits, process reviews, method statements.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Quality Control",
+    "Quality Audit"
+   ]
+  },
+  {
+   "term": "Quality Control",
+   "abbr": "QC",
+   "definition": "Product-focused inspection and testing of deliverables to verify they meet requirements — cores, cubes, compaction tests, friction runs.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Quality Assurance",
+    "Control Chart",
+    "Inspection"
+   ]
+  },
+  {
+   "term": "Quality Audit",
+   "definition": "A structured, independent review to determine whether project activities comply with policies, processes and procedures.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Quality Assurance"
+   ]
+  },
+  {
+   "term": "Inspection",
+   "definition": "Examining a work product to determine whether it conforms to documented standards. More inspection lowers external failure but raises appraisal cost.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Quality Control",
+    "Cost of Quality"
+   ]
+  },
+  {
+   "term": "Cost of Quality",
+   "abbr": "CoQ",
+   "aliases": [
+    "coq"
+   ],
+   "definition": "All costs incurred over the product life cycle by investment in preventing non-conformance (prevention, appraisal) and by failing to conform (internal and external failure).",
+   "formula": "CoQ = prevention + appraisal + internal failure + external failure",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Embed Quality",
+    "Inspection"
+   ]
+  },
+  {
+   "term": "Control Chart",
+   "definition": "A time-ordered chart of a process measure with a centre line and upper and lower control limits (usually ±3σ). Points outside the limits or non-random patterns show a process out of control.",
+   "formula": "UCL = CL + 3σ; LCL = CL − 3σ",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Western Electric Rules",
+    "Control Limits",
+    "Specification Limits"
+   ]
+  },
+  {
+   "term": "Control Limits",
+   "definition": "Boundaries of common-cause variation calculated from the process data, typically ±3σ from the mean. They describe the voice of the process.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Specification Limits",
+    "Control Chart"
+   ]
+  },
+  {
+   "term": "Specification Limits",
+   "aliases": [
+    "usl",
+    "lsl"
+   ],
+   "definition": "Boundaries set by the customer or standard (USL, LSL). They describe the voice of the customer and are not the same as control limits.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Control Limits",
+    "Process Capability"
+   ]
+  },
+  {
+   "term": "Process Capability",
+   "abbr": "Cpk",
+   "aliases": [
+    "cpk",
+    "cp"
+   ],
+   "definition": "How well a stable process fits within the specification limits.",
+   "formula": "Cpk = min(USL − μ, μ − LSL) / 3σ",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Specification Limits",
+    "Control Chart"
+   ]
+  },
+  {
+   "term": "Western Electric Rules",
+   "aliases": [
+    "western electric",
+    "we rules",
+    "nelson rules"
+   ],
+   "definition": "Decision rules for detecting non-random patterns on a control chart: (1) one point beyond 3σ; (2) two of three consecutive points beyond 2σ on the same side; (3) four of five beyond 1σ on the same side; (4) eight consecutive points on one side of the centre line.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Control Chart",
+    "Rule of Seven"
+   ]
+  },
+  {
+   "term": "Rule of Seven",
+   "definition": "A heuristic that seven or more consecutive points on one side of the mean (or trending in one direction) indicate a non-random cause even if within control limits.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Western Electric Rules",
+    "Control Chart"
+   ]
+  },
+  {
+   "term": "Common Cause Variation",
+   "definition": "Natural, random variation inherent in a stable process. Reacting to it as if it were special (tampering) makes things worse.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Special Cause Variation",
+    "Control Chart"
+   ]
+  },
+  {
+   "term": "Special Cause Variation",
+   "aliases": [
+    "assignable cause"
+   ],
+   "definition": "Variation from a specific, identifiable source outside the normal process — a bad batch, an uncalibrated gauge. It must be investigated.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Common Cause Variation",
+    "Root Cause Analysis"
+   ]
+  },
+  {
+   "term": "Pareto Chart",
+   "aliases": [
+    "pareto"
+   ],
+   "definition": "A bar chart ordered by frequency with a cumulative line, used to focus on the vital few causes that produce most defects (the 80/20 principle).",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Pareto Principle",
+    "Fishbone Diagram"
+   ]
+  },
+  {
+   "term": "Pareto Principle",
+   "aliases": [
+    "80/20 rule"
+   ],
+   "definition": "The observation that roughly 80% of problems come from about 20% of causes.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Pareto Chart"
+   ]
+  },
+  {
+   "term": "Fishbone Diagram",
+   "aliases": [
+    "ishikawa",
+    "cause and effect diagram",
+    "fishbone"
+   ],
+   "definition": "A cause-and-effect (Ishikawa) diagram that organises potential causes of a problem into categories such as methods, materials, machines, people, measurement and environment.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Root Cause Analysis",
+    "Five Whys"
+   ]
+  },
+  {
+   "term": "Root Cause Analysis",
+   "abbr": "RCA",
+   "definition": "An analytical technique to determine the basic underlying reason for a variance, defect or risk, so the fix prevents recurrence.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Fishbone Diagram",
+    "Five Whys"
+   ]
+  },
+  {
+   "term": "Five Whys",
+   "definition": "Asking \"why?\" repeatedly (about five times) to move from symptom to root cause.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Root Cause Analysis"
+   ]
+  },
+  {
+   "term": "Histogram",
+   "definition": "A bar chart showing the distribution of numerical data, used to see the shape and spread of a quality measure.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Control Chart",
+    "Pareto Chart"
+   ]
+  },
+  {
+   "term": "Scatter Diagram",
+   "definition": "A plot of two variables to reveal correlation, such as asphalt laying temperature against compaction density.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Histogram"
+   ]
+  },
+  {
+   "term": "Non-Conformance Report",
+   "abbr": "NCR",
+   "aliases": [
+    "ncr",
+    "ncrs",
+    "non conformance"
+   ],
+   "definition": "A formal record that a deliverable or process does not meet its specification, with disposition (rework, repair, accept as-is, reject) and corrective action.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Quality Control",
+    "Rework"
+   ]
+  },
+  {
+   "term": "Rework",
+   "definition": "Action taken to bring a defective component into conformance. Rework is an internal failure cost and often hits the critical path.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Cost of Quality",
+    "Non-Conformance Report"
+   ]
+  },
+  {
+   "term": "Plan-Do-Check-Act",
+   "abbr": "PDCA",
+   "aliases": [
+    "pdca",
+    "deming cycle"
+   ],
+   "definition": "The Shewhart/Deming continuous-improvement cycle: plan a change, do it, check the results, act to standardise or adjust.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Kaizen",
+    "Continuous Improvement"
+   ]
+  },
+  {
+   "term": "Continuous Improvement",
+   "definition": "Ongoing incremental improvement of processes and products; in agile teams it is built into retrospectives.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Plan-Do-Check-Act",
+    "Kaizen",
+    "Sprint Retrospective"
+   ]
+  },
+  {
+   "term": "Kaizen",
+   "definition": "Japanese term for continuous small improvements involving everyone in the organisation.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Continuous Improvement"
+   ]
+  },
+  {
+   "term": "Six Sigma",
+   "definition": "A data-driven quality approach aiming at very low defect rates by reducing process variation, often using the DMAIC cycle.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Control Chart",
+    "Process Capability"
+   ]
+  },
+  {
+   "term": "Statistical Sampling",
+   "definition": "Choosing part of a population for inspection; attribute sampling counts pass/fail, variable sampling measures on a continuous scale.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Inspection",
+    "Quality Control"
+   ]
+  },
+  {
+   "term": "RACI Matrix",
+   "abbr": "RACI",
+   "aliases": [
+    "raci",
+    "raci chart"
+   ],
+   "definition": "A responsibility assignment matrix showing who is Responsible (does the work), Accountable (single owner who signs off), Consulted (two-way input) and Informed (kept up to date) for each deliverable. Exactly one A per row.",
+   "clo": "CLO3",
+   "domain": "Resources",
+   "related": [
+    "Responsibility Assignment Matrix",
+    "Project Manager"
+   ]
+  },
+  {
+   "term": "Responsibility Assignment Matrix",
+   "abbr": "RAM",
+   "definition": "A grid that shows the project resources assigned to each work package; RACI is the most common form.",
+   "clo": "CLO3",
+   "domain": "Resources",
+   "related": [
+    "RACI Matrix"
+   ]
+  },
+  {
+   "term": "Tuckman Model",
+   "aliases": [
+    "tuckman",
+    "forming storming norming performing"
+   ],
+   "definition": "Team development model with five stages: forming, storming, norming, performing and adjourning. Leaders adapt their style to the stage.",
+   "clo": "CLO3",
+   "domain": "Resources",
+   "related": [
+    "Servant Leadership",
+    "Team Charter"
+   ]
+  },
+  {
+   "term": "Team Charter",
+   "definition": "A document recording team values, agreements and operating guidelines — communication norms, decision making, conflict handling.",
+   "clo": "CLO3",
+   "domain": "Resources",
+   "related": [
+    "Tuckman Model",
+    "Ground Rules"
+   ]
+  },
+  {
+   "term": "Ground Rules",
+   "definition": "Expectations regarding acceptable behaviour by team members, usually captured in the team charter.",
+   "clo": "CLO3",
+   "domain": "Resources",
+   "related": [
+    "Team Charter"
+   ]
+  },
+  {
+   "term": "Servant Leadership",
+   "definition": "A leadership style that puts the team first: removing impediments, coaching, shielding the team from distraction and enabling self-organisation.",
+   "clo": "CLO3",
+   "domain": "Resources",
+   "related": [
+    "Scrum Master",
+    "Empowered Culture"
+   ]
+  },
+  {
+   "term": "Emotional Intelligence",
+   "abbr": "EI",
+   "definition": "The ability to recognise and manage your own emotions and those of others — essential for negotiation and conflict resolution.",
+   "clo": "CLO3",
+   "domain": "Resources",
+   "related": [
+    "Conflict Management"
+   ]
+  },
+  {
+   "term": "Conflict Management",
+   "definition": "Techniques for resolving conflict: collaborate/problem-solve (win-win), compromise, smooth/accommodate, force/direct, withdraw/avoid. Collaboration addresses the root cause.",
+   "clo": "CLO3",
+   "domain": "Resources",
+   "related": [
+    "Emotional Intelligence",
+    "Negotiation"
+   ]
+  },
+  {
+   "term": "Negotiation",
+   "definition": "Discussion aimed at reaching agreement; principled negotiation separates people from the problem and focuses on interests, not positions.",
+   "clo": "CLO3",
+   "domain": "Stakeholders",
+   "related": [
+    "Conflict Management",
+    "Procurement Management"
+   ]
+  },
+  {
+   "term": "Motivation Theory",
+   "aliases": [
+    "maslow",
+    "herzberg",
+    "theory x",
+    "theory y"
+   ],
+   "definition": "Frameworks such as Maslow's hierarchy, Herzberg's hygiene and motivating factors, and McGregor's Theory X/Y, used to understand what drives team performance.",
+   "clo": "CLO3",
+   "domain": "Resources",
+   "related": [
+    "Servant Leadership"
+   ]
+  },
+  {
+   "term": "Virtual Team",
+   "definition": "A group with a shared goal whose members work mostly from different locations, relying on digital communication.",
+   "clo": "CLO3",
+   "domain": "Resources",
+   "related": [
+    "Communication Channels"
+   ]
+  },
+  {
+   "term": "Colocation",
+   "definition": "Placing team members in the same physical location (a site office or war room) to improve communication.",
+   "clo": "CLO3",
+   "domain": "Resources",
+   "related": [
+    "Virtual Team"
+   ]
+  },
+  {
+   "term": "Resource Calendar",
+   "definition": "A calendar identifying working days, shifts and availability of each resource, including holidays and seasonal restrictions.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Resource Levelling"
+   ]
+  },
+  {
+   "term": "Stakeholder",
+   "definition": "An individual, group or organisation that may affect, be affected by, or perceive itself to be affected by the project.",
+   "clo": "CLO3",
+   "domain": "Stakeholders",
+   "related": [
+    "Stakeholder Register",
+    "Stakeholder Engagement Assessment Matrix"
+   ]
+  },
+  {
+   "term": "Stakeholder Register",
+   "definition": "A document listing stakeholders with their role, interest, influence, expectations and classification.",
+   "clo": "CLO3",
+   "domain": "Stakeholders",
+   "related": [
+    "Stakeholder",
+    "Power/Interest Grid"
+   ]
+  },
+  {
+   "term": "Power/Interest Grid",
+   "aliases": [
+    "power interest grid",
+    "stakeholder map",
+    "power-interest"
+   ],
+   "definition": "A 2×2 classification of stakeholders: manage closely (high power, high interest), keep satisfied (high power, low interest), keep informed (low power, high interest), monitor (low, low).",
+   "clo": "CLO3",
+   "domain": "Stakeholders",
+   "related": [
+    "Salience Model",
+    "Stakeholder Register"
+   ]
+  },
+  {
+   "term": "Salience Model",
+   "definition": "Stakeholder classification by power, legitimacy and urgency; stakeholders with all three are \"definitive\" and demand immediate attention.",
+   "clo": "CLO3",
+   "domain": "Stakeholders",
+   "related": [
+    "Power/Interest Grid"
+   ]
+  },
+  {
+   "term": "Stakeholder Engagement Assessment Matrix",
+   "abbr": "SEAM",
+   "aliases": [
+    "engagement matrix",
+    "c d matrix"
+   ],
+   "definition": "A matrix comparing each stakeholder's current engagement level (unaware, resistant, neutral, supportive, leading) with the desired level, to plan actions that close the gap.",
+   "clo": "CLO3",
+   "domain": "Stakeholders",
+   "related": [
+    "Stakeholder Register",
+    "Stakeholder Engagement Plan"
+   ]
+  },
+  {
+   "term": "Stakeholder Engagement Plan",
+   "definition": "The plan describing strategies and actions to promote productive involvement of stakeholders in decisions and execution.",
+   "clo": "CLO3",
+   "domain": "Stakeholders",
+   "related": [
+    "Stakeholder Engagement Assessment Matrix",
+    "Communications Management Plan"
+   ]
+  },
+  {
+   "term": "Communications Management Plan",
+   "aliases": [
+    "communication plan",
+    "comms plan"
+   ],
+   "definition": "Describes what information goes to whom, when, how, in what format and by whom — and how it will be stored and escalated.",
+   "clo": "CLO3",
+   "domain": "Stakeholders",
+   "related": [
+    "Communication Channels",
+    "Push Communication"
+   ]
+  },
+  {
+   "term": "Communication Channels",
+   "aliases": [
+    "channels formula"
+   ],
+   "definition": "The number of potential communication paths in a team; it grows quadratically with team size, which is why communication planning matters.",
+   "formula": "Channels = n(n − 1) / 2",
+   "clo": "CLO3",
+   "domain": "Stakeholders",
+   "related": [
+    "Communications Management Plan"
+   ]
+  },
+  {
+   "term": "Push Communication",
+   "definition": "Information sent to specific recipients (emails, letters, reports) — it does not guarantee it was read or understood.",
+   "clo": "CLO3",
+   "domain": "Stakeholders",
+   "related": [
+    "Pull Communication",
+    "Interactive Communication"
+   ]
+  },
+  {
+   "term": "Pull Communication",
+   "definition": "Information placed where recipients can access it at their discretion — intranet, dashboards, notice boards.",
+   "clo": "CLO3",
+   "domain": "Stakeholders",
+   "related": [
+    "Push Communication",
+    "Interactive Communication"
+   ]
+  },
+  {
+   "term": "Interactive Communication",
+   "definition": "Real-time, multidirectional exchange — meetings, calls, workshops. Best for complex or sensitive issues.",
+   "clo": "CLO3",
+   "domain": "Stakeholders",
+   "related": [
+    "Push Communication",
+    "Pull Communication"
+   ]
+  },
+  {
+   "term": "Status Report",
+   "aliases": [
+    "weekly report",
+    "progress report"
+   ],
+   "definition": "A periodic report of where the project stands: progress, EVM indices, forecast, top risks, issues, decisions needed. Good reports lead with the decision required.",
+   "clo": "CLO3",
+   "domain": "Stakeholders",
+   "related": [
+    "Communications Management Plan",
+    "Earned Value Management"
+   ]
+  },
+  {
+   "term": "Grievance Mechanism",
+   "definition": "A formal, accessible process for affected communities to raise concerns and receive a response — essential on infrastructure projects next to neighbourhoods.",
+   "clo": "CLO3",
+   "domain": "Stakeholders",
+   "related": [
+    "Stakeholder Engagement Plan",
+    "Social Licence to Operate"
+   ]
+  },
+  {
+   "term": "Social Licence to Operate",
+   "definition": "The ongoing acceptance of a project by the local community and other stakeholders; it can be lost far faster than it is earned.",
+   "clo": "CLO3",
+   "domain": "Stakeholders",
+   "related": [
+    "Grievance Mechanism",
+    "Sustainability"
+   ]
+  },
+  {
+   "term": "Integrated Change Control",
+   "aliases": [
+    "change control",
+    "change management"
+   ],
+   "definition": "The process of reviewing all change requests, approving or rejecting them, and managing changes to deliverables, documents and the project management plan.",
+   "clo": "CLO2",
+   "domain": "Governance",
+   "related": [
+    "Change Request",
+    "Change Control Board",
+    "Configuration Management"
+   ]
+  },
+  {
+   "term": "Change Request",
+   "abbr": "CR",
+   "aliases": [
+    "cr",
+    "change requests"
+   ],
+   "definition": "A formal proposal to modify a document, deliverable or baseline. It is analysed for impact on scope, time, cost, quality and risk before a decision.",
+   "clo": "CLO2",
+   "domain": "Governance",
+   "related": [
+    "Integrated Change Control",
+    "Change Control Board"
+   ]
+  },
+  {
+   "term": "Change Control Board",
+   "abbr": "CCB",
+   "aliases": [
+    "ccb"
+   ],
+   "definition": "A formally constituted group responsible for reviewing, evaluating, approving, deferring or rejecting changes and recording the decisions.",
+   "clo": "CLO2",
+   "domain": "Governance",
+   "related": [
+    "Change Request",
+    "Integrated Change Control"
+   ]
+  },
+  {
+   "term": "Configuration Management",
+   "definition": "Controlling the specifications and versions of deliverables and documents so everyone builds to the current approved version.",
+   "clo": "CLO2",
+   "domain": "Governance",
+   "related": [
+    "Integrated Change Control"
+   ]
+  },
+  {
+   "term": "Change Log",
+   "definition": "A list of all change requests submitted and their current status.",
+   "clo": "CLO2",
+   "domain": "Governance",
+   "related": [
+    "Change Request"
+   ]
+  },
+  {
+   "term": "Corrective Action",
+   "definition": "An intentional activity that realigns the performance of the project work with the plan.",
+   "clo": "CLO2",
+   "domain": "Governance",
+   "related": [
+    "Preventive Action",
+    "Defect Repair"
+   ]
+  },
+  {
+   "term": "Preventive Action",
+   "definition": "An intentional activity that ensures the future performance of the project work is aligned with the plan.",
+   "clo": "CLO2",
+   "domain": "Governance",
+   "related": [
+    "Corrective Action"
+   ]
+  },
+  {
+   "term": "Defect Repair",
+   "definition": "An intentional activity to modify a non-conforming product or component.",
+   "clo": "CLO2",
+   "domain": "Quality",
+   "related": [
+    "Rework",
+    "Corrective Action"
+   ]
+  },
+  {
+   "term": "Decision Log",
+   "definition": "A record of key decisions, who made them, when and why — invaluable when the same question returns months later.",
+   "clo": "CLO2",
+   "domain": "Governance",
+   "related": [
+    "Issue Log",
+    "Change Log"
+   ]
+  },
+  {
+   "term": "Procurement Management",
+   "aliases": [
+    "procurement"
+   ],
+   "definition": "Processes to purchase or acquire products, services or results from outside the project team: plan, conduct and control procurements.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Make-or-Buy Analysis",
+    "Contract Types",
+    "Source Selection Criteria"
+   ]
+  },
+  {
+   "term": "Make-or-Buy Analysis",
+   "aliases": [
+    "make or buy"
+   ],
+   "definition": "Deciding whether work should be done in-house or purchased, considering cost, capability, risk, capacity and strategic importance.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Procurement Management"
+   ]
+  },
+  {
+   "term": "Contract Types",
+   "aliases": [
+    "contract type"
+   ],
+   "definition": "Families of contracts that allocate risk differently: fixed price (seller carries cost risk), cost-reimbursable (buyer carries it) and time and materials (hybrid).",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Firm Fixed Price",
+    "Cost Plus Fixed Fee",
+    "Time and Materials"
+   ]
+  },
+  {
+   "term": "Firm Fixed Price",
+   "abbr": "FFP",
+   "aliases": [
+    "ffp",
+    "lump sum"
+   ],
+   "definition": "Contract with a set price for a well-defined scope; the seller carries most cost risk. Best when scope is clear and stable.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Contract Types",
+    "Fixed Price Incentive Fee"
+   ]
+  },
+  {
+   "term": "Fixed Price Incentive Fee",
+   "abbr": "FPIF",
+   "aliases": [
+    "fpif"
+   ],
+   "definition": "Fixed-price contract with a target cost, target profit, share ratio and ceiling price; the seller earns more profit by beating the target.",
+   "formula": "Final price = actual cost + target fee + share × (target cost − actual cost), capped at ceiling",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Point of Total Assumption",
+    "Firm Fixed Price"
+   ]
+  },
+  {
+   "term": "Point of Total Assumption",
+   "abbr": "PTA",
+   "aliases": [
+    "pta"
+   ],
+   "definition": "In an FPIF contract, the cost above which the seller bears all further cost overrun.",
+   "formula": "PTA = (ceiling price − target price) / buyer share + target cost",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Fixed Price Incentive Fee"
+   ]
+  },
+  {
+   "term": "Fixed Price with Economic Price Adjustment",
+   "abbr": "FP-EPA",
+   "aliases": [
+    "fpepa"
+   ],
+   "definition": "Fixed price with an adjustment clause tied to an index (e.g. bitumen or steel prices) for long contracts exposed to inflation.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Firm Fixed Price"
+   ]
+  },
+  {
+   "term": "Cost Plus Fixed Fee",
+   "abbr": "CPFF",
+   "aliases": [
+    "cpff"
+   ],
+   "definition": "Cost-reimbursable contract where the seller is paid allowable costs plus a fixed fee; the buyer carries the cost risk. Suited to uncertain scope.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Cost Plus Incentive Fee",
+    "Cost Plus Award Fee"
+   ]
+  },
+  {
+   "term": "Cost Plus Incentive Fee",
+   "abbr": "CPIF",
+   "aliases": [
+    "cpif"
+   ],
+   "definition": "Cost-reimbursable contract with an incentive fee based on meeting cost targets, with savings or overruns shared by an agreed ratio.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Cost Plus Fixed Fee"
+   ]
+  },
+  {
+   "term": "Cost Plus Award Fee",
+   "abbr": "CPAF",
+   "aliases": [
+    "cpaf"
+   ],
+   "definition": "Cost-reimbursable contract where the fee is awarded subjectively by the buyer based on performance criteria.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Cost Plus Fixed Fee"
+   ]
+  },
+  {
+   "term": "Time and Materials",
+   "abbr": "T&M",
+   "aliases": [
+    "t&m",
+    "tm contract"
+   ],
+   "definition": "Hybrid contract paying unit rates for labour and materials; quick to start, but needs a not-to-exceed limit to control cost.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Contract Types"
+   ]
+  },
+  {
+   "term": "Request for Proposal",
+   "abbr": "RFP",
+   "aliases": [
+    "rfp",
+    "rfq",
+    "rfi"
+   ],
+   "definition": "A procurement document asking sellers for proposals on how they would deliver a solution; used when technical approach matters as much as price. RFQ is for price only; RFI gathers information.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Source Selection Criteria",
+    "Bidder Conference"
+   ]
+  },
+  {
+   "term": "Bidder Conference",
+   "aliases": [
+    "pre-bid meeting"
+   ],
+   "definition": "A meeting with all prospective sellers before bids are submitted, so everyone receives the same information.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Request for Proposal"
+   ]
+  },
+  {
+   "term": "Source Selection Criteria",
+   "definition": "Weighted criteria (technical approach, experience, schedule, price, financial capacity) used to score proposals objectively.",
+   "formula": "Score = Σ weight × rating",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Weighted Scoring Model",
+    "Request for Proposal"
+   ]
+  },
+  {
+   "term": "Weighted Scoring Model",
+   "definition": "A decision technique that rates options against weighted criteria and sums the results to rank them.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Source Selection Criteria"
+   ]
+  },
+  {
+   "term": "Statement of Work",
+   "abbr": "SOW",
+   "aliases": [
+    "sow"
+   ],
+   "definition": "A narrative description of the products, services or results to be delivered under a contract.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Request for Proposal",
+    "Procurement Management"
+   ]
+  },
+  {
+   "term": "Claim",
+   "aliases": [
+    "claims"
+   ],
+   "definition": "A request, demand or assertion of rights by a seller against a buyer (or vice versa) under the contract, often over changed conditions or delay. Alternative dispute resolution is preferred to litigation.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Alternative Dispute Resolution",
+    "Procurement Management"
+   ]
+  },
+  {
+   "term": "Alternative Dispute Resolution",
+   "abbr": "ADR",
+   "definition": "Resolving contract disputes through negotiation, mediation or arbitration rather than the courts.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Claim"
+   ]
+  },
+  {
+   "term": "Retention",
+   "definition": "A percentage of each payment withheld from the contractor until completion or the end of the defects-liability period, as security for performance.",
+   "clo": "CLO2",
+   "domain": "Finance",
+   "related": [
+    "Performance Bond"
+   ]
+  },
+  {
+   "term": "Performance Bond",
+   "definition": "A guarantee by a bank or surety that compensates the buyer if the contractor fails to perform.",
+   "clo": "CLO2",
+   "domain": "Risk",
+   "related": [
+    "Transfer",
+    "Retention"
+   ]
+  },
+  {
+   "term": "Contract Closure",
+   "definition": "Completing each procurement: verifying deliverables, settling claims, releasing retention, archiving records and capturing lessons.",
+   "clo": "CLO1",
+   "domain": "Resources",
+   "related": [
+    "Closing",
+    "Claim"
+   ]
+  },
+  {
+   "term": "Agile",
+   "aliases": [
+    "agile manifesto"
+   ],
+   "definition": "A mindset and family of approaches defined by the Agile Manifesto's values and principles: individuals and interactions, working results, customer collaboration and responding to change.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Scrum",
+    "Kanban",
+    "Adaptive Approach"
+   ]
+  },
+  {
+   "term": "Scrum",
+   "definition": "A lightweight agile framework with three accountabilities (Product Owner, Scrum Master, Developers), five events (Sprint, Sprint Planning, Daily Scrum, Sprint Review, Retrospective) and three artifacts (Product Backlog, Sprint Backlog, Increment).",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Sprint",
+    "Product Owner",
+    "Scrum Master"
+   ]
+  },
+  {
+   "term": "Sprint",
+   "aliases": [
+    "iteration"
+   ],
+   "definition": "A fixed-length timebox (here 14 days) in which a usable increment is created. Scope may be clarified but the sprint goal does not change.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Sprint Planning",
+    "Sprint Review",
+    "Velocity"
+   ]
+  },
+  {
+   "term": "Sprint Planning",
+   "definition": "The event that starts a sprint: the team selects backlog items, crafts a sprint goal and plans how to deliver it.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Sprint",
+    "Sprint Backlog"
+   ]
+  },
+  {
+   "term": "Daily Stand-up",
+   "aliases": [
+    "stand-up",
+    "standup",
+    "daily scrum"
+   ],
+   "definition": "A short daily meeting (Daily Scrum) for the team to inspect progress toward the sprint goal and adapt the plan; classic prompts are done yesterday, plan today, blockers.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Scrum",
+    "Impediment"
+   ]
+  },
+  {
+   "term": "Sprint Review",
+   "definition": "Event at the end of a sprint where the team demonstrates the increment to stakeholders and the backlog is adapted.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Sprint",
+    "Increment"
+   ]
+  },
+  {
+   "term": "Sprint Retrospective",
+   "aliases": [
+    "retrospective",
+    "retro"
+   ],
+   "definition": "Event where the team inspects how the last sprint went — people, process, tools — and commits to improvements.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Continuous Improvement",
+    "Lessons Learned"
+   ]
+  },
+  {
+   "term": "Product Owner",
+   "abbr": "PO",
+   "definition": "The person accountable for maximising the value of the product by ordering the product backlog.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Product Backlog",
+    "Scrum"
+   ]
+  },
+  {
+   "term": "Scrum Master",
+   "definition": "The person accountable for the team's effectiveness: coaching Scrum, facilitating events and removing impediments. A servant leader.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Servant Leadership",
+    "Impediment"
+   ]
+  },
+  {
+   "term": "Product Backlog",
+   "aliases": [
+    "backlog"
+   ],
+   "definition": "An ordered list of everything that might be needed in the product; the single source of work for the team.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "User Story",
+    "Backlog Refinement",
+    "Product Owner"
+   ]
+  },
+  {
+   "term": "Sprint Backlog",
+   "definition": "The sprint goal, the backlog items selected for the sprint and the plan for delivering them.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Product Backlog",
+    "Sprint Planning"
+   ]
+  },
+  {
+   "term": "Backlog Refinement",
+   "aliases": [
+    "grooming"
+   ],
+   "definition": "Ongoing activity of adding detail, estimates and order to backlog items. Also called grooming.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Product Backlog",
+    "Story Points"
+   ]
+  },
+  {
+   "term": "User Story",
+   "aliases": [
+    "story",
+    "stories"
+   ],
+   "definition": "A short description of a feature from the user's perspective: \"As a <role> I want <capability> so that <benefit>\", with acceptance criteria.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Story Points",
+    "Acceptance Criteria",
+    "INVEST"
+   ]
+  },
+  {
+   "term": "INVEST",
+   "definition": "Checklist for good user stories: Independent, Negotiable, Valuable, Estimable, Small, Testable.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "User Story"
+   ]
+  },
+  {
+   "term": "Story Points",
+   "aliases": [
+    "points"
+   ],
+   "definition": "A relative unit of effort and complexity used to size user stories, often on a Fibonacci-like scale.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Velocity",
+    "Planning Poker"
+   ]
+  },
+  {
+   "term": "Planning Poker",
+   "definition": "A consensus estimation technique in which team members reveal story-point cards simultaneously and discuss outliers.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Story Points"
+   ]
+  },
+  {
+   "term": "Velocity",
+   "aliases": [
+    "team velocity"
+   ],
+   "definition": "The amount of work (story points) a team completes per sprint. Use the average of recent sprints to forecast; never compare velocity between teams.",
+   "formula": "Sprints remaining ≈ remaining points / average velocity",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Story Points",
+    "Burndown Chart"
+   ]
+  },
+  {
+   "term": "Burndown Chart",
+   "aliases": [
+    "burndown",
+    "burn down"
+   ],
+   "definition": "A chart of remaining work against time with an ideal line; above the line means behind.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Burnup Chart",
+    "Velocity"
+   ]
+  },
+  {
+   "term": "Burnup Chart",
+   "definition": "A chart of completed work against time with a separate scope line, which makes scope changes visible.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Burndown Chart"
+   ]
+  },
+  {
+   "term": "Definition of Done",
+   "abbr": "DoD",
+   "aliases": [
+    "dod"
+   ],
+   "definition": "A shared checklist of criteria an increment must meet to be considered complete — the team-wide quality bar.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Acceptance Criteria",
+    "Increment"
+   ]
+  },
+  {
+   "term": "Definition of Ready",
+   "abbr": "DoR",
+   "aliases": [
+    "dor"
+   ],
+   "definition": "Criteria a backlog item must meet before the team will take it into a sprint.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Backlog Refinement"
+   ]
+  },
+  {
+   "term": "Increment",
+   "definition": "A concrete, usable step toward the product goal that meets the Definition of Done.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Definition of Done",
+    "Sprint Review"
+   ]
+  },
+  {
+   "term": "Minimum Viable Product",
+   "abbr": "MVP",
+   "aliases": [
+    "mvp"
+   ],
+   "definition": "The smallest version of a product that delivers value and validates assumptions with real users.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Increment",
+    "Focus on Value"
+   ]
+  },
+  {
+   "term": "Kanban",
+   "definition": "A flow-based method that visualises work on a board, limits work in progress and manages flow, pulling new work only when capacity frees up.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "WIP Limit",
+    "Cycle Time",
+    "Cumulative Flow Diagram"
+   ]
+  },
+  {
+   "term": "WIP Limit",
+   "aliases": [
+    "wip",
+    "work in progress"
+   ],
+   "definition": "A cap on the number of items allowed in a workflow state. Limiting work in progress reduces multitasking, exposes bottlenecks and shortens cycle time.",
+   "formula": "Little's Law: cycle time = WIP / throughput",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Kanban",
+    "Cycle Time",
+    "Little's Law"
+   ]
+  },
+  {
+   "term": "Little's Law",
+   "aliases": [
+    "littles law"
+   ],
+   "definition": "A queueing relationship: average cycle time equals average work in progress divided by average throughput.",
+   "formula": "CT = WIP / TH",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "WIP Limit",
+    "Cycle Time"
+   ]
+  },
+  {
+   "term": "Cycle Time",
+   "definition": "The elapsed time from when work starts on an item until it is finished. Lead time runs from request to delivery.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Lead Time",
+    "WIP Limit"
+   ]
+  },
+  {
+   "term": "Lead Time",
+   "definition": "The elapsed time from a request entering the system to its delivery — what the customer experiences. In procurement, the time from order to delivery.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Cycle Time"
+   ]
+  },
+  {
+   "term": "Throughput",
+   "definition": "The number of work items completed per unit of time.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Little's Law",
+    "Velocity"
+   ]
+  },
+  {
+   "term": "Cumulative Flow Diagram",
+   "abbr": "CFD",
+   "aliases": [
+    "cfd"
+   ],
+   "definition": "A stacked-area chart of items in each workflow state over time; widening bands reveal bottlenecks.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Kanban",
+    "WIP Limit"
+   ]
+  },
+  {
+   "term": "Impediment",
+   "aliases": [
+    "blocker"
+   ],
+   "definition": "Anything that blocks or slows the team. Removing impediments is the Scrum Master's job.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Scrum Master",
+    "Daily Stand-up"
+   ]
+  },
+  {
+   "term": "Timebox",
+   "definition": "A fixed, maximum period for an activity; when the time is up, the activity ends.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Sprint"
+   ]
+  },
+  {
+   "term": "Self-Organising Team",
+   "aliases": [
+    "self-managing team"
+   ],
+   "definition": "A cross-functional team that decides internally who does what, when and how, within the constraints set by the organisation.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Empowered Culture",
+    "Servant Leadership"
+   ]
+  },
+  {
+   "term": "Technical Debt",
+   "definition": "The future cost of rework caused by choosing an easy solution now instead of a better approach that would take longer.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Definition of Done",
+    "Rework"
+   ]
+  },
+  {
+   "term": "Spike",
+   "definition": "A timeboxed research or prototyping story used to reduce uncertainty before estimating real work.",
+   "clo": "CLO3",
+   "domain": "Agile",
+   "related": [
+    "Timebox",
+    "User Story"
+   ]
+  },
+  {
+   "term": "Lessons Learned",
+   "aliases": [
+    "lessons",
+    "lessons learnt"
+   ],
+   "definition": "Knowledge gained during the project about what worked and what did not, captured throughout (not only at the end) and stored in the organisational process assets.",
+   "clo": "CLO1",
+   "domain": "Governance",
+   "related": [
+    "Organisational Process Assets",
+    "Sprint Retrospective",
+    "Closing"
+   ]
+  },
+  {
+   "term": "Final Acceptance",
+   "definition": "Formal sign-off by the customer or sponsor that the deliverables meet the acceptance criteria, which triggers handover.",
+   "clo": "CLO1",
+   "domain": "Governance",
+   "related": [
+    "Validate Scope",
+    "Closing"
+   ]
+  },
+  {
+   "term": "Handover",
+   "aliases": [
+    "transition"
+   ],
+   "definition": "Transfer of completed deliverables, documentation, warranties and responsibility from the project to operations.",
+   "clo": "CLO1",
+   "domain": "Governance",
+   "related": [
+    "Operational Readiness and Airport Transfer",
+    "Final Acceptance"
+   ]
+  },
+  {
+   "term": "Post-Implementation Review",
+   "abbr": "PIR",
+   "definition": "A review some months after handover to check whether the expected benefits are being realised.",
+   "clo": "CLO1",
+   "domain": "Governance",
+   "related": [
+    "Benefits Realisation",
+    "Lessons Learned"
+   ]
+  },
+  {
+   "term": "Defects Liability Period",
+   "abbr": "DLP",
+   "aliases": [
+    "warranty period"
+   ],
+   "definition": "A period after completion during which the contractor must remedy defects at their own cost; retention is usually released at its end.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Retention",
+    "Contract Closure"
+   ]
+  },
+  {
+   "term": "Task Mode",
+   "aliases": [
+    "auto scheduled",
+    "manually scheduled"
+   ],
+   "definition": "In scheduling software such as MS Project, auto-scheduled tasks are calculated from dependencies and calendars; manually scheduled tasks keep the dates typed in.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Gantt Chart",
+    "Summary Task"
+   ]
+  },
+  {
+   "term": "Summary Task",
+   "definition": "In MS Project, a parent task that rolls up the dates, work and cost of its subtasks; it mirrors a WBS element.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Work Breakdown Structure",
+    "Task Mode"
+   ]
+  },
+  {
+   "term": "Task Type",
+   "aliases": [
+    "fixed duration",
+    "fixed work",
+    "fixed units"
+   ],
+   "definition": "In MS Project, which of duration, work or units stays fixed when one of the others changes (Work = Duration × Units).",
+   "formula": "Work = Duration × Units",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Effort-Driven Scheduling"
+   ]
+  },
+  {
+   "term": "Effort-Driven Scheduling",
+   "definition": "An MS Project option in which adding resources to a task shortens its duration while total work stays constant.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Task Type",
+    "Crashing"
+   ]
+  },
+  {
+   "term": "Constraint Type",
+   "aliases": [
+    "snet",
+    "mfo",
+    "asap"
+   ],
+   "definition": "In MS Project, a date restriction on a task such as As Soon As Possible, Start No Earlier Than or Must Finish On. Hard constraints override logic and can create negative float.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Deadline",
+    "Total Float"
+   ]
+  },
+  {
+   "term": "Deadline",
+   "definition": "In MS Project, a target date that flags a task when it is late but, unlike a hard constraint, does not move the task.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Constraint Type"
+   ]
+  },
+  {
+   "term": "Tracking Gantt",
+   "definition": "An MS Project view that shows baseline bars beneath current bars so slippage is visible at a glance.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Baseline",
+    "Gantt Chart"
+   ]
+  },
+  {
+   "term": "MSPDI",
+   "aliases": [
+    "ms project xml"
+   ],
+   "definition": "The Microsoft Project XML data interchange format; this simulator exports the live schedule as MSPDI so it can be opened in MS Project.",
+   "clo": "CLO2",
+   "domain": "Schedule",
+   "related": [
+    "Gantt Chart"
+   ]
+  },
+  {
+   "term": "Resource Sheet",
+   "definition": "An MS Project view listing resources with type (work, material, cost), maximum units and rates.",
+   "clo": "CLO2",
+   "domain": "Resources",
+   "related": [
+    "Resource Histogram"
+   ]
+  },
+  {
+   "term": "Operational Readiness and Airport Transfer",
+   "abbr": "ORAT",
+   "aliases": [
+    "orat",
+    "operational readiness"
+   ],
+   "definition": "A structured programme that prepares people, processes and systems to operate a new or expanded airport facility, including familiarisation, trials with volunteers and a controlled transfer from the project to operations.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Handover",
+    "Operations",
+    "Benefits Realisation"
+   ]
+  },
+  {
+   "term": "Aerodrome Reference Code",
+   "aliases": [
+    "reference code"
+   ],
+   "definition": "An ICAO two-element code that links airfield design to the aircraft it serves: a number (1–4) for reference field length and a letter (A–F) for wingspan.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Code E",
+    "Code C"
+   ]
+  },
+  {
+   "term": "Code C",
+   "definition": "Aerodrome reference code letter for aircraft with a wingspan of 24 m up to but not including 36 m — typical single-aisle airliners.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Aerodrome Reference Code",
+    "Code E"
+   ]
+  },
+  {
+   "term": "Code E",
+   "aliases": [
+    "code 4e",
+    "4e"
+   ],
+   "definition": "Aerodrome reference code letter for aircraft with a wingspan of 52 m up to but not including 65 m — large twin-aisle airliners. It drives runway and taxiway widths, separations and stand sizes.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Aerodrome Reference Code",
+    "Code C"
+   ]
+  },
+  {
+   "term": "Precision Approach Path Indicator",
+   "abbr": "PAPI",
+   "aliases": [
+    "papi"
+   ],
+   "definition": "A row of four light units beside the runway that show pilots whether they are on the approach slope: two red and two white means on slope; more white is high, more red is low.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Instrument Landing System",
+    "Approach Lighting System"
+   ]
+  },
+  {
+   "term": "Instrument Landing System",
+   "abbr": "ILS",
+   "aliases": [
+    "ils"
+   ],
+   "definition": "A precision radio navigation aid giving lateral guidance (localiser) and vertical guidance (glide path) to a runway, allowing approaches in low visibility.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Precision Approach Path Indicator",
+    "Localiser"
+   ]
+  },
+  {
+   "term": "Localiser",
+   "abbr": "LOC",
+   "aliases": [
+    "localizer"
+   ],
+   "definition": "The ILS component, an antenna array beyond the runway end, that gives lateral guidance along the extended centreline. It must be protected from obstacles and vehicles.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Instrument Landing System"
+   ]
+  },
+  {
+   "term": "Runway End Safety Area",
+   "abbr": "RESA",
+   "aliases": [
+    "resa"
+   ],
+   "definition": "A cleared, graded area beyond the runway strip at each end that reduces damage if an aircraft undershoots or overruns. ICAO sets a minimum length and recommends a longer one.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Runway Strip",
+    "Displaced Threshold"
+   ]
+  },
+  {
+   "term": "Runway Strip",
+   "definition": "A defined area including the runway (and stopway) that is graded and kept free of obstacles to reduce risk to aircraft running off the runway.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Runway End Safety Area",
+    "Obstacle Limitation Surfaces"
+   ]
+  },
+  {
+   "term": "Aircraft Rescue and Fire Fighting",
+   "abbr": "ARFF",
+   "aliases": [
+    "arff",
+    "rescue and firefighting",
+    "rffs"
+   ],
+   "definition": "The airport emergency service equipped to respond to aircraft accidents. The required category depends on aircraft size, and response-time objectives apply to any point on the runway.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Safety Management System"
+   ]
+  },
+  {
+   "term": "Obstacle Limitation Surfaces",
+   "abbr": "OLS",
+   "aliases": [
+    "ols"
+   ],
+   "definition": "Imaginary surfaces around a runway that define the airspace to be kept free of obstacles — cranes on an airside construction site need specific clearance.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Runway Strip",
+    "NOTAM"
+   ]
+  },
+  {
+   "term": "NOTAM",
+   "aliases": [
+    "notam"
+   ],
+   "definition": "Notice to Air Missions: an official notice of temporary changes such as runway closures, displaced thresholds or works in progress.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Displaced Threshold",
+    "Method of Working Plan"
+   ]
+  },
+  {
+   "term": "Displaced Threshold",
+   "definition": "A runway threshold located at a point other than the runway end, often used temporarily during works so aircraft can continue to operate on a shortened runway.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "NOTAM",
+    "Runway End Safety Area"
+   ]
+  },
+  {
+   "term": "Method of Working Plan",
+   "abbr": "MOWP",
+   "aliases": [
+    "mowp",
+    "construction safety plan"
+   ],
+   "definition": "An airside construction plan that defines phasing, work areas, haul routes, closures and safety measures so construction and flight operations can coexist.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "NOTAM",
+    "Foreign Object Debris"
+   ]
+  },
+  {
+   "term": "Foreign Object Debris",
+   "abbr": "FOD",
+   "aliases": [
+    "fod"
+   ],
+   "definition": "Any object on the movement area that could damage aircraft — loose aggregate, bolts, plastic. Construction sites must run FOD sweeps and inspections.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Method of Working Plan",
+    "Safety Management System"
+   ]
+  },
+  {
+   "term": "Pavement Classification Rating",
+   "abbr": "PCR",
+   "aliases": [
+    "pcr",
+    "pcn",
+    "acr"
+   ],
+   "definition": "The ICAO number expressing the bearing strength of a pavement for unrestricted operations, compared with the aircraft classification rating (ACR). It replaced ACN/PCN.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Aerodrome Reference Code"
+   ]
+  },
+  {
+   "term": "Approach Lighting System",
+   "abbr": "ALS",
+   "aliases": [
+    "approach lights"
+   ],
+   "definition": "A configuration of lights extending from the threshold into the approach area that helps pilots transition from instruments to visual references.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Precision Approach Path Indicator",
+    "Instrument Landing System"
+   ]
+  },
+  {
+   "term": "Apron",
+   "aliases": [
+    "ramp",
+    "stand"
+   ],
+   "definition": "The area of an airport where aircraft park for boarding, loading, refuelling and maintenance; its stands are sized by aerodrome reference code.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Code E",
+    "Ground Support Equipment"
+   ]
+  },
+  {
+   "term": "Ground Support Equipment",
+   "abbr": "GSE",
+   "aliases": [
+    "gse"
+   ],
+   "definition": "Vehicles and equipment that service aircraft between flights — tugs, belt loaders, fuel bowsers, ground power units.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Apron"
+   ]
+  },
+  {
+   "term": "Safety Management System",
+   "abbr": "SMS",
+   "aliases": [
+    "sms"
+   ],
+   "definition": "A systematic approach to managing aviation safety: policy, risk management, assurance and promotion. Airside works are assessed under it.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Method of Working Plan",
+    "Aircraft Rescue and Fire Fighting"
+   ]
+  },
+  {
+   "term": "Airside",
+   "definition": "The part of an airport beyond security screening and access control, including the movement area. Work here needs permits, escorts and coordination with air traffic control.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Landside",
+    "Method of Working Plan"
+   ]
+  },
+  {
+   "term": "Landside",
+   "definition": "The public part of an airport before security — forecourt, car parks, access roads and the public areas of the terminal.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Airside"
+   ]
+  },
+  {
+   "term": "Environmental Impact Assessment",
+   "abbr": "EIA",
+   "aliases": [
+    "eia"
+   ],
+   "definition": "A study that predicts the environmental and social effects of a project — noise, air quality, land, water, communities — and sets mitigation before approval.",
+   "clo": "CLO1",
+   "domain": "Aviation",
+   "related": [
+    "Sustainability",
+    "Social Licence to Operate"
+   ]
+  },
+  {
+   "term": "AI-Assisted Project Management",
+   "aliases": [
+    "ai in pm",
+    "aipm"
+   ],
+   "definition": "Using analytics and AI agents to monitor data, forecast, draft communications and recommend actions, while a human remains accountable for decisions.",
+   "clo": "CLO3",
+   "domain": "Governance",
+   "related": [
+    "Human-in-the-Loop",
+    "Explainability"
+   ]
+  },
+  {
+   "term": "Human-in-the-Loop",
+   "abbr": "HITL",
+   "aliases": [
+    "human in the loop",
+    "hitl"
+   ],
+   "definition": "A design in which an AI may recommend or prepare an action but a person must review and approve it before it takes effect. Every MEHRAN action works this way.",
+   "clo": "CLO3",
+   "domain": "Governance",
+   "related": [
+    "AI-Assisted Project Management",
+    "Explainability"
+   ]
+  },
+  {
+   "term": "Explainability",
+   "definition": "The ability to show why an AI produced a given recommendation — the rule, data and threshold behind it — so people can trust, challenge or reject it.",
+   "clo": "CLO3",
+   "domain": "Governance",
+   "related": [
+    "Human-in-the-Loop",
+    "Hallucination"
+   ]
+  },
+  {
+   "term": "Hallucination",
+   "definition": "When a generative AI states something fluent but unsupported or false. Grounding answers in live data and saying \"not in the data\" are the main defences.",
+   "clo": "CLO3",
+   "domain": "Governance",
+   "related": [
+    "Explainability",
+    "Data Privacy"
+   ]
+  },
+  {
+   "term": "Data Privacy",
+   "definition": "Protecting personal and confidential information. In this simulator an API key stays in session storage only and no project data leaves the browser unless you enable live mode.",
+   "clo": "CLO3",
+   "domain": "Governance",
+   "related": [
+    "Hallucination",
+    "Human-in-the-Loop"
+   ]
+  }
+ ]
+}
