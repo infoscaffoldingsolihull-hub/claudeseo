@@ -3,7 +3,7 @@
 Resume here after any context reset. Contract: `docs/ARCHITECTURE.md`. Brief: the uploaded swarm prompt.
 
 ## Status
-Iteration 1 — foundations laid by A0; swarm phase 1 dispatched.
+Iteration 1 — phase 1 swarm in progress (2 of 9 agents complete).
 
 ## Known input gaps (honest)
 * `reference/COURSE_OUTLINE.txt` was **not supplied**. The 15-week plan, CLO wording and objectives are derived
@@ -18,7 +18,11 @@ Iteration 1 — foundations laid by A0; swarm phase 1 dispatched.
 - [x] `docs/ARCHITECTURE.md` (module list, `sim` API, bus, schemas, ownership)
 - [x] Scoped-module bundler (`tools/build.mjs`), shell/boot screen, core (bus, settings, facts, format), layout/geo
 - [x] Walking skeleton builds (1.4 MB) and boots in headless Chromium with 0 console errors
-- [ ] Phase 1 swarm: A1 facts · A2 world · A3 rendering · A4 vehicles · A5 PM engine · A6a UI shell · A7 AI · A8 game/tour/quiz · A9 audio
+- [x] A5 PM engine — 77 leaves, BAC PKR 64.0 bn (sim), 1,403 d baseline, 77/77 tests (78532b5)
+- [x] A8 game/tour/quiz — 16 missions, 38 decisions, 20 beats, 139 questions, course.json (6fc2ed2)
+- [ ] A6a UI shell (in progress) · A2 world (in progress) · A3 rendering (in progress) · A7 MEHRAN (in progress)
+- [ ] Queued: A4 vehicles/traffic · A9 audio · A1 facts & cases
+- Note: usage limits interrupted the swarm twice; agents resume from saved state, max 4 concurrent.
 - [ ] Phase 2 swarm: A6b PM panels · A6c course panels (against the real Project API)
 - [ ] Integration pass (A0)
 - [ ] A10 e2e harness + screenshots + FPS per tier
@@ -42,4 +46,5 @@ Iteration 1 — foundations laid by A0; swarm phase 1 dispatched.
 | G12 Docs | ☐ | §11 deliverables |
 
 ## Open defects
-(none yet)
+- A8 assumes applyEffect units; A5 reconciled (|cost|<1e5 ⇒ PKR m). Verify in integration.
+- MSPDI XML not yet opened in MS Project/ProjectLibre (not available in sandbox).
