@@ -2,7 +2,7 @@ import {
   el, svg, clear, icon, t, tl, relabel, setLanguage, fmtPct, fmtIndex, fmtPKR, indexClass, humanize, pill, bar, button,
   openModal, modalCount, closeTopModal, field, select,
 } from './dom.js';
-import { KEY_BINDINGS } from './panels/session.js';
+import { KEY_BINDINGS, WEATHER_CHOICES, TIME_PRESETS, applyWeatherChoice } from './panels/session.js';
 import { RUNWAY } from '../world/layout.js';
 
 /**
@@ -85,6 +85,17 @@ export class HUD {
     this._lastDronePos = null;
     this._droneSpeed = 0;
     this._geofence = false;
+    this._autoNote = null;
+    this._wxOpen = false;
+    // Blocking decision cards wait for the player's first touch (see GameDirector.onDay).
+    if (sim.userInteracted === undefined) sim.userInteracted = false;
+    const touched = () => {
+      sim.userInteracted = true;
+      window.removeEventListener('pointerdown', touched, true);
+      window.removeEventListener('keydown', touched, true);
+    };
+    window.addEventListener('pointerdown', touched, true);
+    window.addEventListener('keydown', touched, true);
     setLanguage(safe(() => sim.settings.get('language'), 'en'));
 
     this.layer = el('div', { class: 'hud' });
@@ -162,6 +173,17 @@ export class HUD {
       icon('play', 14), (this.speedCycleText = el('span', { text: '×10' })),
     ]);
 
+    // Decision events: Auto-decide (never blocks) or Ask me (dilemma cards).
+    this.decideButtons = [[true, 'spark', 'Auto', 'Auto-decide: the best-scoring option is applied automatically and the clock keeps running'], [false, 'user', 'Ask me', 'Ask me: show each decision card and pause until you choose']]
+      .map(([v, ic, l, tip]) => el('button', {
+        type: 'button', class: 'seg-btn', role: 'radio', 'aria-checked': 'false', title: tip, dataset: { auto: String(v) },
+        onclick: () => this.setAutoDecide(v),
+      }, [icon(ic, 14), el('span', { class: 'lbl', text: l })]));
+    this.decideSeg = el('div', { class: 'seg decide', role: 'radiogroup', 'aria-label': 'Decisions: auto-decide or ask me' }, [
+      el('span', { class: 'seg-cap', 'aria-hidden': 'true', text: 'Decisions' }), ...this.decideButtons,
+    ]);
+    this._refreshDecide();
+
     this.aiLight = el('i', { class: 'ai-light', 'aria-hidden': 'true' });
     this.aiButton = el('button', {
       type: 'button', class: 'pill-btn mehran', 'aria-expanded': 'false', title: 'MEHRAN — AI project manager (H)',
@@ -187,11 +209,15 @@ export class HUD {
         this.refreshSound();
       },
     }, [icon('sound', 17)]);
+    this.weatherButton = el('button', {
+      type: 'button', class: 'icon-btn wx-btn', 'aria-label': 'Weather and time of day', title: 'Weather & time of day', 'aria-haspopup': 'dialog', 'aria-expanded': 'false',
+      onclick: (e) => { e.stopPropagation(); this.toggleWeather(undefined, this.weatherButton); },
+    }, [icon('sun', 17)]);
     this.helpButton = el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Help and controls (?)', title: 'Help and controls (?)', onclick: () => this.toggleHelp() }, [icon('help', 17)]);
 
     this.topBar = el('header', { class: 'hud-top', role: 'banner' }, [
-      brand, modes, this.modeArrows, el('div', { class: 'hud-spacer' }), speed, this.speedCycle, this.aiButton, this.xpChip,
-      el('div', { class: 'tool-btns' }, [this.statsButton, this.soundButton, this.helpButton]),
+      brand, modes, this.modeArrows, el('div', { class: 'hud-spacer' }), speed, this.speedCycle, this.decideSeg, this.aiButton, this.xpChip,
+      el('div', { class: 'tool-btns' }, [this.statsButton, this.weatherButton, this.soundButton, this.helpButton]),
     ]);
     this.layer.appendChild(this.topBar);
   }
@@ -231,6 +257,136 @@ export class HUD {
       metric('clock', 'metric.clock', icon('sun', 16, { class: 'm-ico clock-ico' })),
     ]);
     this.layer.appendChild(this.instruments);
+
+    // The weather read-out opens the weather & time popover.
+    const wb = this.metrics.weather.box;
+    wb.setAttribute('role', 'button');
+    wb.setAttribute('tabindex', '0');
+    wb.setAttribute('aria-haspopup', 'dialog');
+    wb.setAttribute('aria-expanded', 'false');
+    wb.setAttribute('aria-label', 'Weather — open weather and time-of-day controls');
+    wb.addEventListener('click', (e) => { e.stopPropagation(); this.toggleWeather(undefined, wb); });
+    wb.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); this.toggleWeather(undefined, wb); }
+    });
+    this._buildWeatherPopover();
+  }
+
+  _buildWeatherPopover() {
+    this.wxChoiceButtons = WEATHER_CHOICES.map((w) => el('button', {
+      type: 'button', class: 'wx-choice', 'aria-pressed': 'false', title: w.hint, dataset: { wx: w.id },
+      onclick: () => this._pickWeather(w.id),
+    }, [icon(w.icon, 18), el('span', { text: w.label }), w.id === 'auto' ? (this.wxAutoNow = el('small', { text: '' })) : null]));
+    this.wxIntensity = el('input', { type: 'range', min: 0.1, max: 1, step: 0.05, value: 0.8, 'aria-label': 'Weather intensity' });
+    this.wxIntensityOut = el('output', { class: 'wx-out', text: '80%' });
+    this.wxIntensity.addEventListener('input', () => {
+      const v = Number(this.wxIntensity.value);
+      this.wxIntensityOut.textContent = fmtPct(v, 0);
+      const o = this.sim.weatherOverride;
+      if (o && o.kind && o.kind !== 'clear' && this.sim.setWeatherOverride) this.sim.setWeatherOverride(o.kind, v);
+    });
+    this.wxHour = el('input', { type: 'range', min: 0, max: 24, step: 0.25, value: 9.5, 'aria-label': 'Time of day (hours, Pakistan time)' });
+    this.wxHourOut = el('output', { class: 'wx-out', text: '09:30' });
+    this.wxHour.addEventListener('input', () => {
+      const h = Number(this.wxHour.value);
+      safe(() => this.sim.world.sky.setHour(h));
+      this.wxHourOut.textContent = clockText(h);
+    });
+    this.wxPop = el('div', { class: 'wx-pop', role: 'dialog', 'aria-modal': 'false', 'aria-labelledby': 'wx-pop-title', hidden: true }, [
+      el('div', { class: 'wx-head' }, [
+        icon('windsock', 16), el('b', { id: 'wx-pop-title', text: 'Weather & time of day' }), el('span', { class: 'grow' }),
+        el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Close weather controls', onclick: () => this.toggleWeather(false) }, [icon('close', 15)]),
+      ]),
+      el('div', { class: 'wx-grid', role: 'group', 'aria-label': 'Weather' }, this.wxChoiceButtons),
+      el('label', { class: 'wx-row' }, [el('span', { text: 'Intensity' }), this.wxIntensity, this.wxIntensityOut]),
+      el('label', { class: 'wx-row' }, [el('span', { text: 'Time' }), this.wxHour, this.wxHourOut]),
+      el('div', { class: 'wx-presets', role: 'group', 'aria-label': 'Time of day presets' }, TIME_PRESETS.map(([l, h]) => el('button', {
+        type: 'button', class: 'wx-preset', onclick: () => { safe(() => this.sim.world.sky.setHour(h)); this._syncWeatherPopover(); },
+      }, [l]))),
+      el('p', { class: 'wx-note', text: 'A manual choice stays until you pick Auto. It changes the scene only — site productivity follows the project’s simulated weather.' }),
+    ]);
+    this.wxPop.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.toggleWeather(false); return; }
+      if (['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'].includes(e.key) && e.target.classList.contains('wx-choice')) {
+        const i = this.wxChoiceButtons.indexOf(e.target);
+        const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : -1;
+        const n = this.wxChoiceButtons[(i + step + this.wxChoiceButtons.length) % this.wxChoiceButtons.length];
+        e.preventDefault();
+        n.focus();
+      }
+      e.stopPropagation(); // keep 1–5, N, [ ] etc. inside the popover
+    });
+    this._wxOutside = (e) => {
+      if (!this._wxOpen) return;
+      if (this.wxPop.contains(e.target) || this.metrics.weather.box.contains(e.target) || this.weatherButton.contains(e.target)) return;
+      this.toggleWeather(false);
+    };
+    document.addEventListener('pointerdown', this._wxOutside, true);
+    this.layer.appendChild(this.wxPop);
+  }
+
+  /** Open / close the weather & time popover (HUD weather read-out or the top-bar button). */
+  toggleWeather(force, opener = null) {
+    const on = force === undefined ? !this._wxOpen : !!force;
+    this._wxOpen = on;
+    this.wxPop.hidden = !on;
+    for (const b of [this.weatherButton, this.metrics.weather.box]) b.setAttribute('aria-expanded', on ? 'true' : 'false');
+    this.weatherButton.classList.toggle('active', on);
+    if (on) {
+      this._wxReturn = opener || document.activeElement;
+      safe(() => this.sim.input.exitPointerLock());
+      this._placeWeatherPopover();
+      this._syncWeatherPopover();
+      const cur = this.wxChoiceButtons.find((b) => b.getAttribute('aria-pressed') === 'true') || this.wxChoiceButtons[0];
+      setTimeout(() => cur.focus({ preventScroll: true }), 0);
+    } else if (this._wxReturn && this._wxReturn.focus && document.contains(this._wxReturn)) {
+      this._wxReturn.focus({ preventScroll: true });
+      this._wxReturn = null;
+    }
+    return on;
+  }
+
+  isWeatherOpen() {
+    return this._wxOpen;
+  }
+
+  _placeWeatherPopover() {
+    const r = this.metrics.weather.box.getBoundingClientRect();
+    const host = this.layer.getBoundingClientRect();
+    const w = Math.min(340, window.innerWidth - 32);
+    const visible = r.width > 0 && r.height > 0;
+    const anchor = visible ? r : this.weatherButton.getBoundingClientRect();
+    const left = Math.max(16, Math.min(window.innerWidth - w - 16, anchor.left + anchor.width / 2 - w / 2));
+    this.wxPop.style.left = `${Math.round(left - host.left)}px`;
+    this.wxPop.style.top = `${Math.round(anchor.bottom - host.top + 8)}px`;
+    this.wxPop.style.width = `${w}px`;
+  }
+
+  _pickWeather(id) {
+    const o = this.sim.weatherOverride;
+    applyWeatherChoice(this.sim, id, Number(this.wxIntensity.value) || (o && o.intensity) || 0.8);
+    const c = WEATHER_CHOICES.find((w) => w.id === id);
+    this.toast(id === 'auto' ? 'Weather: following the project’s simulated weather' : `Weather set to ${c ? c.label : humanize(id)} — pick Auto to follow the project again`);
+    this._metricTimer = 1;
+    this._syncWeatherPopover();
+  }
+
+  _syncWeatherPopover() {
+    if (!this.wxPop) return;
+    const o = this.sim.weatherOverride;
+    const cur = o && o.kind ? o.kind : 'auto';
+    for (const b of this.wxChoiceButtons) {
+      const on = b.dataset.wx === cur;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    const pw = safe(() => this.project.weather, null) || {};
+    if (this.wxAutoNow) this.wxAutoNow.textContent = pw.label || humanize(pw.kind || 'clear');
+    const manual = !!(o && o.kind && o.kind !== 'clear');
+    this.wxIntensity.disabled = !manual;
+    if (manual) { this.wxIntensity.value = String(o.intensity); this.wxIntensityOut.textContent = fmtPct(o.intensity, 0); } else this.wxIntensityOut.textContent = o && o.kind === 'clear' ? '—' : 'auto';
+    const h = safe(() => this.sim.world.sky.hour, NaN);
+    if (Number.isFinite(h)) { this.wxHour.value = String(h); this.wxHourOut.textContent = clockText(h); }
   }
 
   _buildOverlays() {
@@ -363,6 +519,10 @@ export class HUD {
         relabel(this.layer);
         this._refreshModes();
       }
+      if (path === 'game.autoDecide' || path === '*') {
+        this._refreshDecide();
+        if (this._isAuto() && this._decision) this._choose(this._bestIndex());
+      }
       if (path === 'accessibility.captions') this.narration.classList.toggle('no-captions', !safe(() => this.sim.settings.get('accessibility.captions'), true));
     });
   }
@@ -370,6 +530,12 @@ export class HUD {
   _bindKeys() {
     window.addEventListener('keydown', (e) => {
       if (!this._decision || modalCount()) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        this._choose(this._bestIndex());
+        return;
+      }
       const n = Number(e.key);
       if (Number.isInteger(n) && n >= 1 && n <= (this._decision.event.options || []).length) {
         e.preventDefault();
@@ -378,6 +544,12 @@ export class HUD {
       }
     }, true);
     window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this._wxOpen && !modalCount()) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        this.toggleWeather(false);
+        return;
+      }
       if (e.key === 'Tab' && this.isHelpOpen()) {
         const f = [...this.helpOverlay.querySelectorAll('button')];
         if (!f.length) return;
@@ -403,6 +575,83 @@ export class HUD {
       node.classList.add('leaving');
       setTimeout(() => node.remove(), 380);
     }, kind === 'bad' ? 5200 : 3600);
+  }
+
+  /**
+   * Non-blocking notice for an auto-decided event: one per decision, coalesced
+   * into a single updating toast while decisions arrive in quick succession (×50, ×200).
+   */
+  notifyAutoDecision(record = {}) {
+    const now = performance.now();
+    const text = `Auto-decided: ${record.title || 'Decision'} → ${record.label || 'best option'}`;
+    const n = this._autoNote;
+    if (n && n.node.isConnected && !n.node.classList.contains('leaving') && now - n.t0 < 8000) {
+      n.count++;
+      n.text.textContent = `${text} (+${n.count - 1} more)`;
+      clearTimeout(n.timer);
+      n.timer = setTimeout(() => this._dismissAutoNote(n), 5200);
+      return;
+    }
+    const review = el('button', {
+      type: 'button', class: 'toast-link', title: 'Open the decision log (Monitoring & Control → Issue & decision logs). Switch to “Ask me” to choose yourself next time.',
+      onclick: () => this.openDecisionLog(),
+    }, ['Undo / review']);
+    const textNode = el('span', { dir: 'auto', text });
+    const node = el('div', { class: 'toast auto-decided' }, [icon('spark', 15), textNode, review]);
+    this.toastStack.appendChild(node);
+    while (this.toastStack.children.length > (document.body.classList.contains('panel-open') ? 2 : 3)) this.toastStack.removeChild(this.toastStack.firstChild);
+    const note = { node, text: textNode, count: 1, t0: now, timer: 0 };
+    note.timer = setTimeout(() => this._dismissAutoNote(note), 5200);
+    this._autoNote = note;
+  }
+
+  _dismissAutoNote(n) {
+    if (!n || !n.node.isConnected) return;
+    if (n.node.matches(':hover') || n.node.contains(document.activeElement)) { n.timer = setTimeout(() => this._dismissAutoNote(n), 2000); return; }
+    n.node.classList.add('leaving');
+    setTimeout(() => n.node.remove(), 380);
+    if (this._autoNote === n) this._autoNote = null;
+  }
+
+  /** Monitoring & Control → Issue & decision logs. */
+  openDecisionLog() {
+    const d = this.sim.dashboard;
+    if (!d) return;
+    safe(() => { (d.stateFor ? d.stateFor('control') : {}).tab = 'logs'; });
+    if (d.openId === 'control' && d.rerender) d.rerender();
+    else if (d.open) d.open('control');
+  }
+
+  /* ============================================================ decisions mode */
+
+  _isAuto() {
+    return safe(() => this.sim.settings.get('game.autoDecide'), true) !== false;
+  }
+
+  setAutoDecide(on) {
+    const v = !!on;
+    if (this.sim.settings && this.sim.settings.set) this.sim.settings.set('game.autoDecide', v);
+    else this._refreshDecide();
+    this.toast(v ? 'Decisions: auto-decide — the best-scoring option is applied, the clock keeps running' : 'Decisions: ask me — each decision card waits for your choice');
+    return v;
+  }
+
+  _refreshDecide() {
+    if (!this.decideButtons) return;
+    const auto = this._isAuto();
+    for (const b of this.decideButtons) {
+      const on = (b.dataset.auto === 'true') === auto;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+    }
+  }
+
+  _bestIndex() {
+    const ev = this._decision && this._decision.event;
+    if (!ev) return 0;
+    if (Number.isInteger(ev.bestIndex)) return ev.bestIndex;
+    const i = (ev.options || []).findIndex((o) => o.best);
+    return i >= 0 ? i : 0;
   }
 
   /* ================================================================ modes */
@@ -595,8 +844,13 @@ export class HUD {
     }
     m.weather.value.textContent = w.label || humanize(kind);
     const wf = num(w.workFactor);
-    m.weather.box.title = Number.isFinite(wf) ? `${w.label || humanize(kind)} — site productivity ${fmtPct(wf, 0)}` : humanize(kind);
-    m.weather.box.className = `metric ${['dust', 'heat', 'rain'].includes(kind) && (w.intensity || 0) > 0.45 ? 'warn' : ''}`.trim();
+    const manual = !!safe(() => this.sim.weatherOverride.kind, null);
+    if (manual) m.weather.value.textContent = `${w.label || humanize(kind)} (manual)`;
+    m.weather.box.title = `${Number.isFinite(wf) && !manual ? `${w.label || humanize(kind)} — site productivity ${fmtPct(wf, 0)}` : `${w.label || humanize(kind)}${manual ? ' (set manually — choose Auto to follow the project)' : ''}`}. Click for weather and time-of-day controls.`;
+    m.weather.box.className = `metric wx-metric ${manual ? 'manual' : ''} ${['dust', 'heat', 'rain'].includes(kind) && (w.intensity || 0) > 0.45 ? 'warn' : ''}`.replace(/\s+/g, ' ').trim();
+    if (this._wxBtnIcon !== wxIcon) { this._wxBtnIcon = wxIcon; clear(this.weatherButton).appendChild(icon(wxIcon, 17)); }
+    this.weatherButton.classList.toggle('manual', manual);
+    if (this._wxOpen && !this.wxPop.contains(document.activeElement)) this._syncWeatherPopover();
 
     const hour = safe(() => this.sim.world.sky.hour, NaN);
     m.clock.value.textContent = `${clockText(hour)} PKT`;
@@ -1065,11 +1319,13 @@ export class HUD {
     this._decision = { event, onChoose };
     safe(() => this.sim.input.exitPointerLock());
     const day = safe(() => this.project.day, 0);
+    const bestI = Number.isInteger(event.bestIndex) ? event.bestIndex : Math.max(0, options.findIndex((o) => o.best));
     const optionNodes = options.map((o, i) => el('button', {
-      type: 'button', class: 'decision-opt', onclick: () => this._choose(i), 'aria-label': `Option ${i + 1}: ${o.label}`,
+      type: 'button', class: `decision-opt ${i === bestI ? 'best' : ''}`.trim(), onclick: () => this._choose(i), 'aria-label': `Option ${i + 1}${i === bestI ? ' (recommended)' : ''}: ${o.label}`,
     }, [
       el('span', { class: 'opt-key', text: String(i + 1) }),
       el('span', { class: 'opt-body' }, [
+        i === bestI ? el('span', { class: 'opt-best', title: `Best trade-off score${Number.isFinite(o.autoScore) ? ` (${o.autoScore > 0 ? '+' : ''}${o.autoScore})` : ''}` }, [icon('spark', 11), 'Recommended']) : null,
         el('b', { dir: 'auto', text: o.label || `Option ${i + 1}` }),
         o.detail || o.description ? el('small', { text: o.detail || o.description }) : null,
         o.summary ? el('span', { class: 'visually-hidden', text: `Trade-off: ${o.summary}` }) : null,
@@ -1087,9 +1343,13 @@ export class HUD {
       el('h2', { id: 'decision-title', dir: 'auto', text: event.title || 'Decision' }),
       el('p', { id: 'decision-text', class: 'decision-text', dir: 'auto', text: event.text || '' }),
       el('div', { class: `decision-opts n${options.length}` }, optionNodes),
+      el('div', { class: 'decision-actions' }, [
+        button(`Choose best for me (${bestI + 1})`, () => this._choose(bestI), { kind: 'primary', icon: 'spark', small: true, title: 'Apply the option with the best trade-off score (Esc)' }),
+        button('Always auto-decide', () => this.setAutoDecide(true), { kind: 'ghost', icon: 'cycle', small: true, title: 'Apply the best option now and auto-decide future events without stopping the clock' }),
+      ]),
       el('div', { class: 'decision-foot' }, [
         icon('pause', 13),
-        el('span', { text: 'The project clock is paused until you decide. Press 1–' + options.length + ' or click an option. Chips show the trade-off: green favourable, red unfavourable.' }),
+        el('span', { text: 'The project clock is paused until you decide. Press 1–' + options.length + ', click an option, or Esc for the recommended one. Chips show the trade-off: green favourable, red unfavourable.' }),
       ]),
     ]);
     clear(this.decisionLayer).appendChild(el('div', { class: 'decision-backdrop' }, [card]));

@@ -3,6 +3,46 @@ import { instantiateMissions, evaluateMissions, projectContext, createTrack, coa
 import { BADGES, XP, levelFor, newBadges, computeScorecard, scoreFor, certificateData, readLeaderboard, submitLeaderboard } from './scoring.js';
 
 /**
+ * Auto-decide weights — difficulty-neutral and transparent: an option's score is
+ * the weighted sum of its trade-off chips (−2..+2, + favourable). Safety counts a
+ * little more; an unethical option takes a flat penalty.
+ */
+export const AUTO_WEIGHTS = { time: 1, cost: 1, quality: 1, risk: 1, stakeholders: 1, safety: 1.25, scope: 1 };
+export const ETHICS_PENALTY = 3;
+/** No decision fires before this project day (the opening seconds stay calm). */
+export const DECISION_GRACE_DAYS = 20;
+
+export function scoreOption(option) {
+  const t = (option && option.tradeoff) || {};
+  let s = 0;
+  for (const [k, v] of Object.entries(t)) if (typeof v === 'number' && Number.isFinite(v)) s += (AUTO_WEIGHTS[k] === undefined ? 1 : AUTO_WEIGHTS[k]) * v;
+  if (option && option.ethics === false) s -= ETHICS_PENALTY;
+  return Math.round(s * 100) / 100;
+}
+
+/** Index of the best option: highest chip score; ties go to the lower cost/time impact, then the first listed. */
+export function bestOptionIndex(event) {
+  const opts = (event && Array.isArray(event.options) ? event.options : []);
+  if (!opts.length) return 0;
+  const impact = (o) => {
+    const t = o.tradeoff || {};
+    const e = o.effects || {};
+    return { chips: (Number(t.cost) || 0) + (Number(t.time) || 0), size: Math.abs(Number(e.cost) || 0) / 1e8 + Math.abs(Number(e.days) || 0) };
+  };
+  let best = 0;
+  for (let i = 1; i < opts.length; i++) {
+    const a = scoreOption(opts[i]);
+    const b = scoreOption(opts[best]);
+    if (a > b) { best = i; continue; }
+    if (a < b) continue;
+    const ia = impact(opts[i]);
+    const ib = impact(opts[best]);
+    if (ia.chips > ib.chips || (ia.chips === ib.chips && ia.size < ib.size)) best = i;
+  }
+  return best;
+}
+
+/**
  * GameDirector — missions, decision cards, XP, badges, score (docs/ARCHITECTURE.md §9, §11).
  *
  * Constructed BEFORE the HUD exists, so the constructor never touches `sim.hud`.
@@ -174,6 +214,10 @@ export class GameDirector {
     this._track(ctx);
     this._evaluate(false, ctx);
     if (this.active || this.pending) return;
+    // Keep the opening calm: no decision in the first weeks, and a blocking card
+    // never appears before the player has touched the game.
+    if (ctx.day < DECISION_GRACE_DAYS) return day;
+    if (!this.autoDecide && this.sim && this.sim.userInteracted === false) return day;
     const ev = this.scheduler.next({ day: ctx.day, phase: ctx.phase, pct: ctx.pct, weather: ctx.weather, recentRisks: this.track.recentRisks.filter((r) => ctx.day - r.day <= 20).map((r) => r.title) });
     if (ev) this._queue(ev);
     return day;
@@ -234,14 +278,38 @@ export class GameDirector {
 
   /* -------------------------------------------------------- decisions */
 
+  /** `game.autoDecide` setting (default on in DEFAULT_SETTINGS; a sim without settings asks). */
+  get autoDecide() {
+    const st = this.sim && this.sim.settings;
+    if (!st || typeof st.get !== 'function') return false;
+    const v = st.get('game.autoDecide');
+    return v === undefined ? false : !!v;
+  }
+
+  setAutoDecide(on) {
+    const st = this.sim && this.sim.settings;
+    if (st && typeof st.set === 'function') st.set('game.autoDecide', !!on);
+    return this.autoDecide;
+  }
+
   _queue(event) {
     this.pending = event;
     this._showPending();
   }
 
-  _showPending() {
+  /** Pick and apply the best option without showing a card. */
+  _autoDecide(event) {
+    this.pending = null;
+    this.active = event;
+    const day = (this.project && this.project.day) || 0;
+    this._emit('decision:shown', { event, option: null, day, auto: true });
+    return this.resolve(event.id, bestOptionIndex(event), { auto: true });
+  }
+
+  _showPending(force = false) {
     const sim = this.sim || {};
     if (!this.pending || this.active) return;
+    if (!force && this.autoDecide) { this._autoDecide(this.pending); return; }
     if (sim.mode === 'tour' || sim.previewing) return;
     const hud = sim.hud;
     if (hud && typeof hud.blocking === 'function' && hud.blocking()) return;
@@ -257,10 +325,12 @@ export class GameDirector {
 
   /** Card data for the HUD: the event plus plain-language trade-off summaries. */
   present(event) {
+    const best = bestOptionIndex(event);
     return {
       ...event,
       difficulty: this.difficulty,
-      options: event.options.map((o) => ({ ...o, summary: describeTradeoff(o.tradeoff) })),
+      bestIndex: best,
+      options: event.options.map((o, i) => ({ ...o, summary: describeTradeoff(o.tradeoff), autoScore: scoreOption(o), best: i === best })),
     };
   }
 
@@ -276,13 +346,13 @@ export class GameDirector {
     if (this.active) this.resolve(this.active.id, 0);
     this.scheduler.mark(ev, (this.project && this.project.day) || 0);
     this.pending = ev;
-    this._showPending();
+    this._showPending(true);
     if (!this.active) { this.active = ev; this.pending = null; }
     return ev;
   }
 
   /** Apply the chosen option. Returns the resolution record or null. */
-  resolve(eventId, optionIndex = 0) {
+  resolve(eventId, optionIndex = 0, { auto = false } = {}) {
     const ev = this.active && this.active.id === eventId ? this.active : null;
     if (!ev) return null;
     const i = Math.max(0, Math.min(ev.options.length - 1, Number(optionIndex) || 0));
@@ -299,15 +369,22 @@ export class GameDirector {
     this.track.decisions++;
     if ((option.score || 0) >= 3) this.track.goodDecisions++;
     const day = (p && p.day) || 0;
-    const record = { id: ev.id, title: ev.title, option: i, label: option.label, outcome: option.outcome, score: option.score || 0, day, clo: ev.clo, week: ev.week };
+    const record = { id: ev.id, title: ev.title, option: i, label: option.label, outcome: option.outcome, score: option.score || 0, day, clo: ev.clo, week: ev.week, auto: !!auto };
     this.history.push(record);
     this.gainXp(XP.decisionBase + (option.score || 0) * XP.decisionPerScore, `Decision ${ev.id}`);
     const kind = (option.score || 0) >= 3 ? 'good' : (option.score || 0) === 0 ? 'bad' : '';
-    this._toast(option.outcome, kind);
-    if (kind === 'bad') this._call('shake', 0.35);
-    this._emit('decision:resolved', { event: ev, option: { ...option, index: i }, effects, record });
     const hud = this.sim && this.sim.hud;
-    if (hud && typeof hud.closeCards === 'function') {
+    if (auto) {
+      // One small, non-blocking notice per decision (the HUD throttles them at high speed).
+      if (hud && typeof hud.notifyAutoDecision === 'function') {
+        try { hud.notifyAutoDecision(record); } catch { /* cosmetic */ }
+      } else this._toast(`Auto-decided: ${ev.title} → ${option.label}`, kind === 'bad' ? 'warn' : kind);
+    } else {
+      this._toast(option.outcome, kind);
+      if (kind === 'bad') this._call('shake', 0.35);
+    }
+    this._emit('decision:resolved', { event: ev, option: { ...option, index: i }, effects, record, auto: !!auto });
+    if (!auto && hud && typeof hud.closeCards === 'function') {
       try { hud.closeCards(); } catch { /* already closed */ }
     }
     this._evaluate(true);
@@ -317,6 +394,12 @@ export class GameDirector {
   resolveActive(i = 0) {
     if (!this.active && this.pending) { this.active = this.pending; this.pending = null; }
     return this.active ? this.resolve(this.active.id, i) : null;
+  }
+
+  /** Apply the best-scoring option to the active (or pending) decision. */
+  resolveBest() {
+    if (!this.active && this.pending) { this.active = this.pending; this.pending = null; }
+    return this.active ? this.resolve(this.active.id, bestOptionIndex(this.active)) : null;
   }
 
   /** QA: picks option 0. */

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { MISSIONS, PHASES, instantiateMissions, evaluateMissions, projectContext, createTrack } from '../../src/game/missions.js';
 import { DECISIONS, DecisionScheduler, createRng, scaleEffects, resolveEffects, triggerMatches } from '../../src/game/decisions.js';
 import { LEVELS, BADGES, levelFor, gradeFor, computeScorecard, certificateData, submitLeaderboard, readLeaderboard } from '../../src/game/scoring.js';
-import { GameDirector } from '../../src/game/director.js';
+import { GameDirector, bestOptionIndex, scoreOption } from '../../src/game/director.js';
 import { TOUR_BEATS, TourDirector } from '../../src/ui/tour.js';
 import QUIZ from '../../src/data/quiz.json' with { type: 'json' };
 import COURSE from '../../src/data/course.json' with { type: 'json' };
@@ -333,4 +333,35 @@ test('director: trigger / autoResolve / serialise / restore / reset', () => {
   g2.reset();
   assert.equal(g2.xp, 0);
   assert.equal(g2.active, null);
+});
+
+test('director: auto-decide applies the best-scoring option without a card, after the grace period', () => {
+  const p = new MockProject(20270104);
+  const sim = mockSim(p);
+  const notes = [];
+  sim.settings = { get: (k) => (k === 'game.autoDecide' ? true : undefined) };
+  sim.hud.notifyAutoDecision = (r) => notes.push(r);
+  const game = new GameDirector(sim);
+  const resolved = [];
+  sim.bus.on('decision:resolved', (e) => resolved.push(e));
+  for (let i = 0; i < 400; i++) { p.step(); game.onDay(p.day); game.update(0.016); }
+  assert.equal(sim.cards.length, 0, 'no blocking card in auto mode');
+  assert.ok(resolved.length >= 3, `auto-resolved ${resolved.length}`);
+  assert.equal(notes.length, resolved.length);
+  assert.ok(resolved.every((e) => e.auto && e.record.auto && e.record.day >= 20));
+  assert.equal(sim.emitted.filter((e) => e.evt === 'decision:shown' && e.payload.auto).length, resolved.length);
+  for (const e of resolved) assert.equal(e.option.index, bestOptionIndex(e.event));
+  // QA trigger still shows a card even in auto mode.
+  game.trigger('D13');
+  assert.equal(game.active.id, 'D13');
+  assert.ok(game.resolveBest());
+});
+
+test('director: best option = highest weighted chip score, never the unethical one', () => {
+  for (const d of DECISIONS) {
+    const b = bestOptionIndex(d);
+    const top = Math.max(...d.options.map(scoreOption));
+    assert.equal(scoreOption(d.options[b]), top, d.id);
+    assert.notEqual(d.options[b].ethics, false, d.id);
+  }
 });

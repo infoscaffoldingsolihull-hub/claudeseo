@@ -328,6 +328,72 @@ body:not(.cinematic) .tour-bar { bottom: 1rem; }
 body.cb-safe .trade.bad { color: var(--bad); }
 .decision-foot { display: flex; align-items: center; gap: 0.45rem; margin-top: 0.9rem; font-size: 0.78rem; color: var(--faint); }
 
+/* Decision card: recommended option + quick actions */
+.decision-opt.best { border-color: rgba(230, 198, 90, 0.6); box-shadow: inset 0 0 0 1px rgba(230, 198, 90, 0.25); }
+.opt-best { display: inline-flex; align-items: center; gap: 0.25rem; width: max-content; padding: 0.05rem 0.45rem; border-radius: 1rem; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #191306; background: var(--brass-hi); }
+.decision-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.85rem; }
+.decision-actions .action { min-height: 2.5rem; }
+
+/* Decisions: Auto / Ask me switch in the top bar */
+.seg.decide .seg-btn { padding: 0 0.55rem; font-size: 0.78rem; gap: 0.3rem; }
+.seg.decide .seg-btn.active { background: linear-gradient(180deg, rgba(201, 162, 39, 0.34), rgba(43, 58, 140, 0.35)); }
+.seg-cap { padding: 0 0.35rem 0 0.45rem; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brass); }
+
+/* Auto-decided toast (non-blocking, with a review link) */
+.toast.auto-decided { pointer-events: auto; border-color: rgba(230, 198, 90, 0.5); max-width: min(40rem, 92vw); }
+.toast.auto-decided > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toast-link {
+  appearance: none; flex: 0 0 auto; margin-left: 0.3rem; padding: 0.2rem 0.6rem; min-height: 1.9rem; border-radius: 0.5rem; cursor: pointer;
+  font: inherit; font-size: 0.8rem; font-weight: 700; color: var(--brass-hi); background: rgba(201, 162, 39, 0.12); border: 1px solid var(--hair);
+}
+.toast-link:hover, .toast-link:focus-visible { background: rgba(201, 162, 39, 0.26); color: #fff6d6; }
+
+/* Weather read-out button + popover */
+.metric.wx-metric { cursor: pointer; border-radius: 0.7rem; }
+.metric.wx-metric:hover { background: rgba(201, 162, 39, 0.1); }
+.metric.wx-metric:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: -3px; }
+.metric.wx-metric.manual .wx-ico { color: var(--info, #56b4e9); }
+.icon-btn.wx-btn.manual { color: var(--info, #56b4e9); }
+.icon-btn.wx-btn.active { color: var(--brass-hi); border-color: var(--brass); }
+.wx-pop {
+  position: absolute; z-index: 64; display: grid; gap: 0.6rem; padding: 0.8rem 0.85rem 0.7rem; border-radius: 1rem;
+  border: 1px solid var(--hair); background: var(--glass); box-shadow: var(--shadow); color: var(--ink);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.25); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.25); animation: toastIn 0.2s ease;
+}
+.wx-pop[hidden] { display: none; }
+.wx-pop::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; border-radius: 1rem 1rem 0 0; background: var(--ajrak-band); opacity: 0.8; }
+.wx-head { display: flex; align-items: center; gap: 0.45rem; color: var(--brass-hi); }
+.wx-head b { color: var(--ink-strong); font-size: 0.92rem; }
+.wx-head .grow { flex: 1; }
+.wx-head .icon-btn { width: 2rem; height: 2rem; }
+.wx-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.35rem; }
+.wx-choice {
+  appearance: none; display: grid; justify-items: center; gap: 0.15rem; min-height: 3.6rem; padding: 0.4rem 0.3rem; border-radius: 0.7rem; cursor: pointer;
+  font: inherit; font-size: 0.76rem; font-weight: 650; color: var(--ink); background: rgba(3, 5, 12, 0.45); border: 1px solid var(--hair-soft); text-align: center;
+}
+.wx-choice .ico { color: var(--brass-hi); }
+.wx-choice small { font-size: 0.64rem; font-weight: 500; color: var(--muted); line-height: 1.2; }
+.wx-choice:hover { border-color: var(--brass); }
+.wx-choice:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: 1px; }
+.wx-choice.active { color: #fff6d6; background: linear-gradient(180deg, rgba(201, 162, 39, 0.34), rgba(155, 27, 48, 0.3)); border-color: rgba(230, 198, 90, 0.6); }
+.wx-choice[data-wx='auto'] { grid-column: 1 / -1; grid-template-columns: auto auto 1fr; justify-items: start; align-items: center; min-height: 2.6rem; padding: 0.35rem 0.6rem; gap: 0.5rem; }
+.wx-choice[data-wx='auto'] small { justify-self: end; }
+.wx-row { display: grid; grid-template-columns: 4.6rem 1fr 3.2rem; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--muted); }
+.wx-row input[type='range'] { width: 100%; min-height: 1.8rem; accent-color: var(--brass); }
+.wx-row input:disabled { opacity: 0.4; }
+.wx-out { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-strong); text-align: right; }
+.wx-presets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.3rem; }
+.wx-preset {
+  appearance: none; min-height: 2.2rem; border-radius: 0.55rem; cursor: pointer; font: inherit; font-size: 0.76rem; font-weight: 650;
+  color: var(--ink); background: rgba(3, 5, 12, 0.45); border: 1px solid var(--hair-soft);
+}
+.wx-preset:hover, .wx-preset:focus-visible { border-color: var(--brass); color: var(--ink-strong); }
+.wx-note { margin: 0; font-size: 0.7rem; line-height: 1.45; color: var(--faint); }
+body.cinematic .wx-pop { display: none; }
+@media (max-width: 1360px) { .seg-cap { display: none; } }
+@media (max-width: 1100px) { .seg.decide .seg-btn .lbl { display: none; } }
+@media (max-width: 560px) { .seg.decide { display: none; } }
+
 /* --------------------------------------------------------------- drone FPV */
 
 .drone-hud { position: absolute; inset: 0; z-index: 9; display: none; pointer-events: none !important; font-family: var(--font-mono); color: rgba(244, 246, 255, 0.92); text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85); }

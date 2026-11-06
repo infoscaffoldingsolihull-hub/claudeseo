@@ -29,6 +29,30 @@ const EFFECTS = [
   ['grain', 'Film grain', 'Fine grain and vignette'],
 ];
 
+/** Weather choices shared by the HUD weather popover and Graphics → Weather & time. */
+export const WEATHER_CHOICES = [
+  { id: 'auto', label: 'Auto', icon: 'cycle', hint: 'Follow the project’s simulated weather' },
+  { id: 'clear', label: 'Clear', icon: 'sun', hint: 'Clear sky' },
+  { id: 'haze', label: 'Haze', icon: 'haze', hint: 'Dust haze' },
+  { id: 'dust', label: 'Dust storm', icon: 'dust', hint: 'Wind-blown dust storm' },
+  { id: 'rain', label: 'Monsoon rain', icon: 'rain', hint: 'Monsoon downpour' },
+  { id: 'fog', label: 'Night fog', icon: 'fog', hint: 'Winter fog (moves the clock to night if it is day)' },
+  { id: 'heat', label: 'Heat', icon: 'heat', hint: 'Extreme heat shimmer' },
+];
+
+export const TIME_PRESETS = [['Sunrise', 6.4], ['Noon', 12], ['Sunset', 18.4], ['Night', 22]];
+
+/** Apply a weather choice: 'auto' clears the manual override. Shared by the HUD and this panel. */
+export function applyWeatherChoice(sim, id, intensity = 0.8) {
+  if (!sim || typeof sim.setWeatherOverride !== 'function') return null;
+  if (!id || id === 'auto') return sim.setWeatherOverride(null);
+  if (id === 'fog') {
+    const sky = sim.world && sim.world.sky;
+    if (sky && sky.state && sky.state.nightFactor < 0.5 && typeof sky.setHour === 'function') sky.setHour(21.5);
+  }
+  return sim.setWeatherOverride(id, intensity);
+}
+
 export const KEY_BINDINGS = [
   ['1 · 2 · 3 · 4 · 5', 'Site Walk · Project Manager · Guided Tour · Drone · Operations'],
   ['O', 'Operations mode'],
@@ -40,7 +64,7 @@ export const KEY_BINDINGS = [
   ['Q', 'Drone descend · orbit zoom out'],
   ['E', 'Inspect a point of interest · orbit zoom in'],
   ['Tab', 'Open / close the dashboard'],
-  ['Esc', 'Close help, photo mode, chat, panel or card'],
+  ['Esc', 'Close help, photo mode, chat, panel or card · on a decision card: take the recommended option'],
   ['H', 'Talk to MEHRAN, the AI project manager'],
   ['V', 'MEHRAN voice input'],
   ['B', 'Agile board'],
@@ -96,6 +120,16 @@ function renderSession(dash, body) {
     kpi('Approach', humanize(p.approach || '—')),
     kpi('Project day', String(p.day ?? 0), typeof p.dateLabel === 'function' ? p.dateLabel() : ''),
   ]));
+
+  body.appendChild(el('h3', { class: 'section', text: 'Decision events' }));
+  const auto = get(dash, 'game.autoDecide', true) !== false;
+  body.appendChild(el('div', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Decision events' }, [
+    [true, 'Auto-decide'], [false, 'Ask me'],
+  ].map(([v, l]) => el('button', {
+    type: 'button', role: 'radio', 'aria-checked': v === auto ? 'true' : 'false', class: v === auto ? 'active' : null,
+    onclick: () => { setting(dash, 'game.autoDecide', v); dash.rerender(); },
+  }, [l]))));
+  body.appendChild(el('p', { class: 'note', text: 'Auto-decide applies the option with the best trade-off score (sum of the −2…+2 chips; safety weighted ×1.25, unethical options penalised; ties go to the lower cost/time impact) and shows a small notice — the clock never stops. Ask me shows each dilemma card, with “Choose best for me” and Esc picking the same recommended option. Every choice is recorded in Monitoring & Control → Issue & decision logs.' }));
 
   body.appendChild(el('h3', { class: 'section', text: 'Save slots' }));
   if (!storageAvailable()) {
@@ -246,6 +280,26 @@ function renderGraphics(dash, body) {
       setTimeout(() => dash.rerender(), 50);
     }), 'Adaptive mode steps down when the frame rate falls below 34 fps.'),
   ]));
+  body.appendChild(el('h3', { class: 'section', text: 'Weather & time of day' }));
+  const ov = sim.weatherOverride;
+  const pw = (sim.project && sim.project.weather) || {};
+  const sky = sim.world && sim.world.sky;
+  body.appendChild(el('div', { class: 'form-grid' }, [
+    field('Weather', select(WEATHER_CHOICES.map((w) => ({ value: w.id, label: w.id === 'auto' ? `Auto — follow the project (now: ${pw.label || humanize(pw.kind || 'clear')})` : w.label })), ov && ov.kind ? ov.kind : 'auto', (v) => {
+      applyWeatherChoice(sim, v, ov && ov.intensity ? ov.intensity : 0.8);
+      sim.toast(v === 'auto' ? 'Weather: following the project' : `Weather: ${(WEATHER_CHOICES.find((w) => w.id === v) || {}).label}`);
+      dash.rerender();
+    }), 'Also on the HUD: click the weather read-out. Manual weather is visual — productivity still follows the project’s simulated weather.'),
+    field('Intensity', slider(0.1, 1, 0.05, ov && ov.intensity ? ov.intensity : 0.8, (v, done) => {
+      if (done && sim.weatherOverride && sim.weatherOverride.kind !== 'clear') sim.setWeatherOverride(sim.weatherOverride.kind, v);
+    }, (v) => fmtPct(v, 0), { 'aria-label': 'Weather intensity', disabled: !(ov && ov.kind && ov.kind !== 'clear') })),
+    field('Time of day', slider(0, 24, 0.25, sky ? sky.hour : 9.5, (v) => { if (sky && sky.setHour) sky.setHour(v); }, (v) => {
+      const h = Math.floor(v % 24); const m = Math.round((v - Math.floor(v)) * 60) % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }, { 'aria-label': 'Time of day (hours)' }), 'Shortcuts: [ and ] step 30 minutes, N toggles day / night.'),
+  ]));
+  body.appendChild(el('div', { class: 'row' }, TIME_PRESETS.map(([l, h]) => button(l, () => { if (sky && sky.setHour) sky.setHour(h); dash.rerender(); }, { small: true, kind: 'ghost' }))));
+
   body.appendChild(el('h3', { class: 'section', text: 'Effects' }));
   const list = el('div', { class: 'switch-list' });
   for (const [key, label, hint] of EFFECTS) {

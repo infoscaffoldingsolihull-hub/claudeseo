@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS = {
   role: 'student',             // 'student' | 'instructor'
   studentName: '',
   onboarded: false,
+  game: { autoDecide: true },  // true: decision events pick the best option themselves (non-blocking)
   ai: { model: 'claude-sonnet-5-5', voice: false, engine: 'offline' },
 };
 
