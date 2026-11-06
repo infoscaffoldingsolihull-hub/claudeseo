@@ -25,7 +25,7 @@ export function shortRole(role) {
  * Stacked horizontal bar: seller share (ajrak) vs buyer share (indigo); a diamond marks the fee style.
  */
 export function riskShareChart(rows, { selected = null, onSelect = null, width = 760 } = {}) {
-  const rowH = 46;
+  const rowH = 56;
   const H = 40 + rows.length * rowH;
   const padL = 214;
   const padR = 20;
@@ -50,7 +50,7 @@ export function riskShareChart(rows, { selected = null, onSelect = null, width =
     g.appendChild(svg('rect', { x: f1(padL + sellerW), y, width: f1(bw - sellerW), height: 24, class: 'rs-buyer' }, [tip(`Buyer bears ${Math.round(r.buyer * 100)} % of any overrun`)]));
     if (sellerW > 36) g.appendChild(svg('text', { x: padL + sellerW / 2, y: y + 16, 'text-anchor': 'middle', class: 'rs-pct', text: `${Math.round((1 - r.buyer) * 100)} %` }));
     if (r.buyer > 0.06) g.appendChild(svg('text', { x: padL + sellerW + (bw - sellerW) / 2, y: y + 16, 'text-anchor': 'middle', class: 'rs-pct', text: `${Math.round(r.buyer * 100)} %` }));
-    g.appendChild(svg('text', { x: padL, y: y + 38, class: 'rs-fee', text: r.fee }));
+    g.appendChild(svg('text', { x: padL, y: y + 41, class: 'rs-fee', text: r.fee }));
     root.appendChild(g);
   });
   return root;
@@ -130,7 +130,7 @@ export function tuckmanChart(stage, progress = 0.5, { width = 760 } = {}) {
   const w = width - padL - padR;
   const h = H - padT - padB;
   const root = frame(width, H, `Tuckman team development: ${TUCKMAN[stage].name}`);
-  const pts = [[0, 0.18], [0.12, 0.3], [0.22, 0.22], [0.34, 0.12], [0.5, 0.45], [0.62, 0.62], [0.74, 0.86], [0.88, 0.9], [0.94, 0.55], [1, 0.2]];
+  const pts = [[0, 0.2], [0.1, 0.32], [0.2, 0.3], [0.3, 0.14], [0.42, 0.25], [0.52, 0.5], [0.62, 0.64], [0.72, 0.88], [0.84, 0.9], [0.9, 0.6], [1, 0.2]];
   const sx = (t) => padL + t * w;
   const sy = (v) => padT + (1 - v) * h;
   // smooth path
@@ -140,7 +140,7 @@ export function tuckmanChart(stage, progress = 0.5, { width = 760 } = {}) {
     const [x0, y0] = P[i - 1]; const [x1, y1] = P[i]; const cx = (x0 + x1) / 2;
     d += `C${f1(cx)} ${f1(y0)} ${f1(cx)} ${f1(y1)} ${f1(x1)} ${f1(y1)}`;
   }
-  const bounds = [0, 0.22, 0.5, 0.88, 1];
+  const bounds = [0, 0.2, 0.42, 0.62, 0.86, 1];
   TUCKMAN.forEach((s, i) => {
     const x0 = sx(bounds[i]); const x1 = sx(bounds[i + 1] === undefined ? 1 : bounds[i + 1]);
     const on = i === stage;
@@ -339,6 +339,7 @@ function inline(text) {
     if (m.index > last) out.push(text.slice(last, m.index));
     const tok = m[0];
     if (tok.startsWith('**')) out.push(el('strong', { text: tok.slice(2, -2) }));
+    else if (tok.startsWith('_') && tok.includes('**')) out.push(el('em', {}, inline(tok.slice(1, -1))));
     else if (tok.startsWith('`')) out.push(el('code', { text: tok.slice(1, -1) }));
     else out.push(el('em', { text: tok.slice(1, -1) }));
     last = m.index + tok.length;

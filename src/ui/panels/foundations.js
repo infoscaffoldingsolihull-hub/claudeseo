@@ -29,7 +29,7 @@ const VS = [
   ['At HDD', 'Extending the runway, building the terminal and tower', 'Handling flights, security, fuel, maintenance once open'],
 ];
 const SORT = [
-  ['Extend the runway from ~7,000 ft to ~11,500 ft', 'project', 'A unique, time-bound build.'],
+  ['Extend and strengthen the runway pavement', 'project', 'A unique, time-bound build.'],
   ['Hand baggage screening every morning', 'ops', 'Repetitive service once the airport runs.'],
   ['Commission the instrument landing system', 'project', 'One-off installation with acceptance tests.'],
   ['Refuel arriving aircraft', 'ops', 'Routine, continuous service delivery.'],
@@ -69,7 +69,7 @@ function basics(dash, pane) {
   const pkgs = p.summaries.map((x) => ({ ...x, b: budgets.get(x.id) || 0 }));
   const max = Math.max(...pkgs.map((x) => x.b), 1);
   pane.appendChild(el('div', { class: 'cp-tiers' }, [
-    el('div', { class: 'cp-tier t1' }, [el('b', { text: 'Portfolio' }), el('span', { text: `Pakistan Airports Authority (operator) — all aviation investments, chosen to fit strategy and capacity (simulated)` })]),
+    el('div', { class: 'cp-tier t1' }, [el('b', { text: 'Portfolio' }), el('span', { text: `${fact('org.operator')} (operator) — all its aviation investments, chosen to fit strategy and capacity (simulated portfolio)` })]),
     el('div', { class: 'cp-tier t2' }, [el('b', { text: 'Programme' }), el('span', { text: 'Hyderabad Airport Revival & Expansion Programme — coordinated components that together deliver benefits no single one could' })]),
     el('div', { class: 'cp-tier t3' }, [
       el('b', { text: 'Projects / work packages' }),

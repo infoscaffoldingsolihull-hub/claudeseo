@@ -80,7 +80,7 @@ function matrix(dash, pane) {
   const sim = dash.sim;
   const beats = (sim.tour && sim.tour.beats) || [];
   const proj = dash.project;
-  const currentWeek = Math.min(15, Math.max(1, Math.floor((proj ? proj.day : 0) / 365 * 15) + 1));
+  const currentWeek = Math.min(15, Math.max(1, Math.floor(((proj ? proj.day : 0) / Math.max(1, proj ? proj.baselineDuration : 1)) * 15) + 1));
   const head = el('div', { class: 'cp-week cp-week-head', role: 'row' }, ['Wk', 'Topic & 3D mechanic', 'Panels', 'Missions · quiz', 'Tour beat', 'CLO · PMBOK 8 domain', 'Progress'].map((h) => el('div', { role: 'columnheader', text: h })));
   const list = el('div', { class: 'cp-weeks', role: 'table', 'aria-label': 'Fifteen-week course matrix' }, [head]);
   const open = dash.state.openWeek;
@@ -99,7 +99,7 @@ function matrix(dash, pane) {
         el('button', { type: 'button', class: 'cp-link', onclick: () => dash.open('assess'), title: 'Open the quiz' }, [`Quiz ${w.quizSet}${pr.quiz && pr.quiz.total ? ` · ${pr.quiz.best}/${pr.quiz.total}` : ''}`]),
       ]),
       el('div', { role: 'cell' }, [
-        el('button', { type: 'button', class: 'action ghost small', onclick: () => startTour(dash, w.tourBeat), title: beat ? `Start the tour at “${beat.title}”` : 'Start tour' }, [icon('play', 12), el('span', { text: beat ? beat.title : w.tourBeat })]),
+        el('button', { type: 'button', class: 'action ghost small cp-tourbtn', onclick: () => startTour(dash, w.tourBeat), title: beat ? `Start the tour at “${beat.title}”` : 'Start tour' }, [icon('play', 12), el('span', { text: beat ? beat.title : w.tourBeat })]),
       ]),
       el('div', { class: 'cp-tags', role: 'cell' }, [...w.clo.map((c) => pill(c, 'clo')), el('small', { text: w.domain })]),
       el('div', { class: 'cp-prog', role: 'cell' }, [
@@ -110,7 +110,7 @@ function matrix(dash, pane) {
     list.appendChild(row);
   }
   pane.appendChild(list);
-  pane.appendChild(el('p', { class: 'pm-note', text: 'Progress per week = average of missions completed, best quiz score for the week’s set, and panels opened. “Now” marks the week that matches the project clock (one course week per 24 project days).' }));
+  pane.appendChild(el('p', { class: 'pm-note', text: 'Progress per week = average of missions completed, best quiz score for the week’s set, and panels opened. “Now” marks the week that matches the project clock (the 15 course weeks are spread evenly over the baseline duration).' }));
 }
 
 function featureChips(dash, feats) {

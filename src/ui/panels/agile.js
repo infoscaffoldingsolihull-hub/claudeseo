@@ -1,7 +1,7 @@
 import { el, kpi, button, tabs, pill, bar, select, slider, openModal, icon } from '../dom.js';
 import { section, card, table, legend } from '../charts.js';
 import { burndownChart, burnupChart, velocityChart, kanbanBoard, K } from '../charts2.js';
-import { velocityStats, releaseForecast } from '../../pm/agile.js';
+import { velocityStats, releaseForecast, planSprint } from '../../pm/agile.js';
 
 /**
  * agile — Agile Delivery (Week 3, CLO1/2). Product backlog and sprint planning for the
@@ -54,7 +54,11 @@ function boardView(dash, pane) {
   });
   if (mode === 'scrum') {
     columns = SCRUM_COLS.map((c) => ({ ...c, wip: ag.wip[c.id] }));
-    cards = sp ? ag.backlog.filter((x) => x.sprint === sp.n && x.status !== 'backlog').map(toCard) : [];
+    if (sp) cards = ag.backlog.filter((x) => x.sprint === sp.n && x.status !== 'backlog').map(toCard);
+    else {
+      const ids = ag.nextPlan && ag.nextPlan.length ? ag.nextPlan : planSprint(ag.backlog, forecastVelocity(ag)).ids;
+      cards = ids.map((id) => ag.backlog.find((x) => x.id === id)).filter(Boolean).map((x) => ({ ...toCard(x), column: 'todo', tone: 'proposed', locked: true, noMove: true, meta: `${x.epicName || x.epic} · proposed for the next sprint` }));
+    }
   } else {
     columns = [{ id: 'backlog', label: 'Backlog (top 8)' }, { id: 'todo', label: 'To do' }, { id: 'doing', label: 'Doing', wip: ag.wip.doing }, { id: 'review', label: 'Review', wip: ag.wip.review }, { id: 'done', label: 'Done (latest 10)' }];
     cards = [
@@ -176,7 +180,7 @@ function chartsView(dash, pane) {
     ]),
   ]));
   pane.appendChild(card('Velocity by sprint', [
-    el('div', { class: 'cp-fig' }, [velocityChart({ sprints: ag.sprints.filter((x) => x !== ag.currentSprint), planned: ag.plannedVelocity, label: 'Velocity by sprint' })]),
+    el('div', { class: 'cp-fig' }, [velocityChart({ sprints: ag.sprints.filter((x) => x !== ag.currentSprint), planned: ag.plannedVelocity, label: 'Velocity by sprint', width: 960, height: 250 })]),
     legend([{ label: 'Committed', color: K.muted, shape: 'box' }, { label: 'Accepted', color: K.c4 }, { label: 'Accepted (below 90% of commitment)', color: K.warn }, { label: '3-sprint average', color: K.c2, dash: '1' }, { label: 'Plan', color: K.c1, dash: '5 4' }]),
     el('p', { class: 'pm-note', text: 'Velocity is a planning tool for the team, not a performance target: compare a team with itself, forecast with the last three sprints, and never use it to rank teams.' }),
   ]));

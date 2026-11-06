@@ -70,7 +70,7 @@ export const PANELS = [
   { id: 'missions', group: 'deliver', title: 'Missions', sub: 'Objectives, XP, badges and scorecard', icon: 'flag', week: null, clo: ALL, domain: 'Project Work', wide: false, file: 'panels/missions.js' },
   { id: 'closing', group: 'close', title: 'Closing & Lessons', sub: 'Acceptance, close-out report and lessons learned', icon: 'flagCheck', week: 13, clo: ['CLO3'], domain: 'Closing · Integration', wide: false, file: 'panels/closing.js' },
   { id: 'cases', group: 'close', title: 'Case Studies', sub: 'Airport and megaproject cases to compare against', icon: 'case', week: 14, clo: ['CLO1', 'CLO3'], domain: 'Principles', wide: true, file: 'panels/cases.js' },
-  { id: 'assess', group: 'close', title: 'Assessment & Quiz', sub: 'Weekly quizzes mapped to CLOs and domains', icon: 'quiz', week: 15, clo: ALL, domain: 'Assessment', wide: false, file: 'panels/assess.js' },
+  { id: 'assess', group: 'close', title: 'Assessment & Quiz', sub: 'Weekly quizzes mapped to CLOs and domains', icon: 'quiz', week: 15, clo: ALL, domain: 'Assessment', wide: true, file: 'panels/assess.js' },
   { id: 'present', group: 'close', title: 'Present & Report', sub: 'Status report, stand-up and conference presenter', icon: 'present', week: 15, clo: ['CLO3'], domain: 'Measurement · Communications', wide: true, file: 'panels/present.js' },
   { id: 'session', group: 'system', title: 'Session & Settings', sub: 'Save, load, export, graphics, audio and accessibility', icon: 'gear', week: null, clo: [], domain: 'System', wide: true, file: 'panels/session.js' },
 ];

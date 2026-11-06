@@ -1,58 +1,118 @@
-import { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } from '../dom.js';
+import { el, button, tabs, pill, field } from '../dom.js';
+import { section, card, dl, table } from '../charts.js';
+import { store } from '../charts3.js';
+import CASES from '../../data/cases.json' with { type: 'json' };
 
 /**
- * cases — live summary panel (the shell's minimal module; the full panel is owned by A6c).
- * Shows the CLO/domain chips, a one-paragraph framing and live KPIs from project.snapshot().
+ * Case Studies (Weeks 5 and 10): case cards from src/data/cases.json — an
+ * original summary, sources, discussion questions and an "apply it to
+ * Hyderabad" exercise. Cards flagged `editable` (or with an empty summary)
+ * show an instructor-editable text area saved in this browser. No case facts
+ * are invented here: everything shown comes from the data file or the
+ * instructor.
  */
 
-const NOTE = "Comparable regional-airport and megaproject cases show how scope, funding and stakeholder pressure play out in practice.";
-const ITEMS = [["Phase","phase","phase"],["SPI","spi","idx"],["CPI","cpi","idx"],["Risk exposure","riskExposure","pkr"]];
+const KEY = 'hdd-cases-v1';
 
-function value(dash, s, key, kind) {
-  const p = dash.project || {};
-  const g = dash.sim.game || {};
-  let v;
-  if (key === '@tasks') v = (p.tasks || []).length;
-  else if (key === '@resources') v = (p.resources || []).length;
-  else if (key === '@stakeholders') v = (p.stakeholders || []).length;
-  else if (key === '@procurement') v = (p.procurement || []).length;
-  else if (key === '@missions') v = (g.missions || []).length;
-  else if (key === '@approach') v = humanize(p.approach || 'hybrid');
-  else if (key === '@difficulty') v = humanize(p.difficulty || 'professional');
-  else if (key === '@level') v = g.levelName ? `${g.level || 1} · ${g.levelName}` : String(g.level || 1);
-  else if (key === '@xp') v = g.xp || 0;
-  else v = s[key];
-  let text = '—';
-  let cls = '';
-  if (kind === 'pkr') text = fmtPKR(v);
-  else if (kind === 'pct') text = fmtPct(v, 1);
-  else if (kind === 'q') text = Number.isFinite(v) ? fmtPct(v > 1.5 ? v / 100 : v, 0) : '—';
-  else if (kind === 'idx') { text = fmtIndex(v); cls = indexClass(v); }
-  else if (kind === 'days') text = fmtDays(v);
-  else if (kind === 'sdays') { text = Number.isFinite(v) ? `${v > 0 ? '+' : ''}${Math.round(v)} d` : '—'; cls = Number.isFinite(v) ? (v > 10 ? 'bad' : v > 0 ? 'warn' : 'good') : ''; }
-  else if (kind === 'dayn') text = Number.isFinite(v) ? (p.dateLabel ? p.dateLabel(Math.round(v)) : `Day ${Math.round(v)}`) : '—';
-  else if (kind === 'phase') text = v ? humanize(v) : '—';
-  else if (kind === 'num1') text = Number.isFinite(v) ? v.toFixed(1) : '—';
-  else if (kind === 'int') text = Number.isFinite(v) ? Math.round(v).toLocaleString('en-US') : '—';
-  else text = v === undefined || v === null ? '—' : String(v);
-  return { text, cls };
+function list() {
+  const raw = Array.isArray(CASES) ? CASES : Array.isArray(CASES && CASES.cases) ? CASES.cases : [];
+  return raw.map((c, i) => ({
+    id: c.id || `case${i + 1}`,
+    title: c.title || `Case ${i + 1}`,
+    week: c.week,
+    clo: c.clo || [],
+    editable: c.editable === true || !c.summary,
+    summary: c.summary || '',
+    prompt: c.prompt || 'Instructor: paste the case summary from the course pack.',
+    note: c.researchNote || '',
+    questions: c.questions || c.discussion || [],
+    exercise: c.exercise || c.apply || '',
+    sources: (c.sources || []).map((x) => (typeof x === 'string' ? { title: x } : x)),
+  }));
 }
+
+function saved(id, field_) { const all = store.get(KEY, {}) || {}; return (all[id] && all[id][field_]) || ''; }
+function save(id, field_, value) { const all = store.get(KEY, {}) || {}; all[id] = { ...(all[id] || {}), [field_]: value }; store.set(KEY, all); }
+
+const LINKS = {
+  'bc-transportation': [['Stakeholders', 'stakeholders', 'Rank the case’s stakeholders on the power/interest grid.'], ['Schedule & CPM', 'schedule', 'Compare the case’s timeline with a critical-path view.'], ['Risk Register', 'risk', 'Name the case’s main risks and responses.']],
+  astrazeneca: [['Risk Register', 'risk', 'Identify the opportunity and financial-risk responses.'], ['Procurement', 'procurement', 'Relate the supply agreements to contract types.'], ['Monte Carlo Forecast', 'forecast', 'Parallel work and compressed schedules.']],
+};
 
 export const PANEL_CASES = {
   id: 'cases',
-  render(dash, body) {
-    let s = {};
-    try { s = dash.project && dash.project.snapshot ? dash.project.snapshot() || {} : {}; } catch { s = {}; }
+  render(dash, body, head) {
+    const s = dash.state;
+    const cases = list();
+    head.appendChild(dash.simBadge('Hyderabad exercise is simulated'));
     body.appendChild(dash.tag());
-    body.appendChild(el('p', { class: 'lede', text: NOTE }));
-    body.appendChild(el('div', { class: 'grid c4' }, ITEMS.map(([label, key, kind]) => {
-      const v = value(dash, s, key, kind);
-      return kpi(label, v.text, null, v.cls);
-    })));
-    const actions = [
-
-    ];
-    if (actions.length) body.appendChild(el('div', { class: 'row actions-row' }, actions));
-    body.appendChild(el('div', { class: 'panel-foot' }, [dash.simBadge(), el('span', { class: 'muted small', text: s.dateLabel ? `As of ${s.dateLabel}` : '' })]));
+    if (!s.sel || !cases.some((c) => c.id === s.sel)) s.sel = cases.length ? cases[0].id : null;
+    body.appendChild(el('p', { class: 'lede', text: 'Two published project cases anchor the course. Read each summary, discuss the questions, then apply what you learned to a decision in the Hyderabad programme. Case summaries are original paraphrases; follow the links to the sources.' }));
+    if (!cases.length) {
+      body.appendChild(el('div', { class: 'pm-empty', text: 'No case data is loaded. Your instructor can add case cards to the course data file.' }));
+      return;
+    }
+    body.appendChild(el('div', { class: 'pm-toolbar' }, [tabs(cases.map((c) => ({ id: c.id, label: c.title, badge: c.week ? `W${c.week}` : undefined })), s.sel, (id) => { s.sel = id; dash.rerender(); })]));
+    const c = cases.find((x) => x.id === s.sel);
+    body.appendChild(renderCase(dash, c));
+    body.appendChild(card('Compare the case with the simulator', [
+      el('p', { text: 'Each tool in the simulator gives a different lens on a case. Pick one and use it as you discuss.' }),
+      el('div', { class: 'case-links' }, (LINKS[c.id] || [['Stakeholders', 'stakeholders', 'Map the case’s people.'], ['Risk Register', 'risk', 'Log the case’s risks.'], ['Cost & Earned Value', 'cost', 'Test the case’s numbers.']]).map(([label, panel, hint]) =>
+        el('button', { type: 'button', class: 'case-link', onclick: () => dash.open(panel) }, [el('b', { text: `${label} →` }), el('small', { text: hint })]))),
+    ], { cls: 'flat' }));
+    body.appendChild(el('div', { class: 'panel-foot' }, [dash.simBadge(), el('span', { class: 'muted small', text: 'Case content: original summary; the Hyderabad exercise uses simulated scenario data.' })]));
   },
 };
+
+function renderCase(dash, c) {
+  const parts = [];
+  parts.push(el('div', { class: 'row' }, [
+    c.week ? pill(`Week ${c.week}`, 'gold') : null, ...c.clo.map((k) => pill(k, 'indigo')), c.editable ? pill('Instructor-editable', 'info', 'Text saved in this browser only') : null,
+  ]));
+  // summary
+  const savedSummary = saved(c.id, 'summary');
+  const text = c.editable ? (savedSummary || c.summary) : c.summary;
+  if (c.editable) {
+    const area = el('textarea', { rows: 9, class: 'case-edit', 'aria-label': `${c.title} summary (editable)`, placeholder: c.prompt, spellcheck: 'true' });
+    area.value = text;
+    const status = el('span', { class: 'muted small', text: savedSummary ? 'Edited text saved in this browser.' : c.summary ? 'Showing the supplied summary; edit to replace it.' : 'Nothing saved yet.' });
+    area.addEventListener('input', () => { save(c.id, 'summary', area.value); status.textContent = 'Saved in this browser.'; });
+    parts.push(card('Case summary', [
+      c.note ? el('div', { class: 'callout warn' }, [el('div', {}, [el('b', { text: 'Instructor note. ' }), c.note])]) : null,
+      c.summary ? el('p', { class: 'pm-note', text: c.prompt }) : null,
+      area,
+      el('div', { class: 'row' }, [status, button('Reset to supplied text', () => { save(c.id, 'summary', ''); dash.rerender(); }, { small: true, kind: 'ghost', disabled: !savedSummary })]),
+    ]));
+  } else {
+    parts.push(card('Case summary', [el('p', { class: 'case-summary', text })]));
+  }
+  // sources
+  parts.push(card('Sources', [
+    c.sources.length
+      ? el('ul', { class: 'src-list' }, c.sources.map((x) => el('li', {}, [
+        x.url ? el('a', { href: x.url, target: '_blank', rel: 'noopener noreferrer', text: x.title || x.url }) : el('span', { text: x.title }),
+        x.retrieved ? el('small', { class: 'muted', text: ` retrieved ${x.retrieved}` }) : null,
+        x.note ? el('small', { class: 'muted', text: ` — ${x.note}` }) : null,
+      ])))
+      : el('p', { class: 'pm-note', text: 'No sources are listed. The instructor can name the course-pack reading here.' }),
+  ], { cls: 'flat' }));
+  // questions
+  parts.push(section('Discussion questions'));
+  parts.push(el('ol', { class: 'case-q' }, c.questions.map((q, i) => el('li', {}, [el('span', { text: q }), noteBox(c.id, `q${i}`, 'Your notes…')]))));
+  if (!c.questions.length) parts.push(el('p', { class: 'pm-note', text: 'No questions supplied yet.' }));
+  // exercise
+  parts.push(card('Apply it to Hyderabad', [
+    el('p', { text: c.exercise || 'Instructor: add an exercise connecting the case to the Hyderabad programme.' }),
+    noteBox(c.id, 'exercise', 'Write your recommendation here (saved in this browser)…', 5),
+  ], { cls: 'accent' }));
+  return el('div', { class: 'case-body' }, parts);
+}
+
+function noteBox(id, key, placeholder, rows = 2) {
+  const area = el('textarea', { rows, class: 'case-note', placeholder, 'aria-label': placeholder });
+  area.value = saved(id, key);
+  area.addEventListener('input', () => save(id, key, area.value));
+  return area;
+}
+
+void field; void dl; void table;

@@ -86,12 +86,12 @@ function accept(dash, pane, p, s) {
   pane.appendChild(el('div', { class: 'pm-grid c2' }, [
     card('Acceptance — checked from live data', [
       bar(okCount / auto.length, okCount === auto.length ? 'good' : ''),
-      el('ul', { class: 'check-list live' }, auto.map((a) => el('li', { class: a.ok ? 'ok' : 'todo' }, [el('span', { class: 'ck', 'aria-hidden': 'true', text: a.ok ? '✓' : '○' }), el('span', { text: a.text }), el('small', { text: a.detail })]))),
+      el('ul', { class: 'ck-list live' }, auto.map((a) => el('li', { class: a.ok ? 'ok' : 'pending' }, [el('span', { class: 'ck', 'aria-hidden': 'true', text: a.ok ? '✓' : '○' }), el('span', { text: a.text }), el('small', { text: a.detail })]))),
       el('p', { class: 'pm-note', text: `${okCount} of ${auto.length} conditions met.` }),
     ]),
     card('Transition and handover — your sign-off', [
       bar(manCount / manual.length, manCount === manual.length ? 'good' : ''),
-      el('ul', { class: 'check-list' }, manual.map(([id, text]) => el('li', {}, [el('label', { class: 'ck-row' }, [(() => {
+      el('ul', { class: 'ck-list' }, manual.map(([id, text]) => el('li', {}, [el('label', { class: 'ck-row' }, [(() => {
         const cb = el('input', { type: 'checkbox', checked: isChecked(p, id), 'aria-label': text });
         cb.addEventListener('change', () => { setCheck(p, id, cb.checked); dash.rerender(); });
         return cb;
@@ -137,7 +137,7 @@ function contracts(dash, pane, p) {
   ], p.procurement.map((x) => ({ id: x.id, name: x.name, vendor: x.vendor, status: x.status, claims: x.claims.filter((c) => c.status !== 'Settled').length, final: x.finalAccount ? x.finalAccount.buyerPays : 0 })), { dense: true, onRow: () => dash.open('procurement') }));
   pane.appendChild(card('Archive project records', [
     el('p', { text: 'Organisational process assets grow from archived records. Tick what has been filed, then export a complete archive of this project.' }),
-    el('ul', { class: 'check-list' }, archive.map(([id, text]) => el('li', {}, [el('label', { class: 'ck-row' }, [(() => {
+    el('ul', { class: 'ck-list' }, archive.map(([id, text]) => el('li', {}, [el('label', { class: 'ck-row' }, [(() => {
       const cb = el('input', { type: 'checkbox', checked: isChecked(p, id), 'aria-label': text });
       cb.addEventListener('change', () => { setCheck(p, id, cb.checked); dash.rerender(); });
       return cb;

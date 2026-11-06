@@ -33,7 +33,7 @@ function niceMax(v) {
   if (!(v > 0)) return 1;
   const p = Math.pow(10, Math.floor(Math.log10(v)));
   const n = v / p;
-  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
+  return ([1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find((m) => n <= m + 1e-9) || 10) * p;
 }
 
 function axes(g, { X0, X1, Y0, Y1, yMax, yTicks = 4, yFmt = (v) => String(Math.round(v)) }) {
@@ -80,7 +80,7 @@ export function burndownChart({ points = [], width = 640, height = 260, label = 
   }
   if (todayDay !== null && actual.length) {
     const last = actual[actual.length - 1];
-    s.appendChild(svg('text', { x: r1(last[0]), y: r1(last[1] - 9), 'text-anchor': 'middle', class: 'c2-note', text: `${last[2].remaining} pts left` }));
+    s.appendChild(svg('text', { x: r1(last[0] > W - 90 ? last[0] - 8 : last[0]), y: r1(last[1] - 10), 'text-anchor': last[0] > W - 90 ? 'end' : 'middle', class: 'c2-note', text: `${Math.round(last[2].remaining * 10) / 10} pts left` }));
   }
   return s;
 }
@@ -114,7 +114,7 @@ export function burnupChart({ sprints = [], scope = 0, velocity = 0, plannedSpri
     const last = done[done.length - 1];
     const endI = sprints.length + extra;
     s.appendChild(polyline([last, [X(endI), Y(scope)]], 'forecast', K.c2, '3 4'));
-    s.appendChild(svg('text', { x: r1(X(endI)), y: r1(Y(scope) + 15), 'text-anchor': 'end', class: 'c2-note', text: `Forecast: sprint ${endI} at ${velocity.toFixed(1)} pts/sprint` }));
+    s.appendChild(svg('text', { x: W - P.r, y: H - P.b - 8, 'text-anchor': 'end', class: 'c2-note', text: `Forecast: scope done in sprint ${endI} at ${velocity.toFixed(1)} pts/sprint` }));
   }
   return s;
 }
@@ -141,7 +141,7 @@ export function velocityChart({ sprints = [], planned = 0, width = 640, height =
   });
   if (planned > 0) {
     s.appendChild(polyline([[P.l, Y(planned)], [W - P.r, Y(planned)]], 'plan', K.c1, '5 4'));
-    s.appendChild(svg('text', { x: W - P.r, y: r1(Y(planned) - 5), 'text-anchor': 'end', class: 'c2-note', text: `Plan ${planned.toFixed(1)}` }));
+    s.appendChild(svg('text', { x: P.l + 4, y: r1(Y(planned) - 5), 'text-anchor': 'start', class: 'c2-note', text: `Plan ${planned.toFixed(1)}` }));
   }
   const avg = sprints.map((p, i) => {
     const w = sprints.slice(Math.max(0, i - 2), i + 1);
@@ -291,7 +291,7 @@ export function kanbanBoard(cfg) {
         el('div', { class: 'c2-card-t', text: c.title }),
         c.meta ? el('div', { class: 'c2-card-m', text: c.meta }) : null,
         c.progress !== undefined ? el('div', { class: 'c2-card-bar' }, [el('i', { style: { width: `${Math.round(c.progress * 100)}%` } })]) : null,
-        el('div', { class: 'c2-card-go' }, [
+        c.noMove ? null : el('div', { class: 'c2-card-go' }, [
           prev ? el('button', { type: 'button', class: 'c2-mv', 'aria-label': `Move ${c.id} back to ${prev.label}`, title: `Back to ${prev.label}`, onclick: () => move(c.id, prev.id) }, ['←']) : null,
           next ? el('button', { type: 'button', class: 'c2-mv', 'aria-label': `Move ${c.id} forward to ${next.label}`, title: `Forward to ${next.label}`, onclick: () => move(c.id, next.id) }, ['→']) : null,
         ]),
@@ -310,4 +310,34 @@ export function kanbanBoard(cfg) {
     ]));
   });
   return el('div', { class: 'c2-board-wrap' }, [board, status]);
+}
+
+/* --------------------------------------------------------- wind rose */
+
+/**
+ * Compass with the runway axis and a wind arrow. dir = direction the wind blows FROM (° true),
+ * runwayHeading = magnetic/true heading of runway 02 (default 20°). active = '02' | '20'.
+ */
+export function windRose({ dir = 0, speed = 0, runwayHeading = 20, active = '20', size = 200, label = 'Wind and runway in use' } = {}) {
+  const W = size; const H = size; const cx = W / 2; const cy = H / 2; const R = size / 2 - 22;
+  const s = root(W, H, `${label}: wind from ${Math.round(dir)} degrees at ${Math.round(speed)} knots, runway ${active}`, 'c2-wind');
+  const rot = (deg, r) => [cx + r * Math.sin((deg * Math.PI) / 180), cy - r * Math.cos((deg * Math.PI) / 180)];
+  s.appendChild(svg('circle', { cx, cy, r: R, class: 'c2-plot-c' }));
+  for (let d = 0; d < 360; d += 30) {
+    const [x0, y0] = rot(d, R); const [x1, y1] = rot(d, R - (d % 90 === 0 ? 9 : 5));
+    s.appendChild(svg('line', { x1: r1(x0), y1: r1(y0), x2: r1(x1), y2: r1(y1), class: 'c2-grid' }));
+  }
+  [['N', 0], ['E', 90], ['S', 180], ['W', 270]].forEach(([t, d]) => { const [x, y] = rot(d, R + 12); s.appendChild(svg('text', { x: r1(x), y: r1(y + 4), 'text-anchor': 'middle', class: 'c2-tick', text: t })); });
+  const [ax, ay] = rot(runwayHeading, R - 14); const [bx, by] = rot(runwayHeading + 180, R - 14);
+  s.appendChild(svg('line', { x1: r1(ax), y1: r1(ay), x2: r1(bx), y2: r1(by), class: 'c2-runway' }, [tt('Runway 02/20')]));
+  const [t02x, t02y] = rot(runwayHeading, R - 28); const [t20x, t20y] = rot(runwayHeading + 180, R - 28);
+  s.appendChild(svg('text', { x: r1(t02x), y: r1(t02y + 4), 'text-anchor': 'middle', class: `c2-rwy ${active === '02' ? 'on' : ''}`, text: '02' }));
+  s.appendChild(svg('text', { x: r1(t20x), y: r1(t20y + 4), 'text-anchor': 'middle', class: `c2-rwy ${active === '20' ? 'on' : ''}`, text: '20' }));
+  // arrow showing where the wind blows towards, drawn from the 'from' side
+  const [fx, fy] = rot(dir, R - 4); const [tx, ty] = rot(dir + 180, R * 0.35);
+  const len = Math.min(1, 0.35 + speed / 30);
+  s.appendChild(svg('line', { x1: r1(fx), y1: r1(fy), x2: r1(cx + (tx - cx) * len), y2: r1(cy + (ty - cy) * len), class: 'c2-wind-arrow' }, [tt(`Wind from ${Math.round(dir)}° at ${Math.round(speed)} kt`)]));
+  s.appendChild(svg('circle', { cx: r1(cx + (tx - cx) * len), cy: r1(cy + (ty - cy) * len), r: 4.5, class: 'c2-wind-head' }));
+  s.appendChild(svg('text', { x: 6, y: 14, 'text-anchor': 'start', class: 'c2-note', text: `${Math.round(speed)} kt` }));
+  return s;
 }

@@ -68,7 +68,7 @@ export const PANEL_STAKEHOLDERS = {
     body.appendChild(el('div', { class: 'pm-toolbar' }, [tabs(TABS, s.tab, (id) => { s.tab = id; dash.rerender(); })]));
     const pane = el('div', { class: 'tab-pane' });
     body.appendChild(pane);
-    ({ register, salienceTab, engage, comms, report })[s.tab](dash, pane, p, s, v);
+    ({ register, salience: salienceTab, engage, comms, report })[s.tab](dash, pane, p, s, v);
     body.appendChild(hookCard(dash, {
       kicker: 'Case study · Week 5', title: 'British Columbia Transportation — many stakeholders, one programme',
       text: 'Rank the case’s stakeholders on this power/interest grid. Which would you have moved from “Keep informed” to “Manage closely”, and why?',

@@ -297,7 +297,7 @@ function admin(dash, pane, p, s) {
         ? chartBox(barChart({
           width: 520, height: 210, label: 'Monthly payments and cumulative paid', categories: pk.payments.map((x) => `D${x.day}`),
           series: [{ label: 'Net payment (PKR m)', color: C.c2, values: pk.payments.map((x) => Math.round(x.net / M)) }],
-          line: { label: 'Cumulative (PKR m)', color: C.brass, values: pk.payments.map((x) => Math.round(x.cumulative / M)) }, yFormat: (v) => `${Math.round(v)}`,
+          line: { label: 'Cumulative (PKR m)', color: C.brass, values: pk.payments.map((x) => Math.round(x.cumulative / M)), max: Math.max(1, Math.round(pk.paid / M)), format: (v) => `${Math.round(v)}` }, yFormat: (v) => `${Math.round(v)}`,
         }), { minWidth: 420 })
         : el('p', { class: 'pm-note', text: 'No certified payment yet: payments are certified every 30 days once work is delivered.' }),
     ]),
@@ -359,7 +359,7 @@ function closure(dash, pane, p, s) {
     kpi({ label: 'Retention released', value: fmtPKR(closed.reduce((a, x) => a + x.retention, 0)) }),
   ]));
   pane.appendChild(card('Closure checklist (per package)', [
-    el('ul', { class: 'check-list' }, [
+    el('ul', { class: 'ck-list' }, [
       'All deliverables inspected and formally accepted',
       'Claims and disputes settled; no open variations',
       'Retention released after the defects period',
