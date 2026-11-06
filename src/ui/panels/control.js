@@ -1,5 +1,5 @@
-import { el, kpi, button, table, tabs, pill, select, field, fmtPKR, fmtPct, fmtIndex, indexClass, confirmModal } from '../dom.js';
-import { C, chartBox, legend, barChart, shortDate, money, section, card, animOnce, dl } from '../charts.js';
+import {el, kpi, button, tabs, pill, select, field, fmtPKR, fmtPct, fmtIndex, indexClass, confirmModal} from '../dom.js';
+import { C, chartBox, legend, barChart, shortDate, money, section, card, animOnce, dl, table } from '../charts.js';
 import { CCB_MEMBERS, tallyVotes } from '../../pm/change.js';
 
 /**

@@ -1,5 +1,5 @@
-import { el, kpi, button, table, tabs, pill, bar, fmtPKR, fmtPct, confirmModal } from '../dom.js';
-import { shortDate, section, card, dl } from '../charts.js';
+import {el, kpi, button, tabs, pill, bar, fmtPKR, fmtPct, confirmModal} from '../dom.js';
+import { shortDate, section, card, dl, table } from '../charts.js';
 import { fact } from '../../core/facts.js';
 
 /**

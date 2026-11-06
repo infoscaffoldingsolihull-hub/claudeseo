@@ -1,7 +1,5 @@
-import { el, kpi, button, table, tabs, pill, select, slider, fmtPKR, fmtPct, confirmModal } from '../dom.js';
-import {
-  C, chartBox, legend, controlChart, histogramChart, scatterChart, paretoChart, fishboneChart, hbarChart, barChart, shortDate, section, card, animOnce, dl,
-} from '../charts.js';
+import {el, kpi, button, tabs, pill, select, slider, fmtPKR, fmtPct, confirmModal} from '../dom.js';
+import {  C, chartBox, legend, controlChart, histogramChart, scatterChart, paretoChart, fishboneChart, hbarChart, barChart, shortDate, section, card, animOnce, dl, table } from '../charts.js';
 import { imr, westernElectric, capability, pareto } from '../../pm/quality.js';
 import { fact } from '../../core/facts.js';
 

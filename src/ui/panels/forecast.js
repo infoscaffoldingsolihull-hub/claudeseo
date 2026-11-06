@@ -1,5 +1,5 @@
-import { el, kpi, button, table, select, toggle, bar, fmtPKR, fmtPct } from '../dom.js';
-import { C, chartBox, legend, histogramChart, lineChart, tornadoChart, dayTicks, shortDate, money, section, card, animOnce, dl } from '../charts.js';
+import {el, kpi, button, select, toggle, bar, fmtPKR, fmtPct} from '../dom.js';
+import { C, chartBox, legend, histogramChart, lineChart, tornadoChart, dayTicks, shortDate, money, section, card, animOnce, dl, table } from '../charts.js';
 import { createMonteCarloWorker, createMonteCarlo } from '../../pm/montecarlo.js';
 import { inverseNormal } from '../../pm/cpm.js';
 

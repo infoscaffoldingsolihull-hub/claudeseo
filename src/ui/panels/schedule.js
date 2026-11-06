@@ -1,8 +1,6 @@
-import { el, kpi, button, table, tabs, pill, select, slider, fmtPKR, fmtIndex, indexClass, confirmModal } from '../dom.js';
-import {
-  C, chartBox, legend, ganttChart, networkChart, networkKey, bellCurve, barChart, lineChart, dayTicks, shortDate,
-  section, card, hookCard, animOnce, dl,
-} from '../charts.js';
+import {el, kpi, button, tabs, pill, select, slider, fmtPKR, fmtIndex, indexClass, confirmModal} from '../dom.js';
+import {  C, chartBox, legend, ganttChart, networkChart, networkKey, bellCurve, barChart, lineChart, dayTicks, shortDate,
+  section, card, hookCard, animOnce, dl, table } from '../charts.js';
 import { normalCdf, inverseNormal, pertDuration, pertSigma } from '../../pm/cpm.js';
 
 /**

@@ -1027,5 +1027,73 @@ export function animOnce(dash, key) {
 
 /** Labelled definition list: [[term, value], …]. */
 export function dl(rows, cls = '') {
-  return el('dl', { class: `pm-dl ${cls}`.trim() }, rows.filter(Boolean).flatMap(([k, v]) => [el('dt', { text: k }), el('dd', {}, [v instanceof Node ? v : String(v)])]));
+  return el('dl', { class: `pm-dl ${cls}`.trim() }, rows.filter(Boolean).flatMap(([k, v]) => [el('dt', { text: k }), el('dd', {}, [isNode(v) ? v : String(v)])]));
+}
+
+const isNode = (v) => !!v && typeof v === 'object' && typeof v.nodeType === 'number';
+
+/**
+ * Data table with the same API as dom.js `table()`, but recognising DOM cells by
+ * `nodeType` (the bundle contains a vendored `function Node` that shadows the
+ * global, which breaks `instanceof Node`).
+ */
+export function table(cols, rows, opts = {}) {
+  const spec = cols.map((c, i) => (typeof c === 'string' ? { key: i, label: c } : { key: c.key === undefined ? i : c.key, ...c }));
+  const state = { sortKey: null, dir: 1 };
+  const tbody = el('tbody');
+  const cell = (row, c, idx) => (Array.isArray(row) ? row[typeof c.key === 'number' ? c.key : idx] : row[c.key]);
+  const fill = () => {
+    tbody.replaceChildren();
+    let list = [...(rows || [])];
+    if (state.sortKey !== null) {
+      const c = spec.find((s) => s.key === state.sortKey);
+      const idx = spec.indexOf(c);
+      list.sort((a, b) => {
+        const va = cell(a, c, idx);
+        const vb = cell(b, c, idx);
+        if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * state.dir;
+        return String(isNode(va) ? va.textContent : va ?? '').localeCompare(String(isNode(vb) ? vb.textContent : vb ?? ''), undefined, { numeric: true }) * state.dir;
+      });
+    }
+    if (opts.maxRows) list = list.slice(0, opts.maxRows);
+    if (!list.length) { tbody.appendChild(el('tr', { class: 'empty' }, [el('td', { colspan: spec.length, text: opts.empty || 'Nothing to show yet.' })])); return; }
+    list.forEach((row, ri) => {
+      const tr = el('tr', { class: [opts.rowClass ? opts.rowClass(row, ri) : '', opts.selected && opts.selected(row) ? 'selected' : ''].join(' ').trim() || null });
+      if (opts.onRow) {
+        tr.tabIndex = 0;
+        tr.classList.add('clickable');
+        tr.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('button,a,input,select')) return; opts.onRow(row, ri); });
+        tr.addEventListener('keydown', (e) => { if (e.target === tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); opts.onRow(row, ri); } });
+      }
+      spec.forEach((c, ci) => {
+        const v = cell(row, c, ci);
+        const content = c.format ? c.format(v, row) : v;
+        const cls = [c.num ? 'num' : '', typeof c.cls === 'function' ? c.cls(v, row) : c.cls || ''].join(' ').trim();
+        const td = el('td', { class: cls || null });
+        if (isNode(content)) td.appendChild(content);
+        else td.textContent = content === undefined || content === null ? '—' : String(content);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  };
+  const headRow = el('tr', {}, spec.map((c) => {
+    const th = el('th', { class: c.num ? 'num' : null, title: c.title || null, scope: 'col', style: c.width ? { width: c.width } : null }, [String(c.label ?? '')]);
+    if (opts.sortable) {
+      th.tabIndex = 0;
+      th.classList.add('sortable');
+      const sort = () => {
+        state.dir = state.sortKey === c.key ? -state.dir : 1;
+        state.sortKey = c.key;
+        for (const h of headRow.children) h.removeAttribute('aria-sort');
+        th.setAttribute('aria-sort', state.dir > 0 ? 'ascending' : 'descending');
+        fill();
+      };
+      th.addEventListener('click', sort);
+      th.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sort(); } });
+    }
+    return th;
+  }));
+  fill();
+  return el('div', { class: 'table-wrap' }, [el('table', { class: `data ${opts.dense ? 'dense' : ''} ${opts.class || ''}`.trim() }, [opts.caption ? el('caption', { text: opts.caption }) : null, el('thead', {}, [headRow]), tbody])]);
 }

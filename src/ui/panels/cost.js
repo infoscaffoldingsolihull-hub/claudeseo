@@ -1,7 +1,5 @@
-import { el, kpi, button, table, tabs, pill, select, fmtPKR, fmtIndex, fmtPct, indexClass } from '../dom.js';
-import {
-  C, chartBox, legend, lineChart, barChart, hbarChart, waterfallChart, dayTicks, shortDate, money, section, card, animOnce, dl,
-} from '../charts.js';
+import {el, kpi, button, tabs, pill, select, fmtPKR, fmtIndex, fmtPct, indexClass} from '../dom.js';
+import {  C, chartBox, legend, lineChart, barChart, hbarChart, waterfallChart, dayTicks, shortDate, money, section, card, animOnce, dl, table } from '../charts.js';
 
 /**
  * Cost & Earned Value (Week 6/9): estimating methods with worked numbers,
