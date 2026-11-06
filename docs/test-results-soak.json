@@ -1,0 +1,269 @@
+{
+  "startedAt": "2026-11-06T13:33:12.750Z",
+  "checks": [
+    {
+      "name": "boots to ready from file:// offline",
+      "ok": true,
+      "detail": "3.5 s"
+    },
+    {
+      "name": "G3 modes ≥ 5",
+      "ok": true,
+      "detail": "got 5"
+    },
+    {
+      "name": "G3 panels ≥ 22",
+      "ok": true,
+      "detail": "got 25"
+    },
+    {
+      "name": "G3 wbsElements ≥ 70",
+      "ok": true,
+      "detail": "got 89"
+    },
+    {
+      "name": "G3 risks ≥ 24",
+      "ok": true,
+      "detail": "got 32"
+    },
+    {
+      "name": "G3 stakeholders ≥ 14",
+      "ok": true,
+      "detail": "got 16"
+    },
+    {
+      "name": "G3 resources ≥ 10",
+      "ok": true,
+      "detail": "got 12"
+    },
+    {
+      "name": "G3 procurement ≥ 10",
+      "ok": true,
+      "detail": "got 17"
+    },
+    {
+      "name": "G3 tourBeats ≥ 18",
+      "ok": true,
+      "detail": "got 20"
+    },
+    {
+      "name": "G3 missions ≥ 12",
+      "ok": true,
+      "detail": "got 16"
+    },
+    {
+      "name": "G3 decisions ≥ 30",
+      "ok": true,
+      "detail": "got 38"
+    },
+    {
+      "name": "G3 quizQuestions ≥ 120",
+      "ok": true,
+      "detail": "got 139"
+    },
+    {
+      "name": "G3 glossary ≥ 150",
+      "ok": true,
+      "detail": "got 317"
+    },
+    {
+      "name": "G3 intents ≥ 60",
+      "ok": true,
+      "detail": "got 80"
+    },
+    {
+      "name": "every panel opens with content and no placeholders",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "every rail button clickable",
+      "ok": true,
+      "detail": "25/25"
+    },
+    {
+      "name": "mode inspector",
+      "ok": true,
+      "detail": "inspector"
+    },
+    {
+      "name": "mode manager",
+      "ok": true,
+      "detail": "manager"
+    },
+    {
+      "name": "mode drone",
+      "ok": true,
+      "detail": "drone"
+    },
+    {
+      "name": "mode tour",
+      "ok": true,
+      "detail": "tour"
+    },
+    {
+      "name": "mode ops",
+      "ok": true,
+      "detail": "ops"
+    },
+    {
+      "name": "mode manager",
+      "ok": true,
+      "detail": "manager"
+    },
+    {
+      "name": "two simulated years at ×200",
+      "ok": true,
+      "detail": {
+        "days": 734,
+        "seconds": 57.989,
+        "decisionsShown": 21,
+        "forced": 0,
+        "spi": 0.9358190429938743,
+        "cpi": 0.9372096046324156,
+        "progress": 0.7395405979432911
+      }
+    },
+    {
+      "name": "≥ 5 decision events shown and resolved",
+      "ok": true,
+      "detail": 21
+    },
+    {
+      "name": "EVM indices finite after the run",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "save → load slot restores state",
+      "ok": true,
+      "detail": {
+        "saved": true,
+        "loaded": true,
+        "sameDay": true,
+        "jsonOk": true,
+        "jsonHasKey": false,
+        "xmlOk": true,
+        "xmlLinks": 168,
+        "csvRows": 90
+      }
+    },
+    {
+      "name": "JSON export valid and contains no API key",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MSPDI XML export has ≥ 70 tasks and links",
+      "ok": true,
+      "detail": "168 links"
+    },
+    {
+      "name": "CSV export has ≥ 70 rows",
+      "ok": true,
+      "detail": 90
+    },
+    {
+      "name": "MEHRAN answers offline",
+      "ok": true,
+      "detail": {
+        "engine": "offline",
+        "len": 509,
+        "status": "offline"
+      }
+    },
+    {
+      "name": "soak 600s: GPU geometries/textures stable and heap growth < 15%",
+      "ok": true,
+      "detail": {
+        "geometries": [
+          165,
+          168
+        ],
+        "textures": [
+          61,
+          63
+        ],
+        "heapGrowth": "0.0%"
+      }
+    },
+    {
+      "name": "G8 no network requests attempted",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "G6 zero console errors / warnings",
+      "ok": true,
+      "detail": []
+    }
+  ],
+  "fps": {},
+  "screenshots": [
+    "docs/screenshots/overview-day.png"
+  ],
+  "console": [],
+  "network": [],
+  "bootReport": {
+    "tier": "low",
+    "detected": "low",
+    "modes": [
+      "inspector",
+      "manager",
+      "tour",
+      "drone",
+      "ops"
+    ],
+    "panels": 25,
+    "wbsElements": 89,
+    "summaries": 12,
+    "risks": 32,
+    "stakeholders": 16,
+    "resources": 12,
+    "procurement": 17,
+    "missions": 16,
+    "decisions": 38,
+    "tourBeats": 20,
+    "quizQuestions": 139,
+    "glossary": 317,
+    "intents": 80,
+    "poi": 24,
+    "bac": 64015000000,
+    "baselineDuration": 1403,
+    "criticalPath": "1.1 → 1.2 → M01 → 1.4 → 7.1 → 7.2 → 7.3 → 7.4 → 7.6 → 7.7 → M07 → 11.4 → 11.5 → M09 → 12.2 → M10 → 12.3 → 12.4 → M11"
+  },
+  "run": {
+    "days": 734,
+    "seconds": 57.989,
+    "decisionsShown": 21,
+    "forced": 0,
+    "spi": 0.9358190429938743,
+    "cpi": 0.9372096046324156,
+    "progress": 0.7395405979432911
+  },
+  "persistence": {
+    "saved": true,
+    "loaded": true,
+    "sameDay": true,
+    "jsonOk": true,
+    "jsonHasKey": false,
+    "xmlOk": true,
+    "xmlLinks": 168,
+    "csvRows": 90
+  },
+  "memory": {
+    "soakSeconds": 600,
+    "before": {
+      "geometries": 165,
+      "textures": 61,
+      "heap": 56800000
+    },
+    "after": {
+      "geometries": 168,
+      "textures": 63,
+      "heap": 56800000
+    }
+  },
+  "finishedAt": "2026-11-06T13:45:30.544Z",
+  "failures": 0
+}

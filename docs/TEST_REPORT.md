@@ -35,12 +35,12 @@ day 1,445 (0.95 / 0.98); crisis ≈ day 1,550 (0.92 / 0.91). Baseline 1,403 days
 | G9 | Save → load slot restores the same day; JSON valid and free of any API key; MSPDI XML with 168 predecessor links; CSV 90 rows | pass |
 | — | MEHRAN answers offline | pass |
 | G6 | Zero console errors / warnings across the whole run | pass |
-| G6 | Memory soak (45 s, drone orbit at ×10): geometries 177 → 178, textures 66 → 66, JS heap 56.8 MB → 56.8 MB | pass — 10-minute soak: see below |
+| G6 | Memory soak (45 s, drone orbit at ×10): geometries 177 → 178, textures 66 → 66, JS heap 56.8 MB → 56.8 MB | pass (10-minute soak below) |
 | — | Phone viewport (390 × 844) boots, panel readable | pass |
 
 ### 10-minute soak
 
-See the "10-minute soak" result appended below once the `--soak` run completes.
+`node tests/e2e/run.mjs --quick --soak` — 600 s of drone auto-orbit with the simulation at ×10: **pass**. JS heap 56.8 MB → 56.8 MB (0.0 % growth), geometries 165 → 168, textures 61 → 63, zero console errors. Raw: `docs/test-results-soak.json`.
 
 ## Performance (gate G7) — honest status
 
