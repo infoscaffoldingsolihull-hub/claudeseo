@@ -1,10 +1,10 @@
 {
-  "startedAt": "2026-11-06T13:08:36.367Z",
+  "startedAt": "2026-11-06T16:37:16.491Z",
   "checks": [
     {
       "name": "boots to ready from file:// offline",
       "ok": true,
-      "detail": "3.3 s"
+      "detail": "3.5 s"
     },
     {
       "name": "G3 modes ≥ 5",
@@ -115,13 +115,13 @@
       "name": "two simulated years at ×200",
       "ok": true,
       "detail": {
-        "days": 739,
-        "seconds": 58.07479999999888,
+        "days": 745,
+        "seconds": 50.61660000000009,
         "decisionsShown": 21,
         "forced": 0,
-        "spi": 0.9360961061155414,
-        "cpi": 0.9374864609359723,
-        "progress": 0.7444798125891827
+        "spi": 0.9351707379513206,
+        "cpi": 0.9400880896666476,
+        "progress": 0.7468875957416471
       }
     },
     {
@@ -168,7 +168,7 @@
       "ok": true,
       "detail": {
         "engine": "offline",
-        "len": 452,
+        "len": 543,
         "status": "offline"
       }
     },
@@ -177,12 +177,12 @@
       "ok": true,
       "detail": {
         "geometries": [
-          177,
-          178
+          186,
+          188
         ],
         "textures": [
-          66,
-          66
+          63,
+          63
         ],
         "heapGrowth": "0.0%"
       }
@@ -205,27 +205,27 @@
   ],
   "fps": {
     "low": {
-      "fps": 18.1,
-      "calls": 49,
-      "triangles": 243686,
+      "fps": 17.1,
+      "calls": 55,
+      "triangles": 251426,
       "tier": "low"
     },
     "medium": {
       "fps": 20,
-      "calls": 45,
-      "triangles": 408126,
+      "calls": 52,
+      "triangles": 416092,
       "tier": "medium"
     },
     "high": {
       "fps": 20,
-      "calls": 45,
-      "triangles": 633978,
+      "calls": 52,
+      "triangles": 641744,
       "tier": "high"
     },
     "ultra": {
       "fps": 20,
-      "calls": 45,
-      "triangles": 934392,
+      "calls": 52,
+      "triangles": 942158,
       "tier": "ultra"
     }
   },
@@ -288,13 +288,13 @@
     "criticalPath": "1.1 → 1.2 → M01 → 1.4 → 7.1 → 7.2 → 7.3 → 7.4 → 7.6 → 7.7 → M07 → 11.4 → 11.5 → M09 → 12.2 → M10 → 12.3 → 12.4 → M11"
   },
   "run": {
-    "days": 739,
-    "seconds": 58.07479999999888,
+    "days": 745,
+    "seconds": 50.61660000000009,
     "decisionsShown": 21,
     "forced": 0,
-    "spi": 0.9360961061155414,
-    "cpi": 0.9374864609359723,
-    "progress": 0.7444798125891827
+    "spi": 0.9351707379513206,
+    "cpi": 0.9400880896666476,
+    "progress": 0.7468875957416471
   },
   "persistence": {
     "saved": true,
@@ -309,16 +309,16 @@
   "memory": {
     "soakSeconds": 45,
     "before": {
-      "geometries": 177,
-      "textures": 66,
-      "heap": 56800000
+      "geometries": 186,
+      "textures": 63,
+      "heap": 60300000
     },
     "after": {
-      "geometries": 178,
-      "textures": 66,
-      "heap": 56800000
+      "geometries": 188,
+      "textures": 63,
+      "heap": 60300000
     }
   },
-  "finishedAt": "2026-11-06T13:33:01.393Z",
+  "finishedAt": "2026-11-06T17:07:10.929Z",
   "failures": 0
 }

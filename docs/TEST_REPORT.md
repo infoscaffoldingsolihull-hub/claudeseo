@@ -72,3 +72,18 @@ tables (three.js names shadowing DOM globals — the bundler now scopes three.js
 
 Remaining visual notes: the terminal interior is bright and hazy in daylight; airfield floodlight pools are large at
 night; the full-intensity dust storm hides most of the airfield (by design — visibility 20 %).
+
+## Update — user-feedback round (decisions, weather control, sound, sky, terrain, passenger journey)
+
+Re-run after the second round of changes: `npm test` **80 / 80**; e2e **34 / 34** (745 simulated days in 51 s at ×200,
+21 decision events auto-resolved without blocking, zero console errors, no network requests).
+
+| Change | Verification |
+|---|---|
+| Decisions auto-pick the best option by default; Auto / Ask-me switch; "Choose best for me"; none before day 20 | e2e decision count; `tests/pm/game.test.js` (2 new tests) |
+| HUD weather & time-of-day popover with manual override and Auto | screenshot review; e2e weather scenes |
+| Calmer audio (0.35 master, fade-in, low-passed beds, rare quiet ATC), procedural birdsong | headless node-count checks (flat at 84, voice cap 28); not listened to by a human |
+| Cumulus/cirrus clouds, visible bird flocks, textured sand, grass verges, tufts, roadside trees | screenshot review |
+| Passenger journey (J): sliding doors, robust E interaction, check-in with boarding pass, passport, security, gate, jet bridge, seat, ~3-minute seated flight | QA hooks `journey()`, `journeyFlight()`; screenshots of every step and flight phase |
+| Fix: height-fog NaN for high cameras (black blocks in drone and cabin views) | drone at 700 m and in-flight screenshots clean |
+| Fix: journey overlay swallowed clicks on the dashboard rail | e2e "every rail button clickable" 25/25 |
