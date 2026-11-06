@@ -90,7 +90,7 @@ export function createCabin(spec, livery = {}) {
   const PL = Math.hypot(xt - xb, ytop - ybase);
   const tx = (xt - xb) / PL; const ty = (ytop - ybase) / PL;     // panel up-direction (left wall)
   const ox = ty; const oy = -tx;                                  // outward normal (left wall)
-  const WV = 0.47; const WW = 0.27; const WH = 0.37; const WR = 0.1;
+  const WV = 0.47; const WW = 0.31; const WH = 0.43; const WR = 0.12;
   const windows = [];
   {
     const w = spec.windows;
@@ -122,13 +122,13 @@ export function createCabin(spec, livery = {}) {
     for (const z of windows) {
       const ring = roundedRect(new THREE.Shape(), z - WW / 2 - 0.07, WV - WH / 2 - 0.08, WW + 0.14, WH + 0.16, WR + 0.06);
       ring.holes.push(roundedRect(new THREE.Path(), z - WW / 2, WV - WH / 2, WW, WH, WR));
-      const ex = new THREE.ExtrudeGeometry(ring, { depth: 0.17, bevelEnabled: false, curveSegments: 5 });
+      const ex = new THREE.ExtrudeGeometry(ring, { depth: 0.07, bevelEnabled: false, curveSegments: 5 });
       ex.translate(0, 0, -0.025);
       const g = mapPanel(ex, side);
       b.add(g, I4, 0xf7f5f0); g.dispose();
       // outer pane (whitens inside cloud), slightly inset into the reveal
       const pane = new THREE.ShapeGeometry(roundedRect(new THREE.Shape(), z - WW / 2, WV - WH / 2, WW, WH, WR), 4);
-      pane.translate(0, 0, 0.13);
+      pane.translate(0, 0, 0.045);
       const pg = mapPanel(pane, side);
       panesB.add(pg, I4, 0xffffff); pg.dispose();
       // a few shades part-way down
@@ -174,7 +174,7 @@ export function createCabin(spec, livery = {}) {
     lamps.box(0.06, 0.02, zFront - zRear - 1.2, side * 1.08, Y0 + 2.06, (zFront + zRear) / 2, 0xffffff);
     // seats (triples): A B C on the left, D E F on the right; facing +Z
     const letters = side === 1 ? ['C', 'B', 'A'] : ['D', 'E', 'F'];
-    const xs = [0.68, 1.12, 1.56];
+    const xs = [0.62, 1.04, 1.46];
     for (let r = 1; r <= ROWS; r++) {
       const rz = rowZ(r);
       for (let k = 0; k < 3; k++) {
@@ -199,7 +199,7 @@ export function createCabin(spec, livery = {}) {
       for (let k = 0; k < 3; k++) {
         const L = letters[k];
         // (stored below with world-independent local coordinates)
-        seatsOut.push({ row: r, letter: L, id: `${r}${L}`, eye: new THREE.Vector3(side * xs[k] - side * 0.02, Y0 + 1.17, rz - 0.06), cushion: new THREE.Vector3(side * xs[k], Y0 + 0.5, rz + 0.05) });
+        seatsOut.push({ row: r, letter: L, id: `${r}${L}`, eye: new THREE.Vector3(side * xs[k] - side * 0.16, Y0 + 1.17, rz - 0.06), cushion: new THREE.Vector3(side * xs[k], Y0 + 0.5, rz + 0.05) });
       }
     }
     colliders.push(side === 1 ? [0.45, Y0, rowZ(ROWS) - 0.45, 1.84, Y0 + 1.25, row1 + 0.5] : [-1.84, Y0, rowZ(ROWS) - 0.45, -0.45, Y0 + 1.25, row1 + 0.5]);
@@ -225,7 +225,7 @@ export function createCabin(spec, livery = {}) {
 
   const geo = b.build(); bakeShade(geo, Y0);
   const mat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide });
-  mat.color.setScalar(1.25);
+  mat.color.setScalar(0.95);
   const mesh = new THREE.Mesh(geo, mat); mesh.name = 'cabin-interior'; mesh.frustumCulled = false;
   const lampMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.0, 0.86, 0.64).multiplyScalar(2.4) });
   lampMat.toneMapped = false;
@@ -422,8 +422,8 @@ export class FlightClouds {
     const golden = sky && sky.state ? sky.state.goldenFactor || 0 : 0;
     if (sky && sky.sunDirection) u.uSunDir.value.copy(sky.sunDirection);
     const sunUp = clamp(u.uSunDir.value.y * 3 + 0.2, 0, 1);
-    u.uSun.value.setRGB(2.15, 2.05 - golden * 0.45, 1.92 - golden * 0.8).multiplyScalar(0.06 + 0.94 * day * sunUp);
-    u.uAmb.value.setRGB(0.5, 0.58, 0.72).multiplyScalar(0.08 + 0.92 * day);
+    u.uSun.value.setRGB(1.3, 1.24 - golden * 0.3, 1.14 - golden * 0.5).multiplyScalar(0.06 + 0.94 * day * sunUp);
+    u.uAmb.value.setRGB(0.36, 0.43, 0.56).multiplyScalar(0.08 + 0.92 * day);
     u.uHaze.value.setRGB(0.6, 0.7, 0.86).multiplyScalar(0.08 + 0.92 * day);
     for (const m of [this.deckTop, this.deckBottom]) { m.position.x = camera.position.x; m.position.z = camera.position.z; }
     this.deckTop.position.y = this.top; this.deckBottom.position.y = this.bottom;
@@ -959,7 +959,7 @@ export class JourneyRunner {
   _promptFor(it) {
     const st = this.state;
     switch (it.kind) {
-      case 'checkin': return !st.active ? 'Check in — start the passenger journey' : st.is('checkin') ? 'Check in — collect your boarding pass' : `${it.name} — already checked in`;
+      case 'checkin': return !st.active ? 'Check in — start the passenger journey' : st.is('checkin') || st.index < STEP_IDS.indexOf('checkin') ? 'Check in — collect your boarding pass' : `${it.name} — already checked in`;
       case 'booth': return st.is('passport') ? 'Present your passport' : `${it.name}`;
       case 'lane': return st.is('security') ? 'Put your bag through the X-ray' : `${it.name}`;
       case 'fids': return st.is('fids') ? 'Check the departures board for your gate' : 'Read the departures board';
@@ -1126,6 +1126,7 @@ export class JourneyRunner {
   _checkin() {
     const sim = this.sim;
     if (!this.active) { this.start('checkin', { teleport: false, quiet: true }); }
+    if (this.state.is('enter')) this.state.complete('enter');
     if (!this.state.is('checkin')) { this._info(`Already checked in — ${this.pass.flight}, seat ${this.pass.seat}, gate ${this.pass.gate}.`); return; }
     const livery = AIRLINE_LIVERIES.find((l) => l.code === this.pass.code) || AIRLINE_LIVERIES[0];
     this.ui.showCard({
@@ -1205,7 +1206,7 @@ export class JourneyRunner {
     this._setCabinCollision(false);
     const seat = this.cabin.seats.get(SEAT_ID);
     this.seated = { kind: 'aircraft', eye: seat.eye.clone() };
-    this.headYaw = -0.95; this.headPitch = -0.12;
+    this.headYaw = -0.8; this.headPitch = -0.04;
     this._hideGuide();
     this._startFlight();
   }
@@ -1434,6 +1435,8 @@ export class JourneyRunner {
     this._lastPhase = null; this._lastDisplay = null;
     this.clouds.setVisible(true);
     this.cabin.group.visible = true;
+    const cam0 = sim.engine.camera;
+    this._near0 = cam0.near; cam0.near = 0.08; cam0.updateProjectionMatrix();
     sim.walker.enabled = false;
     sim.hud.setCinematic(true);
     this.ui.guide.classList.remove('show');
@@ -1447,6 +1450,7 @@ export class JourneyRunner {
   _endFlight(silent) {
     const sim = this.sim;
     this.flight = null;
+    if (this._near0) { const c = this.sim.engine.camera; c.near = this._near0; c.updateProjectionMatrix(); this._near0 = 0; }
     if (this.clouds) this.clouds.setVisible(false);
     this.ui.flight.classList.remove('show');
     this.ui.setFade(0);
@@ -1471,7 +1475,7 @@ export class JourneyRunner {
     if (!this.flight) return null;
     if (typeof v === 'string') {
       const tl = this.flight.timeline;
-      const map = { above: ['climb', 0.85], clouds: ['climb', 0.5], climb: ['climb', 0.18], landing: ['descent', 0.86], final: ['descent', 0.8], touchdown: ['rollout', 0.05] };
+      const map = { above: ['climb', 0.85], clouds: ['climb', 0.64], climb: ['climb', 0.18], landing: ['descent', 0.86], final: ['descent', 0.8], touchdown: ['rollout', 0.05] };
       if (map[v]) { const p = tl.byId(map[v][0]); this.t = p.t0 + p.dur * map[v][1]; } else { const p = tl.byId(v); if (p) this.t = p.t0 + Math.min(1.5, p.dur * 0.3); }
     } else this.t = Number(v) || 0;
     this._flightTick(0);
@@ -1549,7 +1553,7 @@ export class JourneyRunner {
     const display = this._display(s);
     if (display !== this._lastDisplay) { this._lastDisplay = display; this._narrate(display); this._renderChips(display); }
     this.ui.phase.textContent = FLIGHT_LABELS[display] || display;
-    const kmh = Math.round(Math.min(s.speed, 240) * 3.6);
+    const kmh = Math.round(s.airborne ? 300 + 560 * smooth(0, 2300, s.alt) : s.speed * 3.6);
     const altFt = Math.round(s.alt * 3.281 / 10) * 10;
     this.ui.read.replaceChildren(h('em', { text: 'GS' }), `${kmh} km/h  `, h('em', { text: 'ALT' }), `${altFt.toLocaleString('en-US')} ft  `, h('em', { text: 'T+' }), `${Math.floor(this.t / 60)}:${String(Math.floor(this.t % 60)).padStart(2, '0')}`);
     const capt = s.phase === 'cut' ? ['Holding over the Indus plain', 'cleared to descend · simulated'] : s.phase === 'taxiCut' ? ['Taxiing to runway 20', 'time-lapse'] : s.phase === 'arrived' ? ['Arrived — simulated flight', `${this.pass.flight} · ${this.pass.from} → ${this.pass.to}`] : ['', ''];
