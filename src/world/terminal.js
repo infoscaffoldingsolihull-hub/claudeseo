@@ -659,8 +659,8 @@ export class Terminal {
       b.box(0.08, h, 0.08, 0, 0, -w / 2 + 0.04, f); b.box(0.08, h, 0.08, 0, 0, w / 2 - 0.04, f);
       b.box(0.08, 0.16, w, 0, 0, 0, f); b.box(0.08, 0.1, w, 0, h - 0.1, 0, f);
       // Manifestation band: Ajrak-red squares at eye level (safety marking on full-height glass).
-      for (let z = -w / 2 + 0.2; z < w / 2 - 0.1; z += 0.22) b.box(0.085, 0.09, 0.09, 0, 1.42, z, 0x9b1b30);
-      for (let z = -w / 2 + 0.31; z < w / 2 - 0.1; z += 0.22) b.box(0.085, 0.05, 0.05, 0, 1.0, z, 0xc9a227);
+      for (let z = -w / 2 + 0.16; z < w / 2 - 0.1; z += 0.15) b.box(0.075, 0.055, 0.055, 0, 1.45, z, 0x9b1b30);
+      for (let z = -w / 2 + 0.235; z < w / 2 - 0.1; z += 0.15) b.box(0.075, 0.03, 0.03, 0, 1.0, z, 0xc9a227);
       const frame = b.build();
       const glass = new THREE.BoxGeometry(0.025, h - 0.26, w - 0.16);
       glass.translate(0, 0.16 + (h - 0.26) / 2, 0);

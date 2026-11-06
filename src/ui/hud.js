@@ -478,7 +478,7 @@ export class HUD {
       ]),
       el('section', { class: 'help-keys' }, [
         el('h3', { class: 'section', text: 'Keyboard' }),
-        el('div', { class: 'keys' }, KEY_BINDINGS.map(([k, d]) => el('div', {}, [el('kbd', { text: k }), el('span', { text: d })]))),
+        el('div', { class: 'keys' }, [...KEY_BINDINGS, ['J', 'Passenger journey — check in, board, fly (Site Walk)']].map(([k, d]) => el('div', {}, [el('kbd', { text: k }), el('span', { text: d })]))),
       ]),
       el('section', { class: 'help-touch' }, [
         el('h3', { class: 'section', text: 'Phone & tablet' }),

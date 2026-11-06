@@ -311,7 +311,7 @@ function sandSet(size, seed) {
     const drift = pfbm(u, v, 3, 4, seed + 21);
     const silt = smoothstep(0.55, 0.75, pfbm(u, v, 5, 3, seed + 41));
     const pebble = smoothstep(0.9, 0.97, pnoise(u * 96, v * 96, 96, seed + 51));
-    const tone = 0.62 + drift * 0.16 + ripple2 * 0.06 + (grain - 0.5) * 0.08 - silt * 0.1 - pebble * 0.2;
+    const tone = 0.6 + drift * 0.18 + ripple2 * 0.1 + (grain - 0.5) * 0.14 - silt * 0.16 - pebble * 0.28;
     o.h = clamp(ripple2 * 0.35 + grain * 0.15 + drift * 0.35 + pebble * 0.3, 0, 1);
     o.r = clamp(tone * 0.98, 0, 1);
     o.g = clamp(tone * 0.86, 0, 1);
@@ -389,8 +389,8 @@ function dryGrassSet(size, seed) {
     const blades = pnoise(u * 300, v * 60, 300, seed + 3) * 0.6 + pnoise(u * 180, v * 140, 180, seed + 4) * 0.4;
     const cover = smoothstep(0.38, 0.6, clump);
     const green = smoothstep(0.6, 0.85, pfbm(u, v, 4, 2, seed + 9)) * 0.5;
-    const soil = 0.42 + pnoise(u * 90, v * 90, 90, seed + 7) * 0.08;
-    const grass = 0.55 + blades * 0.25;
+    const soil = 0.36 + pnoise(u * 90, v * 90, 90, seed + 7) * 0.12;
+    const grass = 0.5 + blades * 0.35;
     const t = cover * smoothstep(0.25, 0.6, blades);
     o.h = clamp(t * 0.7 + blades * 0.2, 0, 1);
     o.r = clamp(lerp(soil * 0.95, grass * (0.92 - green * 0.3), t), 0, 1);

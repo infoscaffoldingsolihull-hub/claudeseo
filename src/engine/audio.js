@@ -479,11 +479,12 @@ export class AudioEngine {
       const hour = num(s.hour, sc.valid ? num(sc.hour, NaN) : NaN);
       // Dawn chorus: busiest when the sun is low, quieter through the heat of noon.
       const chorus = day < 0.55 ? 1 : 0.5;
-      const near = nearGround * (0.35 + 0.65 * treeNear);
+      // Up high the chorus is faint and distant, but never entirely absent.
+      const near = Math.max(nearGround * (0.35 + 0.65 * treeNear), 0.12);
       const rate = chorus * birdWeather * (0.2 + near);
       if (t > nx.bird) {
         nx.bird = t + (1.6 + Math.random() * 5.5) / Math.max(0.12, rate);
-        if (near > 0.05) this._birdCall(near * birdWeather, day, hour);
+        this._birdCall(near * birdWeather, day, hour);
       }
       // Kite whistles carry far and come from overhead: also audible up high.
       if (t > nx.kite) {

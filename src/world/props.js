@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makeRng, hash2i } from '../engine/noise.js';
+import { soundscape } from '../engine/audio.js';
 
 /**
  * Shared world-building toolkit + small living props.
@@ -930,83 +931,306 @@ export class DustPuffs {
 
 /* ============================================================== BirdFlock */
 
+/*
+ * Birds of the Indus plain, animated entirely on the GPU (one instanced draw,
+ * no per-frame CPU work beyond a handful of uniforms):
+ *   0 black kites   — soaring circles on thermals, 70–380 m, occasional wing-beats
+ *   1 sparrows      — small busy flocks near tree groves, bounding flight
+ *   2 cattle egrets — white, slow deep beats, looping low over the farmland
+ *   3 rock pigeons  — a flock wheeling over the terminal / landside
+ *   4 common mynas  — small dark flocks near groves
+ * Every bird's path is an analytic function of time (flock centre wander +
+ * per-bird cohesion orbit, a boids-like look), orientation comes from a finite
+ * difference of that path, wings flap and fold in the vertex shader. Far birds
+ * are held at a minimum on-screen size so they read from the overview camera.
+ * By night they roost (hidden); at dusk they come down low.
+ */
 const BIRD_VERT = /* glsl */ `
-  attribute float aWing;
+  attribute float aWing;     // 0 body/tail, 0..1 along the wing (span fraction)
+  attribute vec4 aA;         // species, centre x, centre z, bird seed
+  attribute vec4 aB;         // orbit radius, altitude, speed (m/s), phase
+  attribute vec4 aC;         // colour rgb, wingspan (m)
+  attribute vec4 aD;         // flock wander radius, flock seed, flock speed, max boost
   uniform float uTime;
+  uniform float uDay;
+  uniform float uPxScale;
+  uniform vec3 uSunDir;
+  uniform vec3 uSunCol;
+  uniform vec3 uSkyCol;
+  varying vec3 vTop;
+  varying vec3 vUnder;
+  #include <fog_pars_vertex>
+
+  vec3 birdPos( float t ) {
+    float sp = aA.x;
+    float seed = aA.w;
+    vec2 c = aA.yz;
+    float roost = mix( 0.25, 1.0, uDay );
+    if ( sp < 0.5 ) {
+      // Kite on a thermal: the thermal itself wanders slowly downwind.
+      c += vec2( sin( t * 0.011 + aD.y * 7.0 ), cos( t * 0.009 + aD.y * 3.0 ) ) * aD.x;
+      float r = aB.x * ( 1.0 + 0.18 * sin( t * 0.05 + seed * 11.0 ) );
+      float a = aB.w + t * aB.z / aB.x;
+      float y = aB.y * roost + 22.0 * sin( t * 0.035 + seed * 5.0 );
+      return vec3( c.x + cos( a ) * r, y, c.y + sin( a ) * r );
+    }
+    if ( sp > 1.5 && sp < 2.5 ) {
+      // Egrets: a long loop over the fields, loose V formation (offsets in aB.xw).
+      float a = aD.y * 6.2832 + t * aD.z / aD.x;
+      vec2 dir = vec2( -sin( a ), cos( a ) * 0.22 );
+      vec2 base = c + vec2( cos( a ) * aD.x, sin( a ) * aD.x * 0.22 );
+      vec2 fw = normalize( dir + vec2( 1e-4 ) );
+      vec2 side = vec2( -fw.y, fw.x );
+      vec2 p = base + side * aB.w - fw * abs( aB.w ) * 0.8 + vec2( sin( t * 0.3 + seed * 9.0 ), cos( t * 0.27 + seed * 4.0 ) ) * 1.2;
+      return vec3( p.x, aB.y * roost + sin( t * 0.4 + seed * 3.0 ) * 1.5, p.y );
+    }
+    // Flocks (sparrows, mynas, pigeons): a wandering flock centre + cohesion orbits.
+    float ft = t * aD.z / max( aD.x, 1.0 );
+    vec2 fc = c + vec2( sin( ft + aD.y * 6.2832 ) + 0.35 * sin( ft * 2.3 + aD.y * 11.0 ), cos( ft * 0.83 + aD.y * 4.0 ) + 0.3 * sin( ft * 1.9 ) ) * aD.x;
+    float a = aB.w + t * aB.z / max( aB.x, 0.5 );
+    float r = aB.x * ( 0.7 + 0.3 * sin( t * 0.7 + seed * 13.0 ) );
+    vec3 off = vec3( cos( a ) * r, sin( a * 1.3 + seed * 5.0 ) * r * 0.25, sin( a ) * r * 0.8 );
+    float y = aB.y * roost + off.y;
+    if ( sp < 1.5 || sp > 3.5 ) y += abs( sin( t * 2.6 + seed * 7.0 ) ) * 0.9;   // bounding flight
+    return vec3( fc.x + off.x, max( y, 2.0 ), fc.y + off.z );
+  }
+
   void main() {
-    vec3 p = position;
-    #ifdef USE_INSTANCING
-      float ph = instanceMatrix[3].x * 0.13 + instanceMatrix[3].z * 0.07;
-    #else
-      float ph = 0.0;
-    #endif
-    float flap = sin(uTime * 4.5 + ph) * 0.6 * step(0.5, fract(uTime * 0.07 + ph * 0.1));
-    p.y += abs(aWing) * abs(p.x) * flap;
-    gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(p, 1.0);
+    float sp = aA.x;
+    float seed = aA.w;
+    float t = uTime + seed * 37.0;
+    vec3 p0 = birdPos( t );
+    vec3 p1 = birdPos( t + 0.12 );
+    vec3 p2 = birdPos( t + 0.24 );
+    vec3 f = normalize( p1 - p0 + vec3( 0.0, 0.0, 1e-4 ) );
+    vec3 f2 = normalize( p2 - p1 + vec3( 0.0, 0.0, 1e-4 ) );
+    vec3 rgt = normalize( cross( f, vec3( 0.0, 1.0, 0.0 ) ) );
+    // Bank into the turn.
+    float turn = dot( cross( f, f2 ), vec3( 0.0, 1.0, 0.0 ) );
+    float bank = clamp( -turn * ( sp < 0.5 ? 26.0 : 10.0 ), -0.9, 0.9 );
+    vec3 up0 = cross( rgt, f );
+    vec3 up = normalize( up0 * cos( bank ) + rgt * sin( bank ) );
+    rgt = normalize( cross( f, up ) );
+
+    // Wing-beats by species.
+    float flap = 0.0; float fold = 1.0;
+    if ( sp < 0.5 ) {
+      float gate = smoothstep( 0.86, 0.9, fract( t * 0.07 + seed ) ) * ( 1.0 - smoothstep( 0.96, 1.0, fract( t * 0.07 + seed ) ) );
+      flap = sin( t * 5.5 ) * 0.55 * gate + 0.1;
+    } else if ( sp < 1.5 || sp > 3.5 ) {
+      float glide = step( 0.62, fract( t * 0.9 + seed ) );
+      flap = sin( t * 15.0 + seed * 20.0 ) * 0.9 * ( 1.0 - glide );
+      fold = mix( 1.0, 0.35, glide );
+    } else if ( sp < 2.5 ) {
+      flap = sin( t * 2.7 + seed * 6.0 ) * 0.75;
+    } else {
+      float glide = step( 0.8, fract( t * 0.21 + seed ) );
+      flap = mix( sin( t * 8.0 + seed * 9.0 ) * 0.8, 0.15, glide );
+    }
+    vec3 lp = position;
+    float wing = aWing;
+    lp.x *= mix( 1.0, fold, step( 0.01, wing ) );
+    lp.y += flap * wing * 0.42 + flap * max( wing - 0.5, 0.0 ) * 0.35;
+    lp.x *= 1.0 - abs( flap ) * wing * 0.12;
+
+    // Minimum on-screen size so distant birds stay legible.
+    float span = aC.w;
+    float dist = length( p0 - cameraPosition );
+    float px = span * uPxScale / max( dist, 1.0 );
+    float boost = clamp( 14.0 / max( px, 1e-3 ), 1.0, aD.w );
+    float s = span * boost * step( 0.02, uDay );
+    vec3 wpos = p0 + ( rgt * lp.x + up * lp.y + f * lp.z ) * s;
+
+    // Shading: lit top, darker underside (silhouette against the sky).
+    vec3 n = up;
+    float sunK = max( dot( n, uSunDir ), 0.0 );
+    vec3 base = aC.rgb;
+    vTop = base * ( uSkyCol * 0.75 + uSunCol * sunK * 0.9 );
+    vUnder = base * ( uSkyCol * 0.42 + uSunCol * max( -dot( n, uSunDir ), 0.0 ) * 0.5 + vec3( 0.06, 0.05, 0.04 ) );
+    vec4 mvPosition = viewMatrix * vec4( wpos, 1.0 );
+    gl_Position = projectionMatrix * mvPosition;
+    #include <fog_vertex>
   }
 `;
 const BIRD_FRAG = /* glsl */ `
-  uniform vec3 uColor; uniform float uOpacity;
-  void main() { gl_FragColor = vec4(uColor, uOpacity); }
+  uniform float uOpacity;
+  varying vec3 vTop;
+  varying vec3 vUnder;
+  #include <fog_pars_fragment>
+  void main() {
+    gl_FragColor = vec4( gl_FrontFacing ? vTop : vUnder, uOpacity );
+    #include <fog_fragment>
+  }
 `;
 
-/** Black kites riding thermals over the plain (they are everywhere in Sindh). */
+/** Unit bird, wingspan 1, nose towards +z, up +y; triangles wound to face up. */
+function birdGeometry() {
+  const P = []; const W = [];
+  const tri = (a, b, c, wa, wb, wc) => {
+    // Wind counter-clockwise seen from above (+y): normal.y > 0.
+    const cr = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]);
+    if (cr < 0) { P.push(...a, ...b, ...c); W.push(wa, wb, wc); } else { P.push(...a, ...c, ...b); W.push(wa, wc, wb); }
+  };
+  // Body: a slim diamond with a raised spine, head forward.
+  const nose = [0, 0.0, 0.3]; const tailJ = [0, 0, -0.2]; const l = [-0.045, 0, 0.06]; const r = [0.045, 0, 0.06]; const spine = [0, 0.035, 0.05];
+  tri(nose, l, spine, 0, 0, 0); tri(nose, spine, r, 0, 0, 0); tri(l, tailJ, spine, 0, 0, 0); tri(spine, tailJ, r, 0, 0, 0);
+  tri(nose, r, l, 0, 0, 0); tri(l, r, tailJ, 0, 0, 0);
+  // Forked tail.
+  tri([-0.03, 0, -0.18], [0.03, 0, -0.18], [-0.09, 0, -0.42], 0, 0, 0);
+  tri([0.03, 0, -0.18], [0.09, 0, -0.42], [0, 0, -0.33], 0, 0, 0);
+  tri([0.03, 0, -0.18], [0, 0, -0.33], [-0.09, 0, -0.42], 0, 0, 0);
+  // Wings: inner panel (root → elbow) and outer, swept, fingered hand.
+  for (const sd of [-1, 1]) {
+    const r0 = [sd * 0.04, 0, 0.12]; const r1 = [sd * 0.04, 0, -0.1];
+    const e0 = [sd * 0.24, 0.01, 0.12]; const e1 = [sd * 0.24, 0.01, -0.14];
+    const t0 = [sd * 0.5, 0.02, 0.0]; const t1 = [sd * 0.44, 0.02, -0.1];
+    tri(r0, e0, r1, 0.08, 0.48, 0.08); tri(e0, e1, r1, 0.48, 0.48, 0.08);
+    tri(e0, t0, e1, 0.48, 1, 0.48); tri(t0, t1, e1, 1, 0.9, 0.48);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+  g.setAttribute('aWing', new THREE.Float32BufferAttribute(W, 1));
+  return g;
+}
+
+/** Points the soundscape and bird habitats are measured against. */
+const WORK_POINTS = [
+  [-540, 0], [-350, 0], [-560, -420], [-180, 900], [0, 1900], [0, 2350], [320, 1650], [340, 1850], [-100, -900],
+];
+
 export class BirdFlock {
-  constructor(scene, { count = 40, centres = [[-900, -300], [-200, 1200], [-2600, -800]], seed = 9 } = {}) {
+  constructor(scene, { count = 40, centres = null, seed = 9 } = {}) {
     const rng = makeRng(seed);
-    const P = [0, 0, -0.8, -0.12, 0, 0.4, 0.12, 0, 0.4, -0.12, 0, 0.4, 0, 0, 0.9, 0.12, 0, 0.4];
-    const W = [0, 0, 0, 0, 0, 0];
-    for (const s of [-1, 1]) {
-      P.push(s * 0.08, 0, -0.3, s * 1.3, 0, 0.05, s * 0.08, 0, 0.35);
-      W.push(s, s, s);
+    const habitat = (scene.userData && scene.userData.habitat) || {};
+    const groves = (habitat.groves && habitat.groves.length ? habitat.groves : [[-760, -20], [-1500, -280], [220, 2200], [-760, 2600]]).slice(0, 10);
+    const farms = (habitat.farms && habitat.farms.length ? habitat.farms : [[2200, 1500], [2600, -900]]).slice(0, 4);
+    this.groves = groves;
+    const birds = [];
+    const add = (sp, cx, cz, B, col, span, D) => birds.push({ sp, cx, cz, B, col, span, D, seed: rng() });
+    const C = (h) => new THREE.Color(h);
+
+    // Black kites: thermals around the airfield, visible from the overview.
+    const thermals = centres || [[-400, -300], [150, 600], [-650, 900], [-150, 1700], [-1100, 200], [350, -900]];
+    const kites = Math.max(14, Math.round(count * 0.6));
+    for (let i = 0; i < kites; i++) {
+      const th = thermals[i % thermals.length];
+      const col = C(0x3a2c22).lerp(C(0x6a4e36), rng() * 0.6);
+      add(0, th[0] + (rng() - 0.5) * 120, th[1] + (rng() - 0.5) * 120, [45 + rng() * 90, 70 + rng() * 310, 8 + rng() * 4, rng() * 6.28], col, 1.45 + rng() * 0.25, [160, (i % thermals.length) / thermals.length, 0, 24]);
     }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
-    g.setAttribute('aWing', new THREE.Float32BufferAttribute(W, 1));
-    this.geometry = g;
+    // Sparrows and mynas at the tree groves; a pigeon flock over the terminal.
+    let fi = 0;
+    for (const g of groves) {
+      const myna = fi % 3 === 2;
+      const n = myna ? 7 + Math.floor(rng() * 5) : 12 + Math.floor(rng() * 8);
+      const fs = rng();
+      const wander = 25 + rng() * 40;
+      const alt = 7 + rng() * 10;
+      for (let i = 0; i < n; i++) {
+        const col = myna ? C(0x2e2219).lerp(C(0x4a3424), rng()) : C(0x6b5440).lerp(C(0x8d7458), rng());
+        add(myna ? 4 : 1, g[0], g[1], [2 + rng() * 6, alt + rng() * 4, 6 + rng() * 3, rng() * 6.28], col, myna ? 0.4 : 0.25, [wander, fs, 7 + rng() * 2, 6]);
+      }
+      fi++;
+    }
+    const pig = [[-560, 120], [-420, -150]];
+    for (let k = 0; k < pig.length; k++) {
+      const fs = rng();
+      for (let i = 0; i < 18; i++) {
+        const col = C(0x6f7380).lerp(C(0x9a9ca6), rng());
+        add(3, pig[k][0], pig[k][1], [3 + rng() * 7, 32 + rng() * 14, 12 + rng() * 2, rng() * 6.28], col, 0.65, [110, fs, 13, 14]);
+      }
+    }
+    // Cattle egrets over the irrigated fields (loose V).
+    for (const f of farms) {
+      const n = 6 + Math.floor(rng() * 5);
+      const fs = rng();
+      const alt = 14 + rng() * 18;
+      for (let i = 0; i < n; i++) {
+        const side = (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 3.2;
+        add(2, f[0], f[1], [0, alt + rng() * 3, 0, side], C(0xf4f1e8), 0.92, [320 + rng() * 120, fs, 9, 16]);
+      }
+    }
+
+    const N = birds.length;
+    const aA = new Float32Array(N * 4); const aB = new Float32Array(N * 4); const aC = new Float32Array(N * 4); const aD = new Float32Array(N * 4);
+    for (let i = 0; i < N; i++) {
+      const b = birds[i];
+      aA.set([b.sp, b.cx, b.cz, b.seed], i * 4);
+      aB.set(b.B, i * 4);
+      aC.set([b.col.r, b.col.g, b.col.b, b.span], i * 4);
+      aD.set(b.D, i * 4);
+    }
+    const base = birdGeometry();
+    const geo = new THREE.InstancedBufferGeometry();
+    geo.setAttribute('position', base.attributes.position);
+    geo.setAttribute('aWing', base.attributes.aWing);
+    geo.setAttribute('aA', new THREE.InstancedBufferAttribute(aA, 4));
+    geo.setAttribute('aB', new THREE.InstancedBufferAttribute(aB, 4));
+    geo.setAttribute('aC', new THREE.InstancedBufferAttribute(aC, 4));
+    geo.setAttribute('aD', new THREE.InstancedBufferAttribute(aD, 4));
+    geo.instanceCount = N;
+    this._base = base;
+    this.geometry = geo;
+    this.count = N;
     this.material = new THREE.ShaderMaterial({
-      vertexShader: BIRD_VERT, fragmentShader: BIRD_FRAG,
-      uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color(0x2c2620) }, uOpacity: { value: 1 } },
-      side: THREE.DoubleSide, transparent: true,
+      vertexShader: BIRD_VERT,
+      fragmentShader: BIRD_FRAG,
+      uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
+        uTime: { value: 0 }, uDay: { value: 1 }, uOpacity: { value: 1 }, uPxScale: { value: 800 },
+        uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uSunCol: { value: new THREE.Color(1, 0.95, 0.85) }, uSkyCol: { value: new THREE.Color(0.6, 0.65, 0.75) },
+      }]),
+      side: THREE.DoubleSide,
+      fog: true,
     });
-    this.mesh = new THREE.InstancedMesh(g, this.material, count);
+    this.mesh = new THREE.Mesh(geo, this.material);
     this.mesh.frustumCulled = false;
-    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.mesh.name = 'kites';
+    this.mesh.name = 'birds';
+    this.mesh.onBeforeRender = (renderer, scn, camera) => this._frame(renderer, scn, camera);
     scene.add(this.mesh);
-    this.birds = [];
-    for (let i = 0; i < count; i++) {
-      const c = centres[i % centres.length];
-      this.birds.push({ cx: c[0] + (rng() - 0.5) * 300, cz: c[1] + (rng() - 0.5) * 300, r: 40 + rng() * 120, a: rng() * 6.28, w: (0.12 + rng() * 0.1) * (rng() < 0.5 ? 1 : -1), h: 50 + rng() * 160, s: 1.6 + rng() * 0.8 });
-    }
     this.time = 0;
   }
 
   update(dt, light = 1) {
     this.time += dt;
-    this.material.uniforms.uTime.value = this.time;
-    this.material.uniforms.uOpacity.value = light;
-    this.mesh.visible = light > 0.05;
-    if (!this.mesh.visible) return;
-    for (let i = 0; i < this.birds.length; i++) {
-      const b = this.birds[i];
-      b.a += b.w * dt;
-      const x = b.cx + Math.cos(b.a) * b.r; const z = b.cz + Math.sin(b.a) * b.r;
-      const y = b.h + Math.sin(this.time * 0.2 + i) * 8;
-      const vx = -Math.sin(b.a) * b.w; const vz = Math.cos(b.a) * b.w;
-      _e.set(0, Math.atan2(-vx, -vz), b.w > 0 ? -0.35 : 0.35, 'YXZ');
-      _q.setFromEuler(_e);
-      _m.compose(_p.set(x, y, z), _q, _s.setScalar(b.s));
-      this.mesh.setMatrixAt(i, _m);
+    const u = this.material.uniforms;
+    u.uTime.value = this.time;
+    u.uDay.value = light;
+    // Roosting at night: nothing in the sky.
+    this.mesh.visible = light > 0.03;
+    if (!this.mesh.visible) soundscape.birds = 0;
+  }
+
+  /** Per-frame: pixel scale, sun & sky light, and the listener context for the audio. */
+  _frame(renderer, scene, camera) {
+    if (!camera || !camera.isPerspectiveCamera) return;
+    const u = this.material.uniforms;
+    const h = renderer.domElement ? renderer.domElement.height : 900;
+    u.uPxScale.value = h / (2 * Math.tan((camera.fov * Math.PI) / 360));
+    const sky = scene && scene.userData ? scene.userData.sky : null;
+    if (sky) {
+      u.uSunDir.value.copy(sky.sunDirection);
+      u.uSunCol.value.copy(sky.sunLight.color).multiplyScalar(Math.min(1.4, sky.sunLight.intensity / 3));
+      u.uSkyCol.value.copy(sky.hemi.color).multiplyScalar(0.4 + sky.hemi.intensity);
+      soundscape.hour = sky.hour;
     }
-    this.mesh.instanceMatrix.needsUpdate = true;
+    const cp = camera.position;
+    soundscape.valid = true;
+    soundscape.x = cp.x; soundscape.y = cp.y; soundscape.z = cp.z;
+    let dt = Infinity;
+    for (const g of this.groves) dt = Math.min(dt, Math.hypot(cp.x - g[0], cp.z - g[1]));
+    soundscape.trees = clamp01(1 - (Math.hypot(Math.max(0, dt - 60), cp.y) / 450));
+    let dw = Infinity;
+    for (const w of WORK_POINTS) dw = Math.min(dw, Math.hypot(cp.x - w[0], cp.z - w[1], cp.y));
+    soundscape.work = clamp01(1 - (dw - 90) / 700);
+    soundscape.birds = this.mesh.visible ? u.uDay.value : 0;
   }
 
   dispose() {
-    this.geometry.dispose(); this.material.dispose();
+    this._base.dispose(); this.geometry.dispose(); this.material.dispose();
     if (this.mesh.parent) this.mesh.parent.remove(this.mesh);
   }
 }
+
+function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
 
 /* ============================================================ small props */
 

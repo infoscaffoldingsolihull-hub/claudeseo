@@ -150,7 +150,6 @@ float hddStrip( vec2 p ) {
 float hddVerge( vec2 p ) {
   float rd = hddRoadDist( p );
   float v = ( 1.0 - smoothstep( 22.0, 34.0, rd ) ) * smoothstep( 8.0, 11.0, rd ) * ( 1.0 - smoothstep( -2600.0, -3400.0, p.x ) );
-  v = max( v, hddBox( p, vec4( -900.0, -720.0, -320.0, 300.0 ), 40.0 ) * 0.85 );
   return v;
 }
 `;
@@ -172,7 +171,7 @@ const FRAG_BODY = `
   float nearK = 1.0 - smoothstep( 40.0, 220.0, camD );
   vec4 n0 = texture2D( uNoise, w / 4100.0 + 0.13 );
   vec4 n1 = texture2D( uNoise, w / 1500.0 );
-  vec4 n2 = texture2D( uNoise, w / 270.0 + 0.31 );
+  vec4 n2 = mix( texture2D( uNoise, w / 270.0 + 0.31 ), texture2D( uNoise, mat2( 0.8, -0.6, 0.6, 0.8 ) * w / 333.0 + 0.47 ), smoothstep( 0.3, 0.7, n0.a ) );
   vec4 n3 = texture2D( uNoise, w / 43.0 + 0.67 );
   vec4 n4 = texture2D( uNoise, w / 6.5 );
   vec4 n5 = texture2D( uNoise, w / 1.31 + 0.5 );
@@ -181,8 +180,12 @@ const FRAG_BODY = `
   float macro = n1.r * 0.5 + n2.g * 0.3 + n0.b * 0.2;
   vec3 soil = mix( uSoilA, uSoilB, smoothstep( 0.36, 0.7, macro ) );
   float blown = smoothstep( 0.48, 0.74, n2.b * 0.65 + n0.r * 0.35 );
-  soil = mix( soil, uSoilC, blown * 0.8 );
+  soil = mix( soil, uSoilC, blown * 0.6 );
   soil *= 0.86 + 0.28 * n0.g;
+  // Crusted silt plates and pale drift sand at metre scale: the contrast that reads as texture.
+  float plates = smoothstep( 0.5, 0.56, n4.r * 0.7 + n3.b * 0.3 );
+  soil = mix( soil, uSoilB * ( 0.9 + 0.2 * n5.g ), plates * ( 1.0 - blown ) * 0.45 );
+  soil = mix( soil, uSoilC, smoothstep( 0.58, 0.66, n4.a * 0.6 + n5.r * 0.4 ) * 0.35 );
   // Wind ripples (~0.9 m) in the loose, pale sand, fading with distance.
   vec2 rd = vec2( 0.81, 0.59 );
   float rip = sin( dot( w, rd ) * 7.0 + n3.r * 14.0 + n4.b * 4.0 );
@@ -200,21 +203,25 @@ const FRAG_BODY = `
   float gPatch = smoothstep( 0.42, 0.62, n2.r * 0.42 + n3.g * 0.43 + n4.b * 0.15 ) * vMask.r;
   float gCov = gPatch * smoothstep( 0.25, 0.62, n4.a * 0.6 + n5.b * 0.4 + gPatch * 0.25 );
   vec3 wild = mix( uGrass, uStraw, smoothstep( 0.3, 0.75, n3.a ) );
-  wild *= 0.78 + 0.36 * n5.g;
-  soil = mix( soil, wild, gCov * 0.92 );
+  // Tussock speckle: bright straw tips over dark, shaded bases.
+  float tuss = smoothstep( 0.35, 0.65, n5.g * 0.7 + n6.b * 0.3 * grainK + 0.15 * ( 1.0 - grainK ) );
+  wild *= mix( 0.62, 1.12, tuss );
+  soil = mix( soil, wild, gCov * 0.85 );
   hddH += gCov * ( n5.g - 0.3 ) * 0.025 * nearK;
   // ---- runway strip / taxiway corridor: mown grass, green and straw patches
   float strip = hddStrip( w ) * ( 1.0 - clamp( vMask.a, 0.0, 1.0 ) );
   float verge = hddVerge( w );
-  float greenAmt = smoothstep( 0.35, 0.7, n2.a * 0.6 + n3.b * 0.4 );
+  float greenAmt = smoothstep( 0.3, 0.75, n1.a * 0.45 + n2.a * 0.4 + n3.b * 0.15 );
   vec3 mown = mix( uStraw * 0.92, uGreen, greenAmt * 0.75 );
   mown *= 0.8 + 0.3 * n4.r;
   float bare = smoothstep( 0.6, 0.78, n3.r * 0.6 + n2.b * 0.4 ) * 0.7;
   float sCov = strip * ( 1.0 - bare ) * smoothstep( 0.15, 0.5, n5.b * 0.5 + n4.a * 0.5 + 0.2 );
+  mown *= mix( 0.75, 1.1, smoothstep( 0.3, 0.7, n5.g * 0.7 + n6.b * 0.3 * grainK + 0.15 * ( 1.0 - grainK ) ) );
   soil = mix( soil, mown, clamp( sCov, 0.0, 1.0 ) );
   // Irrigated landside verges: lush and green.
-  vec3 lush = uGreen * ( 0.85 + 0.3 * n4.g ) * mix( vec3( 1.0 ), vec3( 0.86, 1.08, 0.86 ), n3.a );
-  float vCov = verge * smoothstep( 0.2, 0.5, n5.b * 0.5 + n4.a * 0.5 + 0.15 );
+  vec3 lush = mix( uGreen, uGrass, smoothstep( 0.35, 0.7, n3.a ) ) * ( 0.8 + 0.3 * n4.g );
+  lush *= mix( 0.72, 1.1, smoothstep( 0.3, 0.7, n5.g * 0.7 + n6.b * 0.3 * grainK + 0.15 * ( 1.0 - grainK ) ) );
+  float vCov = verge * smoothstep( 0.35, 0.6, n3.g * 0.5 + n4.a * 0.3 + n5.b * 0.2 );
   soil = mix( soil, lush, clamp( vCov, 0.0, 1.0 ) );
   hddH += ( sCov + vCov ) * ( n5.g - 0.5 ) * 0.02 * nearK;
   // ---- graded platform (apron / terminal works): compacted pale earth with tyre tracks
@@ -329,12 +336,12 @@ class GrassField {
     const pos = []; const tip = []; const col = [];
     if (kind === 0) {
       // A tussock: 16 thin blades (one tapered triangle each), splayed outwards.
-      const blades = 16;
+      const blades = 26;
       for (let i = 0; i < blades; i++) {
         const a = rng() * Math.PI * 2;
-        const r0 = rng() * 0.07;
-        const lean = 0.05 + rng() * 0.25;
-        const h = 0.22 + rng() * 0.32;
+        const r0 = rng() * 0.1;
+        const lean = 0.06 + rng() * 0.34;
+        const h = 0.16 + rng() * 0.3 - lean * 0.2;
         const w = 0.012 + rng() * 0.01;
         const dx = Math.cos(a); const dz = Math.sin(a);
         const px = -dz * w; const pz = dx * w;
@@ -505,9 +512,9 @@ export class TerrainSystem {
     const col = (h) => new THREE.Color(h);
     this.uniforms = {
       uNoise: { value: this.noise },
-      uSoilA: { value: col('#b59268') }, uSoilB: { value: col('#8a6c4e') }, uSoilC: { value: col('#dcc59c') },
-      uGrass: { value: col('#6f7140') }, uGraded: { value: col('#bfa984') },
-      uStraw: { value: col('#b7a56c') }, uGreen: { value: col('#587a30') },
+      uSoilA: { value: col('#bfa685') }, uSoilB: { value: col('#8c7458') }, uSoilC: { value: col('#e0d2b6') },
+      uGrass: { value: col('#7c7a4e') }, uGraded: { value: col('#c4b090') },
+      uStraw: { value: col('#b3a476') }, uGreen: { value: col('#66783f') },
       uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uCloud: { value: new THREE.Vector4(0, 0, 0.14, 0) },
       uCrop1: { value: col('#56702f') }, uCrop2: { value: col('#71823d') }, uFallow: { value: col('#86694a') },
       uMustard: { value: col('#a99a3a') }, uUrban: { value: col('#9a9184') },

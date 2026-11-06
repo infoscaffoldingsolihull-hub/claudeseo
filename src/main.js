@@ -20,6 +20,7 @@ import { TouchControls } from './ui/touch.js';
 import { ChatPanel } from './ui/chat.js';
 import { Onboarding } from './ui/onboarding.js';
 import { writeSlot, readSlot } from './ui/storage.js';
+import { JourneyRunner } from './world/cabin.js';
 
 /**
  * SKY GATEWAY HYDERABAD — Project Management Simulator.
@@ -88,6 +89,9 @@ class Simulator {
     this._shake = 0;
     this._raycaster = new THREE.Raycaster();
     this._pointer = new THREE.Vector2();
+    this._ixList = [];
+    this._ixPoint = new THREE.Vector3();
+    this._ixLook = new THREE.Vector3();
   }
 
   async boot() {
@@ -137,6 +141,8 @@ class Simulator {
     this.touch = new TouchControls(this.uiRoot, this);
     this.chat = new ChatPanel(this.uiRoot, this);
     this.onboarding = new Onboarding(this.uiRoot, this);
+    try { this.journey = new JourneyRunner(this); } catch (err) { console.error('journey: init failed', err); this.journey = null; }
+    if (this.world.terminal) this.world.terminal.onDoorSound = (k) => { if (this.audio && this.audio.ui) this.audio.ui(k); };
 
     const v = VIEWS.overview;
     this.orbit.frame(new THREE.Vector3(...v.target), v.distance, v.phi, v.theta);
@@ -366,6 +372,7 @@ class Simulator {
       return;
     }
     const previous = this.mode;
+    if (this.journey && (this.journey.active || this.journey.seated) && mode !== 'inspector') this.journey.stop('mode');
     if (previous === 'tour') {
       this.tour.stop();
       if (this.previewing) this.syncWorld(true);
@@ -448,6 +455,7 @@ class Simulator {
         if (e.key === 'Escape') this.hud.closeModal();
         return;
       }
+      if (this.journey && this.journey.onKey(e)) return;
       const k = e.key;
       switch (k) {
         case '1': this.setMode('inspector'); break;
@@ -495,6 +503,7 @@ class Simulator {
         case ']': this.world.sky.setHour(this.world.sky.hour + 0.5); break;
         case 'n': case 'N': this.world.sky.setHour(this.world.sky.state.nightFactor > 0.5 ? 11 : 21.5); break;
         case 'e': case 'E': this.interact(); break;
+        case 'j': case 'J': this.toggleJourney(); break;
         case 'ArrowRight': if (this.mode === 'tour') { this.tour.next(); e.preventDefault(); } break;
         case 'ArrowLeft': if (this.mode === 'tour') { this.tour.previous(); e.preventDefault(); } break;
         default: break;
@@ -537,14 +546,29 @@ class Simulator {
     });
   }
 
+  /** J: start or leave the guided passenger journey (Site Walk). */
+  toggleJourney() {
+    if (!this.journey) { this.toast('The passenger journey is unavailable.', 'warn'); return; }
+    this.journey.toggle();
+  }
+
   interact() {
     if (this.mode !== 'inspector') return;
     const poi = this.nearbyPoi;
     if (!poi) return;
+    if (typeof poi.action === 'function') {
+      poi.action(this);
+      this._ixCurrent = null;   // re-evaluate next frame (prompts change with state)
+      return;
+    }
     if (poi.teleport) {
       const t = poi.teleport;
-      this.walker.teleport(t.x, t.y + this.walker.eyeHeight, t.z, t.yaw === undefined ? this.walker.yaw : t.yaw);
-      this.toast(poi.teleportLabel || poi.name);
+      const go = () => {
+        this.walker.teleport(t.x, t.y + this.walker.eyeHeight, t.z, t.yaw === undefined ? this.walker.yaw : t.yaw);
+        this.toast(poi.teleportLabel || poi.name);
+      };
+      if (this.journey && this.journey.ui && !this.settings.get('accessibility.reducedMotion')) this.journey.ui.flash(go);
+      else go();
       return;
     }
     this.hud.showPoi(poi);
@@ -555,24 +579,97 @@ class Simulator {
     }
   }
 
+  /** Every E-target: construction POIs, terminal doors, journey desks/booths/lanes/gates/seats. */
+  interactables() {
+    const list = this._ixList;
+    list.length = 0;
+    for (const p of this.world.pointsOfInterest) list.push(p);
+    const t = this.world.terminal;
+    if (t && t.interactables) for (const it of t.interactables) list.push(it);
+    if (this.journey) for (const it of this.journey.interactables) list.push(it);
+    return list;
+  }
+
+  /** The point of an interactable nearest the camera (desks are segments). */
+  _ixTarget(item, cam) {
+    const out = this._ixPoint;
+    const sg = item.segment;
+    if (sg) {
+      const dx = sg[2] - sg[0]; const dz = sg[3] - sg[1];
+      const L2 = dx * dx + dz * dz || 1;
+      const u = THREE.MathUtils.clamp(((cam.x - sg[0]) * dx + (cam.z - sg[1]) * dz) / L2, 0, 1);
+      return out.set(sg[0] + dx * u, item.position.y, sg[1] + dz * u);
+    }
+    return out.copy(item.position);
+  }
+
+  /**
+   * Pick the E target: horizontal distance within the item's radius, a vertical
+   * tolerance (so POIs at odd heights still work, and floors above/below don't),
+   * a facing bonus (look-direction dot product), a line-of-sight test against the
+   * collision world (no prompts through walls) and a little hysteresis so the
+   * prompt does not flicker between neighbours.
+   */
   _updateProximity() {
-    if (this.mode !== 'inspector') {
+    const j = this.journey;
+    if (this.mode !== 'inspector' || (j && j.flight)) {
       this.nearbyPoi = null;
-      this.hud.setPrompt(null);
+      this._setPrompt(null);
+      return;
+    }
+    if (j && j.seated) {
+      this.nearbyPoi = j.seatedItem;
+      this._setPrompt(this.nearbyPoi ? this.nearbyPoi.prompt : null);
       return;
     }
     const cam = this.engine.camera.position;
-    let best = null;
-    let bestDist = 14;
-    for (const poi of this.world.pointsOfInterest) {
-      const d = poi.position.distanceTo(cam);
-      if (d < (poi.radius || bestDist) && d < bestDist + (poi.radius || 0)) {
-        bestDist = d;
-        best = poi;
-      }
+    const look = this.engine.camera.getWorldDirection(this._ixLook);
+    look.y = 0;
+    const ll = look.length() || 1;
+    look.multiplyScalar(1 / ll);
+    const col = this.world.collision;
+    const feetY = cam.y - (this.walker.height || 1.72);
+    let best = null; let bestScore = Infinity; let curScore = Infinity;
+    for (const item of this.interactables()) {
+      if (item.available && !item.available()) continue;
+      const p = this._ixTarget(item, cam);
+      const dx = p.x - cam.x; const dz = p.z - cam.z;
+      const d = Math.hypot(dx, dz);
+      const r = item.radius || 12;
+      if (d > r) continue;
+      const vtol = item.vtol === undefined ? Math.max(3, Math.min(8, r * 0.6)) : item.vtol;
+      const dy = p.y - (feetY + 1.2);
+      if (Math.abs(dy) > vtol + 1.0) continue;
+      const facing = d > 0.3 ? (dx * look.x + dz * look.z) / d : 1;
+      if (d > 2.2 && facing < -0.1) continue;
+      if (d > 2.0 && col && this._ixBlocked(cam, p, d, col)) continue;
+      const score = d / r + (1 - facing) * 0.45 + (item.action ? 0 : 0.08);
+      if (item === this._ixCurrent) curScore = score;
+      if (score < bestScore) { bestScore = score; best = item; }
     }
+    if (best && this._ixCurrent && best !== this._ixCurrent && curScore < bestScore + 0.12) best = this._ixCurrent;
+    this._ixCurrent = best;
     this.nearbyPoi = best;
-    this.hud.setPrompt(best ? (best.prompt || `Press E to inspect ${best.name}`) : null);
+    this._setPrompt(best ? (best.prompt || `Inspect ${best.name}`) : null);
+  }
+
+  /** True when a wall sits between the eye and the target (sampled every 0.5 m at chest height). */
+  _ixBlocked(cam, p, d, col) {
+    const steps = Math.floor((d - 1.0) / 0.5);
+    const y = cam.y - 0.35;
+    for (let i = 1; i <= steps; i++) {
+      const f = (i * 0.5) / d;
+      if (col.isSolid(cam.x + (p.x - cam.x) * f, y, cam.z + (p.z - cam.z) * f)) return true;
+    }
+    return false;
+  }
+
+  _setPrompt(text) {
+    const clean = text ? String(text).replace(/^Press E (to|—)\s*/i, '').replace(/^./, (c) => c.toUpperCase()) : null;
+    if (this.journey && this.journey.ui) {
+      this.journey.ui.setPrompt(clean);
+      this.hud.setPrompt(null);
+    } else this.hud.setPrompt(clean ? `Press E to ${clean}` : null);
   }
 
   /* --------------------------------------------------------------- loop */
@@ -607,7 +704,11 @@ class Simulator {
     this._stepProject(dt);
 
     const collision = this.world.collision;
-    if (this.mode === 'inspector') this.walker.update(dt, collision);
+    if (this.journey) this.journey.update(dt);
+    if (this.mode === 'inspector') {
+      if (this.journey && this.journey.ownsCamera) this.journey.updateCamera(dt);
+      else this.walker.update(dt, collision);
+    }
     else if (this.mode === 'drone') {
       this.drone.update(dt);
       const g = this._groundY(this.drone.position.x, this.drone.position.z);
@@ -631,14 +732,15 @@ class Simulator {
     this.engine.updateSunScreenPosition(this.world.sky.sunWorld, Math.max(0, Math.sin(this.world.sky.sunElevation)));
     if (this.audio.ready) {
       const p = this.engine.camera.position;
+      const ja = this.journey && this.journey.audioState ? this.journey.audioState() : null;
       this.audio.update(dt, {
         mode: this.mode,
-        interior: this.world.interiorAt(p),
+        interior: ja ? ja.interior : this.world.interiorAt(p),
         day: Math.max(0, Math.sin(this.world.sky.sunElevation)),
         weather: this.world.weather ? this.world.weather.state : null,
         work: this.project.finished ? 0 : this.project.worldState().workforce,
         altitude: p.y,
-        jets: this.world.operations && this.world.operations.audioState ? this.world.operations.audioState(p) : null,
+        jets: ja ? ja.jets : this.world.operations && this.world.operations.audioState ? this.world.operations.audioState(p) : null,
       });
     }
 
@@ -724,6 +826,21 @@ window.__hdd = {
   exportCSV: () => toCSV(sim.project),
   setWeather(kind, intensity = 1) { sim.world.weather.set(kind, intensity, { instant: true }); return sim.world.weather.state; },
   setHour(h) { sim.world.sky.setHour(h); return sim.world.sky.hour; },
+  /** Passenger journey: start at a step ('enter' … 'seat', 'flight'); with 'flight' an optional time (s) or phase id. */
+  journey(step = 'enter', flightAt) {
+    if (!sim.journey) return null;
+    sim.journey.start(step);
+    if (step === 'flight' && flightAt !== undefined) sim.journey.setFlightTime(flightAt);
+    return sim.journey.snapshot();
+  },
+  journeyState: () => (sim.journey ? sim.journey.snapshot() : null),
+  journeyFlight: (v) => (sim.journey ? sim.journey.setFlightTime(v) : null),
+  journeyStop: () => { if (sim.journey) sim.journey.stop('left'); return sim.journey ? sim.journey.snapshot() : null; },
+  /** E-interaction: the current target and the candidates in range. */
+  interactTarget: () => (sim.nearbyPoi ? { id: sim.nearbyPoi.id, name: sim.nearbyPoi.name, prompt: sim.nearbyPoi.prompt || null } : null),
+  interact: () => { sim.interact(); return sim.journey ? sim.journey.snapshot() : null; },
+  door(id, open = true) { const t = sim.world.terminal; if (!t || !t.toggleDoor) return null; t.toggleDoor(id, sim, open); const d = t.doorById(id); return d ? { id: d.id, target: d.target, open: d.open } : null; },
+  doors: () => (sim.world.terminal && sim.world.terminal.doors ? sim.world.terminal.doors.map((d) => ({ id: d.id, built: d.built(), open: Math.round(d.open * 100) / 100, solid: d.solid })) : []),
   stats: () => sim.engine.stats,
   memory: () => ({ ...sim.engine.renderer.info.memory, heap: performance.memory ? performance.memory.usedJSHeapSize : null }),
   railButtons: () => [...document.querySelectorAll('[data-panel]')].map((b) => b.dataset.panel),

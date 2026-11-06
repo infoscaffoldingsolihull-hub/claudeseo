@@ -382,18 +382,18 @@ void main() {
       float n = fbm( pc );
       float det = fbm3( pc * 4.1 + 2.3 ) * 1.14;
       n += ( det - 0.5 ) * 0.16;
-      float lo = 0.6 - cloudCover * 0.48;
+      float lo = 0.6 - cloudCover * 0.48 - cloudDark * 0.2;
       float dens = smoothstep( lo, lo + mix( 0.07, 0.4, cloudDark ), n );
       // Self-shadow: denser towards the sun means this side is in shade.
       vec2 toSun = normalize( vSunDirection.xz + vec2( 1e-4 ) ) * 0.16;
       float ns = fbm( pc + toSun ) + ( det - 0.5 ) * 0.16;
-      float light = clamp( 0.62 - ( ns - n ) * 5.0, 0.0, 1.0 );
-      float core = smoothstep( lo + 0.04, lo + 0.4, n );
+      float light = clamp( 0.6 - ( ns - n ) * 12.0, 0.0, 1.0 );
+      float core = smoothstep( lo + 0.02, lo + mix( 0.24, 0.45, cloudDark ), n );
       float sunCos = max( cosTheta, 0.0 );
       float silver = pow( sunCos, 10.0 ) * ( 1.0 - core ) * 3.0 + hgPhase( cosTheta, 0.55 ) * 1.6 * ( 1.0 - core * 0.7 );
       vec3 lit = cloudSun * ( 0.6 + 1.2 * light + silver ) + cloudAmbient * 1.2;
-      vec3 shade = cloudAmbient * 0.95 + cloudSun * 0.22;
-      cloudCol = mix( lit, shade, core * 0.55 * ( 1.0 - light * 0.5 ) );
+      vec3 shade = cloudAmbient * mix( 0.85, 0.62, cloudGolden ) + cloudSun * 0.12;
+      cloudCol = mix( lit, shade, clamp( core * 0.75 * ( 1.0 - light * 0.5 ) + ( 1.0 - light ) * 0.45, 0.0, 0.92 ) );
       // Golden / pink hour: warm tops, rosy undersides.
       cloudCol = mix( cloudCol, cloudCol * vec3( 1.18, 0.86, 0.8 ) + cloudSun * vec3( 0.18, 0.04, 0.06 ) * ( 1.0 - core ), cloudGolden * 0.8 );
       // Monsoon: heavy slate-grey nimbostratus with darker bellies.
@@ -872,7 +872,7 @@ export class SkySystem {
     }
     this.fog.color.copy(horizon);
     // Desert haze is denser in the afternoon heat and through golden hour.
-    this.fog.density = (lerp(0.00014, 0.00008, dayFactor) + goldenFactor * (morning ? 0.00002 : 0.00005) + noonFactor * 0.000015) * a.fogDensity;
+    this.fog.density = (lerp(0.00014, 0.00008, dayFactor) + goldenFactor * (morning ? 0.00002 : 0.000032) + noonFactor * 0.000015) * a.fogDensity;
     u.hazeColor.value.copy(horizon).multiplyScalar(1 / Math.max(0.3, u.intensity.value * 2.1));
     u.hazeAmount.value = clamp(a.haze + (a.fogDensity - 1) * 0.08, 0, 1);
     u.groundColor.value.copy(u.hazeColor.value).multiplyScalar(0.92);
@@ -880,7 +880,7 @@ export class SkySystem {
     FOG_UNIFORMS.hddFogA[0] = this.sunDirection.x;
     FOG_UNIFORMS.hddFogA[1] = this.sunDirection.y;
     FOG_UNIFORMS.hddFogA[2] = this.sunDirection.z;
-    FOG_UNIFORMS.hddFogA[3] = (0.35 + goldenFactor * (morning ? 0.3 : 0.6)) * dayFactor * dim;
+    FOG_UNIFORMS.hddFogA[3] = (0.35 + goldenFactor * (morning ? 0.3 : 0.45)) * dayFactor * dim;
     FOG_UNIFORMS.hddFogB[0] = 0.0011;
     FOG_UNIFORMS.hddFogB[1] = a.groundFog;
     FOG_UNIFORMS.hddFogB[2] = a.groundFogFalloff;
