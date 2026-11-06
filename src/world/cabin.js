@@ -623,7 +623,7 @@ export class FlightPlan {
 /* ===================================================================== UI */
 
 const CSS = `
-.jr-root { position: absolute; inset: 0; pointer-events: none; z-index: 14; font-family: var(--font-ui, system-ui, sans-serif); color: var(--ink, #e8e4d8); }
+#ui-root > .jr-root, .jr-root { position: absolute; inset: 0; pointer-events: none; z-index: 14; font-family: var(--font-ui, system-ui, sans-serif); color: var(--ink, #e8e4d8); }
 .jr-root button { font-family: inherit; }
 .jr-prompt { position: absolute; left: 50%; top: calc(50% + 2.6rem); transform: translateX(-50%); display: none; align-items: center; gap: 0.6rem;
   padding: 0.4rem 1rem 0.4rem 0.4rem; border-radius: 2rem; font-size: 0.92rem; color: var(--ink-strong, #f4f6ff); white-space: nowrap; pointer-events: auto; cursor: pointer;
