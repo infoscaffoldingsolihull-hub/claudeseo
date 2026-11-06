@@ -213,13 +213,28 @@ class Simulator {
     this.world.applyProjectState(state);
   }
 
-  _applyWeather(w) {
-    if (!w) return;
-    const key = `${w.kind}:${Math.round((w.intensity || 0) * 10)}`;
-    if (key === this._lastWeather) return;
+  _applyWeather(w, { instant = false } = {}) {
+    // A manual HUD choice (sim.weatherOverride) wins over the project's simulated weather until "Auto".
+    const o = this.weatherOverride;
+    const target = o && o.kind ? o : w;
+    if (!target) return;
+    const key = `${o && o.kind ? 'manual:' : ''}${target.kind}:${Math.round((target.intensity || 0) * 10)}`;
+    const ws = this.world.weather && this.world.weather.state;
+    if (key === this._lastWeather && !(o && o.kind && ws && ws.kind !== target.kind)) return;
     this._lastWeather = key;
-    if (this.world.weather) this.world.weather.set(w.kind, w.intensity);
-    this.bus.emit('weather:changed', { kind: w.kind, intensity: w.intensity });
+    if (this.world.weather) this.world.weather.set(target.kind, target.intensity, { instant });
+    this.bus.emit('weather:changed', { kind: target.kind, intensity: target.intensity, manual: !!(o && o.kind) });
+  }
+
+  /** Pin the scene weather (`'clear'|'haze'|'dust'|'rain'|'fog'|'heat'`, 0..1) or pass null to follow the project again. */
+  setWeatherOverride(kindOrNull, intensity = 0.8) {
+    if (kindOrNull) {
+      const i = Number(intensity);
+      this.weatherOverride = { kind: String(kindOrNull), intensity: kindOrNull === 'clear' ? 0 : Math.max(0, Math.min(1, Number.isFinite(i) ? i : 0.8)) };
+    } else this.weatherOverride = null;
+    this._lastWeather = null;
+    this._applyWeather(this.project && this.project.weather);
+    return this.weatherOverride;
   }
 
   setSpeed(daysPerSecond) {
