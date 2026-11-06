@@ -148,7 +148,16 @@ class Simulator {
     this.drone.yaw = d.yaw;
 
     this._applyAccessibility();
-    this.bus.on('settings:changed', () => this._applyAccessibility());
+    this.bus.on('settings:changed', () => {
+      this._applyAccessibility();
+      if (this.engine.applyGraphicsSettings) {
+        this.engine.applyGraphicsSettings(this.settings.get('graphics'), { reducedMotion: !!this.settings.get('accessibility.reducedMotion') });
+      }
+    });
+    if (this.engine.applyGraphicsSettings) {
+      this.engine.applyGraphicsSettings(this.settings.get('graphics'), { reducedMotion: !!this.settings.get('accessibility.reducedMotion') });
+    }
+    this.world.scene.userData.interiorAt = (pos) => this.world.interiorAt(pos);
     this.syncWorld(true);
     this._bindKeys();
     this._bindPicking();

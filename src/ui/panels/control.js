@@ -126,7 +126,7 @@ function detail(dash, p, c) {
       const v = c.votes[m.role];
       const lock = !['Raised', 'Analysed'].includes(c.status);
       const mk = (val, label) => el('button', { type: 'button', class: `${v === val ? `on ${val}` : ''}`, disabled: lock, onclick: () => { p.voteChange(c.id, m.role, val === 'approve'); redo(); } }, [label]);
-      return [el('div', { class: 'role' }, [m.role, el('small', { text: `lens: ${m.lens}${m.chair ? ' · chair' : ''}` })]), el('span', { class: 'pm-note', text: v ? v : 'not voted' }), el('span', { class: 'seg' }, [mk('approve', 'Approve'), mk('reject', 'Reject')])];
+      return [el('div', { class: 'role' }, [m.role, el('small', { text: `lens: ${m.lens}${m.chair ? ' · chair' : ''}` })]), el('span', { class: 'pm-note', text: v ? v : 'not voted' }), el('span', { class: 'seg' }, [mk('approve', 'Vote yes'), mk('reject', 'Vote no')])];
     })));
     parts.push(el('p', { class: 'pm-note', text: tally.quorum ? `Board outcome: ${tally.decision}${tally.approve === tally.reject ? ' (chair’s vote breaks the tie)' : ''}.` : 'A majority of members must vote to reach quorum.' }));
   }
