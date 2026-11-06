@@ -199,7 +199,7 @@ async function main() {
     ];
   await page.evaluate(() => { window.__hdd.sim.settings.data.role = 'instructor'; });
   for (const [name, cfg] of scenes) {
-    await page.evaluate((c) => { window.__hdd.closePanels(); if (window.__hdd.sim.mode === 'tour' && c.mode) window.__hdd.setMode('manager'); window.__hdd.view(c); }, cfg);
+    await page.evaluate((c) => { const h = window.__hdd; h.sim.setSpeed(0); for (let i = 0; i < 10 && h.sim.hud.blocking(); i++) h.resolveDecision(0); if (h.sim.hud.closeCards) h.sim.hud.closeCards(); window.__hdd.closePanels(); if (window.__hdd.sim.mode === 'tour' && c.mode) window.__hdd.setMode('manager'); window.__hdd.view(c); }, cfg);
     await page.waitForTimeout(1500);
     await shot(page, name);
   }
