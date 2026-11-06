@@ -707,7 +707,7 @@ window.__hdd = {
   exportJSON: () => JSON.stringify(sim.sessionData()),
   exportMSPDI: () => toMSPDI(sim.project),
   exportCSV: () => toCSV(sim.project),
-  setWeather(kind, intensity = 1) { sim.world.weather.set(kind, intensity); return sim.world.weather.state; },
+  setWeather(kind, intensity = 1) { sim.world.weather.set(kind, intensity, { instant: true }); return sim.world.weather.state; },
   setHour(h) { sim.world.sky.setHour(h); return sim.world.sky.hour; },
   stats: () => sim.engine.stats,
   memory: () => ({ ...sim.engine.renderer.info.memory, heap: performance.memory ? performance.memory.usedJSHeapSize : null }),
@@ -717,7 +717,7 @@ window.__hdd = {
   view(cfg) {
     if (cfg.mode) sim.setMode(cfg.mode);
     if (cfg.hour !== undefined) sim.world.sky.setHour(cfg.hour);
-    if (cfg.weather) sim.world.weather.set(cfg.weather, cfg.intensity === undefined ? 1 : cfg.intensity);
+    if (cfg.weather) sim.world.weather.set(cfg.weather, cfg.intensity === undefined ? 1 : cfg.intensity, { instant: true });
     if (cfg.progress !== undefined) sim.previewProject(sim.project.previewState ? sim.project.previewState(cfg.progress) : sim.project.worldState());
     if (cfg.focus) {
       sim.orbit.frame(new THREE.Vector3(...cfg.focus), cfg.distance || 600, cfg.phi === undefined ? 1.0 : cfg.phi, cfg.theta === undefined ? 2.3 : cfg.theta);

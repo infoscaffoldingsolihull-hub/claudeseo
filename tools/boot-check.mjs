@@ -47,7 +47,7 @@ if (ok) {
   for (const e of evals) {
     try {
       const r = await page.evaluate(`(async () => { const __r = (${e}); return typeof __r === 'function' ? await __r() : await __r; })()`);
-      console.log(`eval> ${e.slice(0, 80)}\n${JSON.stringify(r, null, 1).slice(0, 4000)}`);
+      console.log(`eval> ${e.slice(0, 80)}\n${String(JSON.stringify(r, null, 1)).slice(0, 4000)}`);
     } catch (err) {
       problems.push(`eval failed: ${e.slice(0, 60)} → ${err.message.split('\n')[0]}`);
     }

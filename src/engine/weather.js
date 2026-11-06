@@ -51,8 +51,8 @@ const PRESETS = {
     rain: 0, dust: 1, heat: 0, fog: 0, visibility: 0.2, windSpeed: 15, windDir: 240,
   },
   rain: {
-    turbidity: 1.5, haze: 0.25, cloudCover: 0.97, cirrus: 0, cloudDark: 0.9, sunDim: 0.12, skyDim: 0.6, fogDensity: 9,
-    fogColorMix: 0.75, fogColor: [0.46, 0.5, 0.55], groundFog: 0.0006, groundFogFalloff: 0.03, lightsBoost: 0.35,
+    turbidity: 1.5, haze: 0.25, cloudCover: 0.97, cirrus: 0, cloudDark: 0.9, sunDim: 0.18, skyDim: 0.55, fogDensity: 4,
+    fogColorMix: 0.9, fogColor: [0.30, 0.34, 0.40], groundFog: 0.0006, groundFogFalloff: 0.03, lightsBoost: 0.35,
     rain: 1, dust: 0, heat: 0, fog: 0, visibility: 0.35, windSpeed: 9, windDir: 215,
   },
   fog: {

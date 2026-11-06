@@ -1,5 +1,5 @@
 {
-  "startedAt": "2026-11-06T12:14:21.960Z",
+  "startedAt": "2026-11-06T12:39:39.582Z",
   "checks": [
     {
       "name": "boots to ready from file:// offline",
@@ -115,8 +115,8 @@
       "name": "two simulated years at ×200",
       "ok": true,
       "detail": {
-        "days": 739,
-        "seconds": 57.102,
+        "days": 734,
+        "seconds": 56.10309999999963,
         "decisionsShown": 21,
         "forced": 0,
         "spi": 0.9360961061155414,
@@ -168,7 +168,7 @@
       "ok": true,
       "detail": {
         "engine": "offline",
-        "len": 452,
+        "len": 509,
         "status": "offline"
       }
     },
@@ -178,11 +178,11 @@
       "detail": {
         "geometries": [
           178,
-          178
+          179
         ],
         "textures": [
-          63,
-          63
+          66,
+          66
         ],
         "heapGrowth": "0.0%"
       }
@@ -205,7 +205,7 @@
   ],
   "fps": {
     "low": {
-      "fps": 16.2,
+      "fps": 16.5,
       "calls": 49,
       "triangles": 243686,
       "tier": "low"
@@ -288,8 +288,8 @@
     "criticalPath": "1.1 → 1.2 → M01 → 1.4 → 7.1 → 7.2 → 7.3 → 7.4 → 7.6 → 7.7 → M07 → 11.4 → 11.5 → M09 → 12.2 → M10 → 12.3 → 12.4 → M11"
   },
   "run": {
-    "days": 739,
-    "seconds": 57.102,
+    "days": 734,
+    "seconds": 56.10309999999963,
     "decisionsShown": 21,
     "forced": 0,
     "spi": 0.9360961061155414,
@@ -310,15 +310,15 @@
     "soakSeconds": 45,
     "before": {
       "geometries": 178,
-      "textures": 63,
+      "textures": 66,
       "heap": 56800000
     },
     "after": {
-      "geometries": 178,
-      "textures": 63,
+      "geometries": 179,
+      "textures": 66,
       "heap": 56800000
     }
   },
-  "finishedAt": "2026-11-06T12:39:04.978Z",
+  "finishedAt": "2026-11-06T13:04:24.639Z",
   "failures": 0
 }

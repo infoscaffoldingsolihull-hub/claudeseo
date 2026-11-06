@@ -62195,8 +62195,8 @@ const PRESETS = {
     rain: 0, dust: 1, heat: 0, fog: 0, visibility: 0.2, windSpeed: 15, windDir: 240,
   },
   rain: {
-    turbidity: 1.5, haze: 0.25, cloudCover: 0.97, cirrus: 0, cloudDark: 0.9, sunDim: 0.12, skyDim: 0.6, fogDensity: 9,
-    fogColorMix: 0.75, fogColor: [0.46, 0.5, 0.55], groundFog: 0.0006, groundFogFalloff: 0.03, lightsBoost: 0.35,
+    turbidity: 1.5, haze: 0.25, cloudCover: 0.97, cirrus: 0, cloudDark: 0.9, sunDim: 0.18, skyDim: 0.55, fogDensity: 4,
+    fogColorMix: 0.9, fogColor: [0.30, 0.34, 0.40], groundFog: 0.0006, groundFogFalloff: 0.03, lightsBoost: 0.35,
     rain: 1, dust: 0, heat: 0, fog: 0, visibility: 0.35, windSpeed: 9, windDir: 215,
   },
   fog: {
@@ -102492,7 +102492,7 @@ window.__hdd = {
   exportJSON: () => JSON.stringify(sim.sessionData()),
   exportMSPDI: () => toMSPDI(sim.project),
   exportCSV: () => toCSV(sim.project),
-  setWeather(kind, intensity = 1) { sim.world.weather.set(kind, intensity); return sim.world.weather.state; },
+  setWeather(kind, intensity = 1) { sim.world.weather.set(kind, intensity, { instant: true }); return sim.world.weather.state; },
   setHour(h) { sim.world.sky.setHour(h); return sim.world.sky.hour; },
   stats: () => sim.engine.stats,
   memory: () => ({ ...sim.engine.renderer.info.memory, heap: performance.memory ? performance.memory.usedJSHeapSize : null }),
@@ -102502,7 +102502,7 @@ window.__hdd = {
   view(cfg) {
     if (cfg.mode) sim.setMode(cfg.mode);
     if (cfg.hour !== undefined) sim.world.sky.setHour(cfg.hour);
-    if (cfg.weather) sim.world.weather.set(cfg.weather, cfg.intensity === undefined ? 1 : cfg.intensity);
+    if (cfg.weather) sim.world.weather.set(cfg.weather, cfg.intensity === undefined ? 1 : cfg.intensity, { instant: true });
     if (cfg.progress !== undefined) sim.previewProject(sim.project.previewState ? sim.project.previewState(cfg.progress) : sim.project.worldState());
     if (cfg.focus) {
       sim.orbit.frame(new THREE.Vector3(...cfg.focus), cfg.distance || 600, cfg.phi === undefined ? 1.0 : cfg.phi, cfg.theta === undefined ? 2.3 : cfg.theta);
