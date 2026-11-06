@@ -29,7 +29,7 @@ const THREE_PATH = resolve(ROOT, 'assets/vendor/three.module.js');
 const args = process.argv.slice(2);
 const outIdx = args.indexOf('--out');
 const OUT = outIdx !== -1 ? resolve(args[outIdx + 1]) : resolve(ROOT, 'dist/Hyderabad_Airport_PM_Simulator.html');
-const CSS_FILES = ['src/styles/main.css', 'src/styles/panels.css', 'src/styles/panels2.css', 'src/styles/hud.css', 'src/styles/chat.css'];
+const CSS_FILES = ['src/styles/main.css', 'src/styles/panels.css', 'src/styles/panels2.css', 'src/styles/hud.css', 'src/styles/chat.css', 'src/styles/panels3.css'];
 
 const IMPORT_RE = /^import\s+(\*\s+as\s+\w+|\{[\s\S]*?\}|\w+)\s+from\s+['"]([^'"]+)['"](\s+(?:with|assert)\s*\{[^}]*\})?\s*;?[ \t]*$/gm;
 const EXPORT_DECL_RE = /^export\s+(const|let|var|function\*?|async\s+function|class)\s+([A-Za-z_$][\w$]*)/gm;
@@ -112,7 +112,12 @@ function buildThreePrelude() {
   const src = readFileSync(THREE_PATH, 'utf8');
   const idx = src.lastIndexOf('\nexport {');
   if (idx === -1) throw new Error('three.module.js: could not locate the export block');
-  return src.slice(0, idx) + src.slice(idx).replace('\nexport {', () => '\nconst __THREE = {');
+  // three.js gets its own scope too: its top-level names (Node, Object3D's
+  // helpers, …) must not shadow browser globals such as DOM `Node` in our modules.
+  const block = src.slice(idx + '\nexport {'.length, src.indexOf('}', idx));
+  const entries = block.split(',').map((x) => x.trim()).filter(Boolean)
+    .map((x) => { const [a, b] = x.split(/\s+as\s+/); return b ? `${b}: ${a}` : a; });
+  return `const __THREE = (function () {\n${src.slice(0, idx)}\nreturn { ${entries.join(', ')} };\n})();`;
 }
 
 function main() {

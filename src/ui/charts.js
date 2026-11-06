@@ -744,10 +744,14 @@ export function controlChart(points, limits, spec, violations, opts = {}) {
     root.appendChild(svg('rect', { x: pad.l, y: f1(Y(limits.cl + (k + 1) * s)), width: W - pad.l - pad.r, height: f1(Math.max(0, Y(limits.cl + k * s) - Y(limits.cl + (k + 1) * s))), style: st({ fill: C.warn, opacity: op }) }));
     root.appendChild(svg('rect', { x: pad.l, y: f1(Y(limits.cl - k * s)), width: W - pad.l - pad.r, height: f1(Math.max(0, Y(limits.cl - (k + 1) * s) - Y(limits.cl - k * s))), style: st({ fill: C.warn, opacity: op }) }));
   }
+  const usedY = [];
   const line = (v, cls, label, color) => {
     if (!Number.isFinite(v)) return;
+    let ly = Y(v) + 4;
+    while (usedY.some((u) => Math.abs(u - ly) < 12)) ly += 12;
+    usedY.push(ly);
     root.appendChild(svg('line', { x1: pad.l, x2: W - pad.r, y1: f1(Y(v)), y2: f1(Y(v)), class: cls, style: color ? st({ stroke: color }) : null }, [title(`${label} = ${fmt(v)}`)]));
-    root.appendChild(svg('text', { x: W - pad.r + 5, y: f1(Y(v) + 4), class: 'cc-lbl', style: color ? st({ fill: color }) : null, text: `${label} ${fmt(v)}` }));
+    root.appendChild(svg('text', { x: W - pad.r + 5, y: f1(ly), class: 'cc-lbl', style: color ? st({ fill: color }) : null, text: `${label} ${fmt(v)}` }));
   };
   line(limits.ucl, 'cc-limit', 'UCL', C.bad);
   line(limits.cl, 'cc-cl', 'CL', C.good);
