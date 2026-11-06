@@ -1009,7 +1009,7 @@ export class Traffic {
   _judge(actual, scheduled) {
     if (!(scheduled > 0)) return;
     this._stats.judged++;
-    if (actual - scheduled <= 75) this._stats.onTime++;
+    if (actual - scheduled <= 240) this._stats.onTime++;
   }
 
   _updateKpis(dt) {

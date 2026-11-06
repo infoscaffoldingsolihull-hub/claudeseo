@@ -345,7 +345,7 @@ void main() {
   night += vec3( 0.55, 0.62, 0.78 ) * pow( md, 220.0 ) * moonIntensity * 1.2;
   night += vec3( 0.10, 0.13, 0.20 ) * pow( md, 8.0 ) * moonIntensity;
   float cg = pow( max( dot( normalize( vec3( direction.x, 0.0, direction.z ) ), cityGlowDir ), 0.0 ), 3.0 );
-  night += vec3( 0.42, 0.24, 0.10 ) * cityGlow * cg * exp( -max( direction.y, 0.0 ) * 9.0 );
+  night += vec3( 0.20, 0.15, 0.09 ) * cityGlow * cg * exp( -max( direction.y, 0.0 ) * 14.0 );
 
   vec3 color = mix( day, night, nightBlend );
 
@@ -433,7 +433,7 @@ function makeStarField(count, rng) {
     positions[i * 3 + 2] = zc;
     const mag = Math.pow(rng(), 3.0);
     const temp = rng();
-    tint.setRGB(lerp(0.72, 1.0, temp), lerp(0.8, 0.96, 1 - Math.abs(temp - 0.5) * 2), lerp(1.0, 0.76, temp));
+    tint.setRGB(lerp(0.86, 1.0, temp), lerp(0.92, 1.0, 1 - Math.abs(temp - 0.5) * 2), lerp(1.0, 0.88, temp));
     colors[i * 3] = tint.r * (0.3 + mag * 1.6);
     colors[i * 3 + 1] = tint.g * (0.3 + mag * 1.6);
     colors[i * 3 + 2] = tint.b * (0.3 + mag * 1.6);
@@ -537,7 +537,7 @@ export class SkySystem {
         mieCoefficient: { value: 0.006 },
         mieDirectionalG: { value: 0.8 },
         nightBlend: { value: 0 },
-        nightColor: { value: new THREE.Color(0x0c1428) },
+        nightColor: { value: new THREE.Color(0x0a1224) },
         intensity: { value: 1 },
         moonDirection: { value: new THREE.Vector3(0, 1, 0) },
         moonIntensity: { value: 0 },
@@ -767,7 +767,7 @@ export class SkySystem {
     u.cloudCover.value = a.cloudCover;
     u.cloudDark.value = a.cloudDark;
     u.cirrus.value = a.cirrus * (1 - a.haze * 0.8);
-    u.cityGlow.value = nightFactor * (0.5 + overcast * 0.8);
+    u.cityGlow.value = nightFactor * (0.35 + overcast * 0.6);
     u.flash.value = a.flash;
 
     this.stars.material.uniforms.uOpacity.value = nightFactor * (1 - overcast) * (1 - a.haze * 0.85) * 0.95;

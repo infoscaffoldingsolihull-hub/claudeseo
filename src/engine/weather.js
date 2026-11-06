@@ -41,14 +41,14 @@ const PRESETS = {
     rain: 0, dust: 0, heat: 0, fog: 0, visibility: 1, windSpeed: 3.5, windDir: 225,
   },
   haze: {
-    turbidity: 4, haze: 0.55, cloudCover: 0.04, cirrus: 0.2, cloudDark: 0, sunDim: 0.78, skyDim: 0.9, fogDensity: 6,
+    turbidity: 4, haze: 0.55, cloudCover: 0.04, cirrus: 0.2, cloudDark: 0, sunDim: 0.78, skyDim: 0.9, fogDensity: 3.5,
     fogColorMix: 0.55, fogColor: [0.80, 0.70, 0.55], groundFog: 0, groundFogFalloff: 0.05, lightsBoost: 0.05,
     rain: 0, dust: 0.12, heat: 0.2, fog: 0, visibility: 0.55, windSpeed: 5, windDir: 250,
   },
   dust: {
-    turbidity: 14, haze: 1, cloudCover: 0, cirrus: 0, cloudDark: 0, sunDim: 0.16, skyDim: 0.42, fogDensity: 70,
-    fogColorMix: 1, fogColor: [0.56, 0.38, 0.22], groundFog: 0.004, groundFogFalloff: 0.008, lightsBoost: 0.45,
-    rain: 0, dust: 1, heat: 0, fog: 0, visibility: 0.1, windSpeed: 15, windDir: 240,
+    turbidity: 14, haze: 1, cloudCover: 0, cirrus: 0, cloudDark: 0, sunDim: 0.3, skyDim: 0.55, fogDensity: 16,
+    fogColorMix: 0.9, fogColor: [0.62, 0.46, 0.28], groundFog: 0.0012, groundFogFalloff: 0.012, lightsBoost: 0.45,
+    rain: 0, dust: 1, heat: 0, fog: 0, visibility: 0.2, windSpeed: 15, windDir: 240,
   },
   rain: {
     turbidity: 1.5, haze: 0.25, cloudCover: 0.97, cirrus: 0, cloudDark: 0.9, sunDim: 0.12, skyDim: 0.6, fogDensity: 9,
@@ -459,7 +459,7 @@ export class WeatherSystem {
           u.uAmount.value = amount;
           u.uVel.value.set(wv.x, 0, wv.z).multiplyScalar(mat === this.dustGritMaterial ? 1.6 : 0.8);
           u.uColor.value.copy(fc).multiplyScalar(lum * 1.6);
-          u.uOpacity.value = op * Math.min(1, amount * 1.3);
+          u.uOpacity.value = op * Math.min(1, amount * 1.3) * 0.7;
         }
         // Sheets hug the ground near the camera; from altitude they spread out.
         this.dustSheetMaterial.uniforms.uLift.value = 20 + clamp(camera.position.y, 0, 300) * 0.3;

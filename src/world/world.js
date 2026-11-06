@@ -13,6 +13,7 @@ import { City } from './city.js';
 import { Construction } from './construction.js';
 import { makeRng } from '../engine/noise.js';
 import { VehicleFleet } from './vehicles.js';
+import { Traffic } from './traffic.js';
 import { WorkerCrowd } from './workers.js';
 import { PassengerCrowd } from './passengers.js';
 import { createAircraft } from './aircraft.js';
@@ -276,7 +277,7 @@ export class World {
   _buildAgents() {
     // A4 systems present on disk are imported statically; Traffic (and any
     // replacement) can be supplied with World.registerSystems / options.systems.
-    const S = { VehicleFleet, WorkerCrowd, PassengerCrowd, createAircraft, ...(this.systemsIn || {}) };
+    const S = { VehicleFleet, WorkerCrowd, PassengerCrowd, createAircraft, Traffic, ...(this.systemsIn || {}) };
     const layout = { RUNWAY, MASTERPLAN, WORLD_LINKS, GEO, STANDS, TAXILANE_X, rapidExits: this.airfield ? this.airfield.rapidPaths : [], groundAt: (x, z) => this.collision.groundAt(x, z) };
     this.layoutForAgents = layout;
     const tryMake = (name, fn) => {
