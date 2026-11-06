@@ -2112,6 +2112,7 @@ export class Project {
     for (const [id, st] of this.state) state.push({ ...st, id });
     return JSON.parse(JSON.stringify({
       version: VERSION, app: 'sky-gateway-hyderabad-pm', seed: this.seed, difficulty: this.difficulty, approach: this.approach,
+      pmoType: this.pmoType || null,
       rngState: this.rngState, day: this.day, finished: this.finished, phase: this.phase,
       scalars: {
         ev: this.ev, pv: this.pv, ac: this.ac, costBreakdown: this.costBreakdown,
@@ -2145,6 +2146,7 @@ export class Project {
   restore(data) {
     if (!data || data.version !== VERSION || !Array.isArray(data.state) || !Array.isArray(data.tasks)) return false;
     try {
+      this.pmoType = data.pmoType || null;
       for (const saved of data.tasks) {
         const t = this.taskById.get(saved.id);
         if (t) Object.assign(t, saved, { predecessors: saved.predecessors.map((x) => ({ ...x })), costSlope: saved.costSlope === null ? (t.milestone ? null : Infinity) : saved.costSlope });

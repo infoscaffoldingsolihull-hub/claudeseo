@@ -140,7 +140,7 @@
 
 /* ------------------------------------------------------------ course */
 .cp-weeks { display: flex; flex-direction: column; gap: 0.4rem; }
-.cp-week { display: grid; grid-template-columns: 3rem minmax(14rem, 2.3fr) minmax(10rem, 1.6fr) minmax(7rem, 1fr) minmax(8rem, 1fr) minmax(8rem, 1fr) minmax(9rem, 1fr); gap: 0.7rem; align-items: start; padding: 0.65rem 0.8rem; border-radius: 0.7rem; border: 1px solid var(--hair-soft); background: linear-gradient(170deg, rgba(232, 228, 216, 0.05), rgba(232, 228, 216, 0.015)); font-size: 0.82rem; }
+.cp-week { display: grid; grid-template-columns: 3rem minmax(14rem, 2.3fr) minmax(10rem, 1.6fr) minmax(7rem, 0.9fr) minmax(9.5rem, 1.3fr) minmax(8rem, 1fr) minmax(9rem, 1fr); gap: 0.7rem; align-items: start; padding: 0.65rem 0.8rem; border-radius: 0.7rem; border: 1px solid var(--hair-soft); background: linear-gradient(170deg, rgba(232, 228, 216, 0.05), rgba(232, 228, 216, 0.015)); font-size: 0.82rem; }
 .cp-week:not(.cp-week-head):hover { border-color: var(--hair); }
 .cp-week-head { background: none; border: 0; padding: 0 0.8rem; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--brass); }
 .cp-wk { display: flex; flex-direction: column; align-items: center; }

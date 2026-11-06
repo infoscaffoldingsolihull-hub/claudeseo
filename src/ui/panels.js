@@ -49,7 +49,7 @@ const ALL = ['CLO1', 'CLO2', 'CLO3'];
 /** The 25 panels, in rail order (course flow). */
 export const PANELS = [
   { id: 'course', group: 'foundations', title: 'Course Map', sub: '15 weeks, three CLOs, and where each lives in the simulator', icon: 'map', week: 1, clo: ALL, domain: 'Course design', wide: true, file: 'panels/course.js' },
-  { id: 'foundations', group: 'foundations', title: 'PM Foundations', sub: 'Projects, programmes, portfolios and the twelve principles', icon: 'book', week: 1, clo: ['CLO1'], domain: 'Principles', wide: false, file: 'panels/foundations.js' },
+  { id: 'foundations', group: 'foundations', title: 'PM Foundations', sub: 'Projects, programmes, portfolios, PMOs and environmental factors', icon: 'book', week: 1, clo: ['CLO1'], domain: 'Principles', wide: false, file: 'panels/foundations.js' },
   { id: 'lifecycle', group: 'foundations', title: 'Life Cycle & Gates', sub: 'Phases, stage gates and process groups as focus areas', icon: 'cycle', week: 2, clo: ['CLO1'], domain: 'Development Approach & Life Cycle', wide: true, file: 'panels/lifecycle.js' },
   { id: 'charter', group: 'foundations', title: 'Project Charter', sub: 'Business case, objectives, success criteria and authority', icon: 'scroll', week: 3, clo: ['CLO1', 'CLO2'], domain: 'Initiating · Integration', wide: false, file: 'panels/charter.js' },
   { id: 'approach', group: 'foundations', title: 'Development Approach', sub: 'Predictive, agile or hybrid — tailoring for an airport', icon: 'fork', week: 3, clo: ['CLO1'], domain: 'Development Approach & Life Cycle', wide: false, file: 'panels/approach.js' },
