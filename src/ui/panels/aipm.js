@@ -56,7 +56,7 @@ function how(dash, pane) {
     pane.appendChild(el('div', { class: 'cp-finds' }, items.map((f) => el('div', { class: `cp-find ${f.severity}` }, [
       el('div', { class: 'cp-find-h' }, [pill(f.severity, SEV[f.severity] || 'muted'), el('b', { text: f.title })]),
       el('p', { text: f.why }),
-      f.recommendation ? el('p', { class: 'pm-note', html: '' }, [el('b', { text: 'Recommendation: ' }), f.recommendation]) : null,
+      f.recommendation ? el('p', { class: 'pm-note' }, [el('b', { text: 'Recommendation: ' }), f.recommendation]) : null,
       f.action ? el('div', { class: 'row' }, [
         button(f.action.label, () => { f.action.run(); }, { small: true, kind: f.action.needsApproval ? 'primary' : 'ghost', icon: f.action.needsApproval ? 'shield' : 'play' }),
         f.action.needsApproval ? pill('needs your approval', 'gold') : null,
@@ -64,7 +64,7 @@ function how(dash, pane) {
     ]))));
   }
   pane.appendChild(el('div', { class: 'row actions-row' }, [
-    button('Ask MEHRAN', () => { if (dash.sim.hud && dash.sim.chat && dash.sim.chat.toggle) dash.sim.chat.toggle(true); else if (dash.sim.bus) dash.sim.bus.emit('ai:open', {}); }, { icon: 'chat' }),
+    button('Ask MEHRAN (H)', () => { if (dash.sim.chat && dash.sim.chat.toggle) dash.sim.chat.toggle(true); }, { icon: 'chat' }),
     button('Open Monte Carlo', () => dash.open('forecast'), { icon: 'dice', kind: 'ghost' }),
   ]));
 }

@@ -539,3 +539,7 @@ body.panel-open .ticker { display: none; }
 .help-card > .help-head { order: -3; }
 body.touch-mode .help-card > .help-touch { order: -2; }
 .help-card > section { margin-top: 1.3rem; }
+
+/* When a dashboard panel is open, toasts move to the bottom-right corner so they never cover the panel. */
+body.panel-open .toast-stack { top: auto; bottom: 3.2rem; left: auto; right: 1rem; transform: none; align-items: flex-end; max-width: min(26rem, 40vw); }
+body.panel-open .toast { font-size: 0.8rem; }

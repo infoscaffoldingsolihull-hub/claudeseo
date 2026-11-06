@@ -398,7 +398,7 @@ export class HUD {
     const glyph = { good: 'check', warn: 'warning', bad: 'warning' }[kind] || 'planeUp';
     const node = el('div', { class: `toast ${kind}`.trim() }, [icon(glyph, 15), el('span', { dir: 'auto', text: String(text) })]);
     this.toastStack.appendChild(node);
-    while (this.toastStack.children.length > 4) this.toastStack.removeChild(this.toastStack.firstChild);
+    while (this.toastStack.children.length > (document.body.classList.contains("panel-open") ? 2 : 3)) this.toastStack.removeChild(this.toastStack.firstChild);
     setTimeout(() => {
       node.classList.add('leaving');
       setTimeout(() => node.remove(), 380);
