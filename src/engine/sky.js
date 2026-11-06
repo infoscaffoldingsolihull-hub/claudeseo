@@ -76,8 +76,16 @@ export const FOG_UNIFORMS = {
     uniform float fogNear;
     uniform float fogFar;
   #endif
-  float hddFogIntegral( float x ) {
-    return abs( x ) > 1e-4 ? ( 1.0 - exp( - x ) ) / x : 1.0 - 0.5 * x;
+  // Optical depth of an exponential height fog along a ray, written so the two
+  // exponentials are evaluated at the ray's start and end heights. The naive form
+  // exp(-k*camY) * (1 - exp(-k*dy)) / (k*dy) overflows to 0*inf = NaN for a camera
+  // high above the ground looking down (drone, in-flight cabin).
+  float hddFogDepth( float k, float camY, float dy, float fd ) {
+    float x = k * dy;
+    float a = exp( - min( k * camY, 80.0 ) );
+    if ( abs( x ) < 1e-4 ) return fd * a * ( 1.0 - 0.5 * x );
+    float b = exp( - min( k * max( camY + dy, -50.0 ), 80.0 ) );
+    return fd * ( a - b ) / x;
   }
 #endif`;
   THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
@@ -89,8 +97,8 @@ export const FOG_UNIFORMS = {
       float fd = length( fv );
       vec3 rd = fv / max( fd, 1e-4 );
       float camY = max( cameraPosition.y, -50.0 );
-      float t1 = fogDensity * exp( - hddFogB.x * camY ) * fd * hddFogIntegral( hddFogB.x * rd.y * fd );
-      float t2 = hddFogB.y * exp( - hddFogB.z * camY ) * fd * hddFogIntegral( hddFogB.z * rd.y * fd );
+      float t1 = fogDensity * hddFogDepth( hddFogB.x, camY, rd.y * fd, fd );
+      float t2 = hddFogB.y * hddFogDepth( hddFogB.z, camY, rd.y * fd, fd );
       fogFactor = 1.0 - exp( - ( t1 + t2 ) );
       float sunAmt = pow( max( dot( rd, hddFogA.xyz ), 0.0 ), 6.0 ) * hddFogA.w;
       hddFogCol = mix( fogColor, hddFogC.rgb, clamp( sunAmt, 0.0, 1.0 ) );

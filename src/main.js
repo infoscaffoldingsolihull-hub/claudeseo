@@ -729,6 +729,7 @@ class Simulator {
     }
 
     this.world.update(dt, this.engine.camera, this.engine.elapsed, { mode: this.mode, operations: this.mode === 'ops' });
+    if (this.journey && this.journey.afterWorldUpdate) this.journey.afterWorldUpdate();
     this.engine.updateSunScreenPosition(this.world.sky.sunWorld, Math.max(0, Math.sin(this.world.sky.sunElevation)));
     if (this.audio.ready) {
       const p = this.engine.camera.position;

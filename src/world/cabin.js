@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { createAircraft, AIRLINE_LIVERIES } from './aircraft.js';
 import { GeoBuilder } from './props.js';
 import { fbm2 } from '../engine/noise.js';
+import { FOG_UNIFORMS } from '../engine/sky.js';
 import {
   JourneyState, JOURNEY_STEPS, STEP_IDS, makeBoardingPass, filletPath, speedProfile, buildTimeline, FLIGHT_LABELS,
 } from '../game/journey.js';
@@ -78,7 +79,7 @@ export function createCabin(spec, livery = {}) {
   const ife = new GeoBuilder({ worldUV: false });
   const panesB = new GeoBuilder({ worldUV: false });
   const colliders = [];
-  const wallC = 0xe9e6df; const binC = 0xf1efea; const seamC = 0xb9b5ad; const carpet = 0x3b4152; const runner = 0x4a3a52;
+  const wallC = 0xa49c90; const binC = 0xaea699; const seamC = 0x6f6a62; const carpet = 0x2e3342; const runner = 0x3e3046;
 
   // ---- floor (carpet + aisle runner)
   b.box(3.8, 0.04, zFront - zRear, 0, Y0 - 0.04, (zFront + zRear) / 2, carpet);
@@ -90,7 +91,7 @@ export function createCabin(spec, livery = {}) {
   const PL = Math.hypot(xt - xb, ytop - ybase);
   const tx = (xt - xb) / PL; const ty = (ytop - ybase) / PL;     // panel up-direction (left wall)
   const ox = ty; const oy = -tx;                                  // outward normal (left wall)
-  const WV = 0.47; const WW = 0.31; const WH = 0.43; const WR = 0.12;
+  const WV = 0.5; const WW = 0.36; const WH = 0.5; const WR = 0.13;
   const windows = [];
   {
     const w = spec.windows;
@@ -120,12 +121,12 @@ export function createCabin(spec, livery = {}) {
     b.add(wall, I4, wallC); wall.dispose();
     // bezels + reveals: an extruded ring per window, cap facing the cabin, sides running out to the skin
     for (const z of windows) {
-      const ring = roundedRect(new THREE.Shape(), z - WW / 2 - 0.07, WV - WH / 2 - 0.08, WW + 0.14, WH + 0.16, WR + 0.06);
+      const ring = roundedRect(new THREE.Shape(), z - WW / 2 - 0.035, WV - WH / 2 - 0.04, WW + 0.07, WH + 0.08, WR + 0.03);
       ring.holes.push(roundedRect(new THREE.Path(), z - WW / 2, WV - WH / 2, WW, WH, WR));
-      const ex = new THREE.ExtrudeGeometry(ring, { depth: 0.07, bevelEnabled: false, curveSegments: 5 });
+      const ex = new THREE.ExtrudeGeometry(ring, { depth: 0.05, bevelEnabled: false, curveSegments: 5 });
       ex.translate(0, 0, -0.025);
       const g = mapPanel(ex, side);
-      b.add(g, I4, 0xf7f5f0); g.dispose();
+      b.add(g, I4, 0x8c857a); g.dispose();
       // outer pane (whitens inside cloud), slightly inset into the reveal
       const pane = new THREE.ShapeGeometry(roundedRect(new THREE.Shape(), z - WW / 2, WV - WH / 2, WW, WH, WR), 4);
       pane.translate(0, 0, 0.045);
@@ -133,7 +134,7 @@ export function createCabin(spec, livery = {}) {
       panesB.add(pg, I4, 0xffffff); pg.dispose();
       // a few shades part-way down
       const k = Math.abs(Math.round(z * 7.3 + side * 3)) % 5;
-      if (k === 0 || k === 3) {
+      if (k === 0 && Math.abs(z) > 3) {
         const f = k === 0 ? 0.55 : 0.3;
         const sh = new THREE.PlaneGeometry(WW - 0.02, WH * f);
         sh.translate(z, WV + WH / 2 - (WH * f) / 2, 0.06);
@@ -142,7 +143,7 @@ export function createCabin(spec, livery = {}) {
       }
     }
     // dado (vertical lower wall) + skirting
-    b.box(0.04, 0.55, zFront - zRear, side * 1.85, Y0, (zFront + zRear) / 2, 0xdcd8cf);
+    b.box(0.04, 0.55, zFront - zRear, side * 1.85, Y0, (zFront + zRear) / 2, 0x968e82);
     b.box(0.05, 0.08, zFront - zRear, side * 1.82, Y0, (zFront + zRear) / 2, 0x6b6f78);
     // collision: side wall (door gap on the left)
     if (side === 1) {
@@ -182,7 +183,7 @@ export function createCabin(spec, livery = {}) {
         b.box(0.42, 0.04, 0.42, x, Y0 + 0.34, rz + 0.03, 0x2a2d33);           // pan
         b.box(0.41, 0.11, 0.47, x, Y0 + 0.38, rz + 0.06, fabricHex);          // cushion
         b.boxR(0.42, 0.74, 0.1, x, Y0 + 0.84, rz - 0.21, fabricHex, -0.17, 0, 0); // backrest
-        b.boxR(0.36, 0.19, 0.115, x, Y0 + 1.14, rz - 0.25, 0xf2f0ea, -0.17, 0, 0); // headrest cover
+        b.boxR(0.36, 0.19, 0.115, x, Y0 + 1.14, rz - 0.25, 0xc9c4ba, -0.17, 0, 0); // headrest cover
         b.boxR(0.36, 0.035, 0.12, x, Y0 + 1.05, rz - 0.255, accent, -0.17, 0, 0);
         b.boxR(0.42, 0.72, 0.03, x, Y0 + 0.83, rz - 0.275, 0x6b707a, -0.17, 0, 0); // shell
         b.boxR(0.33, 0.23, 0.012, x, Y0 + 0.66, rz - 0.287, 0x8a8f98, -0.17, 0, 0); // tray table
@@ -205,8 +206,8 @@ export function createCabin(spec, livery = {}) {
     colliders.push(side === 1 ? [0.45, Y0, rowZ(ROWS) - 0.45, 1.84, Y0 + 1.25, row1 + 0.5] : [-1.84, Y0, rowZ(ROWS) - 0.45, -0.45, Y0 + 1.25, row1 + 0.5]);
   }
   // ---- ceiling: centre panel with a light line, curved returns to the bins
-  b.box(2.1, 0.03, zFront - zRear, 0, Y0 + 2.16, (zFront + zRear) / 2, 0xf6f4ef);
-  for (const s of [1, -1]) b.boxR(0.12, 0.03, zFront - zRear, s * 1.08, Y0 + 2.12, (zFront + zRear) / 2, 0xeeece6, 0, 0, s * 0.35);
+  b.box(2.1, 0.03, zFront - zRear, 0, Y0 + 2.16, (zFront + zRear) / 2, 0xb2ab9f);
+  for (const s of [1, -1]) b.boxR(0.12, 0.03, zFront - zRear, s * 1.08, Y0 + 2.12, (zFront + zRear) / 2, 0xa8a195, 0, 0, s * 0.35);
   lamps.box(0.12, 0.012, zFront - zRear - 1.6, 0, Y0 + 2.14, (zFront + zRear) / 2, 0xffffff);
   // ---- front bulkhead (galley / flight deck door) and rear bulkhead (lavatories)
   b.box(3.8, 2.2, 0.08, 0, Y0, zFront, 0xe3dfd7);
@@ -225,9 +226,9 @@ export function createCabin(spec, livery = {}) {
 
   const geo = b.build(); bakeShade(geo, Y0);
   const mat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide });
-  mat.color.setScalar(0.95);
+  mat.color.setScalar(0.85);
   const mesh = new THREE.Mesh(geo, mat); mesh.name = 'cabin-interior'; mesh.frustumCulled = false;
-  const lampMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.0, 0.86, 0.64).multiplyScalar(2.4) });
+  const lampMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.0, 0.86, 0.64).multiplyScalar(1.3) });
   lampMat.toneMapped = false;
   const lampMesh = new THREE.Mesh(lamps.build(), lampMat); lampMesh.frustumCulled = false;
   const ifeMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.22, 0.4, 0.9).multiplyScalar(0.9) });
@@ -282,7 +283,9 @@ float fbm(vec2 p) { float a = 0.5; float s = 0.0; for (int i = 0; i < 6; i++) { 
 void main() {
   vec2 p = vWorld.xz / 2100.0 + vec2(uTime * 0.0015, 0.0);
   float n = fbm(p);
-  float d = smoothstep(uCover, uCover + 0.2, n);
+  float dist0 = length(vWorld.xz - uCam.xz);
+  float far = smoothstep(uFar * 0.25, uFar * 0.7, dist0);
+  float d = mix(smoothstep(uCover, uCover + 0.16, n), 1.0, far);
   float n2 = fbm(p + normalize(uSunDir.xz + 1e-4) * 0.035);
   float lit = clamp(0.62 + (n - n2) * 7.0, 0.0, 1.0);
   float dist = length(vWorld - uCam);
@@ -290,8 +293,7 @@ void main() {
   if (uTop > 0.5) col = mix(uAmb, uSun, lit * (0.55 + 0.45 * d));
   else col = uAmb * mix(0.55, 0.85, 1.0 - d);
   col = mix(col, uHaze, smoothstep(uFar * 0.15, uFar * 0.85, dist) * 0.75);
-  float fade = 1.0 - smoothstep(uFar * 0.6, uFar * 0.97, dist);
-  float a = d * fade * uOpacity;
+  float a = d * uOpacity * (uTop > 0.5 ? 0.97 : 0.85);
   if (a < 0.003) discard;
   gl_FragColor = vec4(col, a);
 }`;
@@ -354,7 +356,7 @@ export class FlightClouds {
     scene.add(this.group);
     const common = {
       uSunDir: { value: new THREE.Vector3(0.3, 0.8, 0.2) }, uSun: { value: new THREE.Color(2, 1.95, 1.85) }, uAmb: { value: new THREE.Color(0.55, 0.62, 0.74) },
-      uHaze: { value: new THREE.Color(0.62, 0.72, 0.86) }, uCam: { value: new THREE.Vector3() }, uFar: { value: 9000 }, uTime: { value: 0 }, uCover: { value: 0.47 },
+      uHaze: { value: new THREE.Color(0.62, 0.72, 0.86) }, uCam: { value: new THREE.Vector3() }, uFar: { value: 9000 }, uTime: { value: 0 }, uCover: { value: 0.53 },
     };
     this.uniforms = common;
     const deckMat = (topSide) => new THREE.ShaderMaterial({
@@ -417,13 +419,13 @@ export class FlightClouds {
     const u = this.uniforms;
     u.uTime.value += dt;
     u.uCam.value.copy(camera.position);
-    u.uFar.value = camera.far;
+    u.uFar.value = Math.min(camera.far, 26000);
     const day = sky && sky.state ? sky.state.dayFactor : 1;
     const golden = sky && sky.state ? sky.state.goldenFactor || 0 : 0;
     if (sky && sky.sunDirection) u.uSunDir.value.copy(sky.sunDirection);
     const sunUp = clamp(u.uSunDir.value.y * 3 + 0.2, 0, 1);
-    u.uSun.value.setRGB(1.3, 1.24 - golden * 0.3, 1.14 - golden * 0.5).multiplyScalar(0.06 + 0.94 * day * sunUp);
-    u.uAmb.value.setRGB(0.36, 0.43, 0.56).multiplyScalar(0.08 + 0.92 * day);
+    u.uSun.value.setRGB(1.05, 1.0 - golden * 0.25, 0.93 - golden * 0.4).multiplyScalar(0.06 + 0.94 * day * sunUp);
+    u.uAmb.value.setRGB(0.3, 0.35, 0.45).multiplyScalar(0.08 + 0.92 * day);
     u.uHaze.value.setRGB(0.6, 0.7, 0.86).multiplyScalar(0.08 + 0.92 * day);
     for (const m of [this.deckTop, this.deckBottom]) { m.position.x = camera.position.x; m.position.z = camera.position.z; }
     this.deckTop.position.y = this.top; this.deckBottom.position.y = this.bottom;
@@ -1206,7 +1208,7 @@ export class JourneyRunner {
     this._setCabinCollision(false);
     const seat = this.cabin.seats.get(SEAT_ID);
     this.seated = { kind: 'aircraft', eye: seat.eye.clone() };
-    this.headYaw = -0.8; this.headPitch = -0.04;
+    this.headYaw = -1.0; this.headPitch = -0.1;
     this._hideGuide();
     this._startFlight();
   }
@@ -1436,7 +1438,14 @@ export class JourneyRunner {
     this.clouds.setVisible(true);
     this.cabin.group.visible = true;
     const cam0 = sim.engine.camera;
-    this._near0 = cam0.near; cam0.near = 0.08; cam0.updateProjectionMatrix();
+    this._near0 = cam0.near; this._far0 = cam0.far;
+    cam0.near = 0.08; cam0.far = Math.max(cam0.far, 30000); cam0.updateProjectionMatrix();
+    const pf = sim.engine.postfx;
+    if (pf && pf.applyLook) {
+      this._look0 = { auto: pf.autoLook, target: pf._lookTarget ? JSON.parse(JSON.stringify(pf._lookTarget)) : null, autoExp: pf.features ? pf.features.autoExposure : undefined };
+      pf.applyLook({ exposure: 0.92, vignette: 0.34, grain: 0.02, aberration: 0.05, saturation: 1.08, contrast: 1.04, bloomStrength: 0.22, raysStrength: 0.15, aoStrength: 0.6, flareStrength: 0.0 }, { instant: true });
+      if (pf.setFeature && this._look0.autoExp !== undefined) pf.setFeature('autoExposure', false);
+    }
     sim.walker.enabled = false;
     sim.hud.setCinematic(true);
     this.ui.guide.classList.remove('show');
@@ -1450,7 +1459,13 @@ export class JourneyRunner {
   _endFlight(silent) {
     const sim = this.sim;
     this.flight = null;
-    if (this._near0) { const c = this.sim.engine.camera; c.near = this._near0; c.updateProjectionMatrix(); this._near0 = 0; }
+    if (this._near0) { const c = this.sim.engine.camera; c.near = this._near0; c.far = this._far0 || c.far; c.updateProjectionMatrix(); this._near0 = 0; }
+    const pf = this.sim.engine.postfx;
+    if (this._look0 && pf) {
+      if (this._look0.auto || !this._look0.target) pf.applyLook('auto'); else pf.applyLook(this._look0.target);
+      if (pf.setFeature && this._look0.autoExp !== undefined) pf.setFeature('autoExposure', this._look0.autoExp);
+      this._look0 = null;
+    }
     if (this.clouds) this.clouds.setVisible(false);
     this.ui.flight.classList.remove('show');
     this.ui.setFade(0);
@@ -1539,6 +1554,8 @@ export class JourneyRunner {
     if (this.t >= f.total) { this._finish(); return; }
     const s = f.sample(this.t, this._sample);
     f.apply(a, s);
+    const cam = this.sim.engine.camera;
+    if (cam.far < 30000 || cam.near > 0.08) { cam.far = Math.max(cam.far, 30000); cam.near = 0.08; cam.updateProjectionMatrix(); }
     const ud = a.userData;
     ud.setGear(s.gear);
     const L = s.lights;
@@ -1574,6 +1591,18 @@ export class JourneyRunner {
     let a = 1.6;
     const step = () => { a -= 0.025; this.ui.setFade(Math.min(1, a), 'Arrived — simulated flight', sub); if (a > 0) requestAnimationFrame(step); };
     requestAnimationFrame(step);
+  }
+
+  /**
+   * Called by main after world.update (sky has written the fog uniforms). The
+   * global ground-fog term in sky.js overflows (exp underflow × ∞ → NaN, black
+   * pixels) for a camera a few hundred metres up looking down, so while the
+   * flight is airborne the ground-fog density is zeroed for this frame (it is
+   * physically negligible at that altitude). sky.js rewrites it every frame.
+   */
+  afterWorldUpdate() {
+    if (!this.flight || !FOG_UNIFORMS || !FOG_UNIFORMS.hddFogB) return;
+    if (this.sim.engine.camera.position.y - (this.flight.runwayY || 0) > 120) { FOG_UNIFORMS.hddFogB[1] = 0; FOG_UNIFORMS.hddFogB[2] = 0.0011; }
   }
 
   /** Audio override while seated in the aircraft (main.js feeds this to AudioEngine.update). */
