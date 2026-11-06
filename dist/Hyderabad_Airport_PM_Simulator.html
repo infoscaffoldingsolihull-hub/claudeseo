@@ -99537,7 +99537,11 @@ class HUD {
     m.quality.value.textContent = Number.isFinite(q) ? fmtPct(q, 0) : '—';
     m.quality.box.className = `metric ${Number.isFinite(q) ? indexClass(q, 0.9, 0.8) : ''}`.trim();
 
-    const w = (s.weather && typeof s.weather === 'object' ? s.weather : null) || safe(() => p.weather, null) || safe(() => this.sim.world.weather.state, {}) || {};
+    // Show the weather that is on screen: the project's weather normally drives the
+    // scene, but the tour and previews can override it; then the scene wins.
+    const pw = (s.weather && typeof s.weather === 'object' ? s.weather : null) || safe(() => p.weather, null) || {};
+    const ws = safe(() => this.sim.world.weather.state, null);
+    const w = ws && ws.kind && ws.kind !== pw.kind ? { ...ws, workFactor: undefined } : pw.kind ? pw : (ws || {});
     const kind = typeof s.weather === 'string' ? s.weather : w.kind || 'clear';
     const night = safe(() => this.sim.world.sky.state.nightFactor, 0) > 0.5;
     const wxIcon = kind === 'clear' && night ? 'night' : { clear: 'sun', haze: 'haze', dust: 'dust', rain: 'rain', fog: 'fog', heat: 'heat' }[kind] || 'sun';

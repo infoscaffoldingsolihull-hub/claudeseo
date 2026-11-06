@@ -1,10 +1,10 @@
 {
-  "startedAt": "2026-11-06T12:09:44.987Z",
+  "startedAt": "2026-11-06T12:14:21.960Z",
   "checks": [
     {
       "name": "boots to ready from file:// offline",
       "ok": true,
-      "detail": "4.5 s"
+      "detail": "3.3 s"
     },
     {
       "name": "G3 modes ≥ 5",
@@ -115,13 +115,13 @@
       "name": "two simulated years at ×200",
       "ok": true,
       "detail": {
-        "days": 742,
-        "seconds": 92.06080000000074,
+        "days": 739,
+        "seconds": 57.102,
         "decisionsShown": 21,
         "forced": 0,
-        "spi": 0.9358189379284593,
-        "cpi": 0.934500283956343,
-        "progress": 0.746618812492262
+        "spi": 0.9360961061155414,
+        "cpi": 0.9374864609359723,
+        "progress": 0.7444798125891827
       }
     },
     {
@@ -168,7 +168,7 @@
       "ok": true,
       "detail": {
         "engine": "offline",
-        "len": 561,
+        "len": 452,
         "status": "offline"
       }
     },
@@ -177,8 +177,8 @@
       "ok": true,
       "detail": {
         "geometries": [
-          168,
-          168
+          178,
+          178
         ],
         "textures": [
           63,
@@ -186,6 +186,11 @@
         ],
         "heapGrowth": "0.0%"
       }
+    },
+    {
+      "name": "phone viewport boots",
+      "ok": true,
+      "detail": ""
     },
     {
       "name": "G8 no network requests attempted",
@@ -198,9 +203,59 @@
       "detail": []
     }
   ],
-  "fps": {},
+  "fps": {
+    "low": {
+      "fps": 16.2,
+      "calls": 49,
+      "triangles": 243686,
+      "tier": "low"
+    },
+    "medium": {
+      "fps": 20,
+      "calls": 45,
+      "triangles": 408126,
+      "tier": "medium"
+    },
+    "high": {
+      "fps": 20,
+      "calls": 45,
+      "triangles": 633978,
+      "tier": "high"
+    },
+    "ultra": {
+      "fps": 20,
+      "calls": 45,
+      "triangles": 934392,
+      "tier": "ultra"
+    }
+  },
   "screenshots": [
-    "docs/screenshots/overview-day.png"
+    "docs/screenshots/manager-day.png",
+    "docs/screenshots/manager-golden.png",
+    "docs/screenshots/manager-night.png",
+    "docs/screenshots/manager-dust-storm.png",
+    "docs/screenshots/manager-monsoon.png",
+    "docs/screenshots/inspector-terminal.png",
+    "docs/screenshots/inspector-night.png",
+    "docs/screenshots/drone-day.png",
+    "docs/screenshots/drone-dust.png",
+    "docs/screenshots/drone-monsoon.png",
+    "docs/screenshots/tour-beat-1.png",
+    "docs/screenshots/ops-day.png",
+    "docs/screenshots/ops-night.png",
+    "docs/screenshots/panel-charter.png",
+    "docs/screenshots/panel-schedule.png",
+    "docs/screenshots/panel-cost.png",
+    "docs/screenshots/panel-risk.png",
+    "docs/screenshots/panel-agile.png",
+    "docs/screenshots/panel-control.png",
+    "docs/screenshots/panel-quality.png",
+    "docs/screenshots/panel-stakeholders.png",
+    "docs/screenshots/panel-course.png",
+    "docs/screenshots/panel-assess.png",
+    "docs/screenshots/mehran-chat.png",
+    "docs/screenshots/mobile-phone.png",
+    "docs/screenshots/mobile-phone-panel.png"
   ],
   "console": [],
   "network": [],
@@ -233,13 +288,13 @@
     "criticalPath": "1.1 → 1.2 → M01 → 1.4 → 7.1 → 7.2 → 7.3 → 7.4 → 7.6 → 7.7 → M07 → 11.4 → 11.5 → M09 → 12.2 → M10 → 12.3 → 12.4 → M11"
   },
   "run": {
-    "days": 742,
-    "seconds": 92.06080000000074,
+    "days": 739,
+    "seconds": 57.102,
     "decisionsShown": 21,
     "forced": 0,
-    "spi": 0.9358189379284593,
-    "cpi": 0.934500283956343,
-    "progress": 0.746618812492262
+    "spi": 0.9360961061155414,
+    "cpi": 0.9374864609359723,
+    "progress": 0.7444798125891827
   },
   "persistence": {
     "saved": true,
@@ -254,16 +309,16 @@
   "memory": {
     "soakSeconds": 45,
     "before": {
-      "geometries": 168,
+      "geometries": 178,
       "textures": 63,
-      "heap": 60300000
+      "heap": 56800000
     },
     "after": {
-      "geometries": 168,
+      "geometries": 178,
       "textures": 63,
-      "heap": 60300000
+      "heap": 56800000
     }
   },
-  "finishedAt": "2026-11-06T12:14:00.841Z",
+  "finishedAt": "2026-11-06T12:39:04.978Z",
   "failures": 0
 }
