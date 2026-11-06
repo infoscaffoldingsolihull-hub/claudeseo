@@ -1,0 +1,58 @@
+{
+  "_readme": "Case studies. Summaries are original paraphrases. Cards with editable:true let the instructor paste the course-pack text; nothing here is invented beyond cited sources.",
+  "cases": [
+    {
+      "id": "bc-transportation",
+      "title": "British Columbia Transportation",
+      "week": 5,
+      "clo": [
+        "CLO2"
+      ],
+      "editable": true,
+      "summary": "",
+      "prompt": "Instructor: paste the case summary from the course pack",
+      "researchNote": "A1 could not identify a published project-management case titled 'British Columbia Transportation' from reliable sources, so no case facts are shipped. Related public context (not necessarily the course case): the BC Transportation Financing Authority is a provincial Crown corporation created in 1993 under the Build BC Act; a CBC report on the Port Mann Bridge project said a review found the province lacked capacity to oversee it properly.",
+      "questions": [
+        "Who were the key stakeholders in the case, and how would you rank them on a power/interest grid?",
+        "Which project-management knowledge areas or performance domains were most strained, and why?",
+        "What were the main risks, and which response strategy (avoid, mitigate, transfer, accept) fits each?",
+        "How would you judge success: time, cost, scope, quality, benefits, or stakeholder satisfaction?",
+        "What would you do differently as project manager, and what evidence would you need first?"
+      ],
+      "exercise": "Apply it to Hyderabad: choose one lesson from the case and write a 150-word recommendation for the Hyderabad Airport revival (e.g. governance, procurement, or stakeholder engagement). Show which WBS element it affects and add one new risk to the risk register. All numbers are simulated.",
+      "sources": []
+    },
+    {
+      "id": "astrazeneca",
+      "title": "AstraZeneca - fighting a global pandemic",
+      "week": 10,
+      "clo": [
+        "CLO3"
+      ],
+      "editable": true,
+      "summary": "In 2020 AstraZeneca partnered with the University of Oxford to bring a COVID-19 vaccine to market. The work meant running clinical trials while simultaneously scaling up manufacturing, and every government buying the vaccine brought its own regulatory and compliance requirements. According to the PMI case study, the company's Global Project and Portfolio Management function found three gaps: too few project managers with vaccine experience, processes that were too slow for the schedule, and no dedicated team for government contracting. In response the R&D division set up its first project management office, drawing on the PMBOK Guide, and recruited a lead project manager from the US government's BARDA. AstraZeneca and Oxford pledged to supply the vaccine on a not-for-profit basis during the pandemic, and by July 2021 about one billion doses had been released to 170 countries. Caution: the source is a PMI-published case that promotes PMI standards, and this summary rests on its published excerpts only; the instructor should compare with the full text and add independent sources before assessing.",
+      "prompt": "Instructor: extend or replace this summary with the course-pack version if it differs.",
+      "questions": [
+        "Which of the three gaps (experience, process speed, contracting) would you close first, and how?",
+        "How does running trials and manufacturing scale-up in parallel change risk and cost compared with a sequential plan?",
+        "What are the governance and PMO design implications of dealing with many governments, each with its own rules?",
+        "How did a not-for-profit pledge change stakeholder expectations and the definition of success?",
+        "What are the limits of relying on a case written by a standards body, and how would you triangulate?"
+      ],
+      "exercise": "Apply it to Hyderabad: the airport revival also has many authorities (PAA, PCAA, Sindh government). Draft a one-page governance outline - decision rights, a PMO role and a contracting approach - and say which AstraZeneca lesson it borrows. Treat all budgets and dates as simulated.",
+      "sources": [
+        {
+          "title": "PMI - AstraZeneca case study (Aug 2021)",
+          "url": "https://www.pmi.org/learning/library/astrazeneca-covid-case-study-13192",
+          "retrieved": "2026-11-06",
+          "note": "Read through search-result excerpts only; direct fetch blocked."
+        },
+        {
+          "title": "PMI business solutions case studies - AstraZeneca",
+          "url": "https://www.pmi.org/business-solutions/case-studies/astrazeneca-case-study",
+          "retrieved": "2026-11-06"
+        }
+      ]
+    }
+  ]
+}

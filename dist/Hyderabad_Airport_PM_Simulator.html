@@ -933,6 +933,7 @@ body.conference svg.gantt .g-label { font-size: 13px; }
   .vote-grid .seg { grid-column: 1 / -1; justify-self: start; }
 }
 
+
 /* src/styles/hud.css */
 /* =====================================================================
    SKY GATEWAY HYDERABAD — heads-up layer ("Indus Night")
@@ -82977,32 +82978,390 @@ return { get normalise() { return normalise; }, get GLOSSARY() { return GLOSSARY
 })();
 /* ===== src/data/facts.json ===== */
 const __m53 = { default: {
-  "_readme": "Seed set from the mission brief §2.1. A1 (Research) verifies, cites and extends. The UI may only state real-world facts that appear here.",
+  "_readme": "Verified 2026-11-06 by A1 (Research). The UI may state a real-world fact only if it appears here. Many pages could only be checked through search-result snippets because direct fetches to wikipedia/skyvector/thenews were blocked by the sandbox network; each entry records the URL that supplied the information and a confidence level. Low-confidence entries must be shown with a caveat or not at all. Keys referenced by other modules are preserved.",
   "facts": {
-    "airport.name": { "value": "Hyderabad Airport", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "high" },
-    "airport.city": { "value": "Hyderabad, Sindh, Pakistan", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "high" },
-    "airport.iata": { "value": "HDD", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "high" },
-    "airport.icao": { "value": "OPKD", "source_url": "https://skyvector.com/node/53466", "retrieved": "2026-11-04", "confidence": "high" },
-    "airport.type": { "value": "Domestic airport", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "high" },
-    "airport.lat": { "value": 25.318, "source_url": "https://skyvector.com/node/53466", "retrieved": "2026-11-04", "confidence": "high" },
-    "airport.lon": { "value": 68.366, "source_url": "https://skyvector.com/node/53466", "retrieved": "2026-11-04", "confidence": "high" },
-    "airport.elevation": { "value": "≈ 41 m / 135 ft", "source_url": "https://skyvector.com/node/53466", "retrieved": "2026-11-04", "confidence": "medium", "note": "Sources differ between ~130 and ~145 ft." },
-    "airport.timezone": { "value": "UTC+5 (Asia/Karachi)", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "high" },
-    "airport.climate": { "value": "Hot desert climate (Köppen BWh)", "source_url": "https://en.wikipedia.org/wiki/Hyderabad,_Sindh", "retrieved": "2026-11-04", "confidence": "high" },
-    "runway.designators": { "value": "02/20", "source_url": "https://skyvector.com/node/53466", "retrieved": "2026-11-04", "confidence": "high" },
-    "runway.length": { "value": "2,133 m (6,998 ft)", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "high", "note": "Wikipedia cites the PAA eAIP (June 2025)." },
-    "runway.width": { "value": "30 m (98 ft)", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "high" },
-    "runway.threshold02": { "value": "N25°18.57′ E68°21.70′", "source_url": "https://skyvector.com/node/53466", "retrieved": "2026-11-04", "confidence": "high" },
-    "runway.threshold20": { "value": "N25°19.61′ E68°22.25′", "source_url": "https://skyvector.com/node/53466", "retrieved": "2026-11-04", "confidence": "high" },
-    "history.closed1998": { "value": "Closed to commercial traffic in 1998", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "medium" },
-    "history.reopened2008": { "value": "Reopened on 19 August 2008 with PIA flights", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "medium" },
-    "history.lastFlight2013": { "value": "Last commercial flight in 2013; closed to commercial traffic again thereafter", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "medium" },
-    "revival.proposal": { "value": "Proposed revival: runway extension from ~7,000 ft to ~11,500 ft for Boeing 777-class aircraft, with improved passenger facilities (proposed, per press reports)", "source_url": "https://www.thenews.com.pk/print/1440954", "retrieved": "2026-11-04", "confidence": "medium", "note": "Press report, 4 Oct 2026. Proposal, not an approved project." },
-    "revival.uses": { "value": "Diversions from Karachi, Nawabshah and Sukkur, and possible domestic and regional flights (proposed, per press reports)", "source_url": "https://www.thenews.com.pk/print/1440954", "retrieved": "2026-11-04", "confidence": "medium" },
-    "constraints.encroachment": { "value": "Land encroachment around the airport is reported as a constraint", "source_url": "https://www.thenews.com.pk/print/1440954", "retrieved": "2026-11-04", "confidence": "medium" },
-    "constraints.landOwnership": { "value": "Disputes over land ownership are reported", "source_url": "https://www.thenews.com.pk/print/1440954", "retrieved": "2026-11-04", "confidence": "medium" },
-    "org.operator": { "value": "Pakistan Airports Authority (PAA)", "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)", "retrieved": "2026-11-04", "confidence": "high" },
-    "org.regulator": { "value": "Pakistan Civil Aviation Authority (PCAA)", "source_url": "https://en.wikipedia.org/wiki/Pakistan_Civil_Aviation_Authority", "retrieved": "2026-11-04", "confidence": "high" }
+    "airport.name": {
+      "value": "Hyderabad Airport",
+      "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)",
+      "retrieved": "2026-11-06",
+      "confidence": "high",
+      "note": "Verified via search-result snippets (direct page fetch blocked by sandbox network)."
+    },
+    "airport.city": {
+      "value": "Hyderabad, Sindh, Pakistan",
+      "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)",
+      "retrieved": "2026-11-06",
+      "confidence": "high"
+    },
+    "airport.iata": {
+      "value": "HDD",
+      "source_url": "https://airport-data.com/world-airports/OPKD-HDD",
+      "retrieved": "2026-11-06",
+      "confidence": "high",
+      "note": "Also listed on Wikipedia, Great Circle Mapper and other aggregators."
+    },
+    "airport.icao": {
+      "value": "OPKD",
+      "source_url": "https://skyvector.com/node/53466",
+      "retrieved": "2026-11-06",
+      "confidence": "high",
+      "note": "Also airport-data.com (OPKD-HDD)."
+    },
+    "airport.type": {
+      "value": "Domestic airport",
+      "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)",
+      "retrieved": "2026-11-06",
+      "confidence": "high",
+      "note": "Listed as a domestic airport; no scheduled commercial service since 2013 (see history.lastFlight2013)."
+    },
+    "airport.lat": {
+      "value": 25.318,
+      "source_url": "https://airport-data.com/world-airports/OPKD-HDD",
+      "retrieved": "2026-11-06",
+      "confidence": "high",
+      "note": "Aggregators give 25.3181 / 68.3661 (25°19'05\"N 68°21'59\"E)."
+    },
+    "airport.lon": {
+      "value": 68.366,
+      "source_url": "https://airport-data.com/world-airports/OPKD-HDD",
+      "retrieved": "2026-11-06",
+      "confidence": "high"
+    },
+    "airport.elevation": {
+      "value": "≈ 41 m / 135 ft",
+      "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)",
+      "retrieved": "2026-11-06",
+      "confidence": "low",
+      "note": "Published values conflict: Wikipedia 135 ft; SkyVector 145 ft (airport) with runway ends 145 ft (RWY 02) and 130 ft (RWY 20); Great Circle Mapper / metarcentral 130 ft; airfield.directory 121 ft. eAIP value not seen. Display as approximate (130-145 ft)."
+    },
+    "airport.elevationRange": {
+      "value": "≈ 130-145 ft (≈ 40-44 m) above mean sea level; sources differ",
+      "source_url": "https://skyvector.com/node/53466",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Use this wording where a range is acceptable. SkyVector: airport 145 ft; runway ends 145 / 130 ft."
+    },
+    "airport.timezone": {
+      "value": "UTC+5 (Asia/Karachi)",
+      "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Pakistan Standard Time, UTC+5. Not re-fetched in this pass; general knowledge."
+    },
+    "airport.climate": {
+      "value": "Hot desert / semi-arid climate (Köppen BWh per Wikipedia)",
+      "source_url": "https://en.wikipedia.org/wiki/Climate_of_Hyderabad,_Sindh",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Wikipedia's climate article describes the climate as semi-arid with very low rainfall; BWh vs BSh classification varies by dataset."
+    },
+    "runway.designators": {
+      "value": "02/20",
+      "source_url": "https://skyvector.com/node/53466",
+      "retrieved": "2026-11-06",
+      "confidence": "high",
+      "note": "All aggregators agree on a single runway 02/20."
+    },
+    "runway.length": {
+      "value": "2,133 m (6,998 ft)",
+      "source_url": "https://airport-data.com/world-airports/OPKD-HDD",
+      "retrieved": "2026-11-06",
+      "confidence": "high",
+      "note": "airport-data.com, SkyVector and other aggregators agree; Wikipedia reportedly cites the PAA eAIP (June 2025) - eAIP itself not opened."
+    },
+    "runway.width": {
+      "value": "30 m (98 ft)",
+      "source_url": "https://airport-data.com/world-airports/OPKD-HDD",
+      "retrieved": "2026-11-06",
+      "confidence": "high",
+      "note": "Aggregators: 98 ft / 29.9 m."
+    },
+    "runway.surface": {
+      "value": "Asphalt (one aggregator lists concrete)",
+      "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)",
+      "retrieved": "2026-11-06",
+      "confidence": "low",
+      "note": "Wikipedia and Aviation Weather (acukwik) list asphalt; airport-data.com lists concrete. Do not display as certain."
+    },
+    "runway.threshold02": {
+      "value": "N25°18.57′ E68°21.70′",
+      "source_url": "https://skyvector.com/node/53466",
+      "retrieved": "2026-11-06",
+      "confidence": "high",
+      "note": "SkyVector runway-end coordinates as seen in search snippet."
+    },
+    "runway.threshold20": {
+      "value": "N25°19.61′ E68°22.25′",
+      "source_url": "https://skyvector.com/node/53466",
+      "retrieved": "2026-11-06",
+      "confidence": "high"
+    },
+    "runway.derivedLength": {
+      "value": "≈ 2,136 m between the two published thresholds (published length 2,133 m)",
+      "source_url": "computed from runway.threshold02 and runway.threshold20",
+      "retrieved": "2026-11-06",
+      "confidence": "high",
+      "note": "Great-circle distance, spherical Earth R=6,371.0088 km. 0.01' rounding = about 18 m, so agreement with 2,133 m is within coordinate precision. See docs/FACTS_AND_SOURCES.md."
+    },
+    "runway.derivedBearing": {
+      "value": "≈ 25.5° true (RWY 02 end towards RWY 20 end); reciprocal ≈ 205.5°",
+      "source_url": "computed from runway.threshold02 and runway.threshold20",
+      "retrieved": "2026-11-06",
+      "confidence": "high",
+      "note": "Initial great-circle bearing 25.55°. Runway numbers 02/20 are magnetic (~20°), so a ~5° difference is expected from magnetic variation."
+    },
+    "history.closed1998": {
+      "value": "Closed to commercial traffic in 1998 (for about ten years)",
+      "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Wikipedia; ARY News 2022 report also says closed in 1998 for ten years."
+    },
+    "history.reopened2008": {
+      "value": "Reopened to commercial flights in August 2008 with PIA (19 August 2008 per Wikipedia)",
+      "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Dawn reported an earlier planned reopening of 3 August 2008 (https://www.dawn.com/news/312232), so the start date shifted; use 'August 2008' unless the exact date matters."
+    },
+    "history.lastFlight2013": {
+      "value": "Last commercial flight (PIA) in 2013; no scheduled commercial service since",
+      "source_url": "https://www.thenews.pk/print/1440954-hyderabad-airport-set-for-revival-after-13-years",
+      "retrieved": "2026-11-06",
+      "confidence": "high",
+      "note": "The News (4 Oct 2026) and Wikipedia agree on 2013. Exact month not found."
+    },
+    "history.closedPeriod": {
+      "value": "About 13 years without commercial flights (2013 to 2026)",
+      "source_url": "https://www.thenews.pk/print/1440954-hyderabad-airport-set-for-revival-after-13-years",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Headline of The News piece: 'set for revival after 13 years'."
+    },
+    "revival.proposal": {
+      "value": "Proposed revival: runway extension from ~7,000 ft to ~11,500 ft for Boeing 777-class aircraft, with improved passenger facilities (proposed, per press reports)",
+      "source_url": "https://www.thenews.pk/print/1440954-hyderabad-airport-set-for-revival-after-13-years",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "The News, 4 Oct 2026, citing unnamed PAA sources; corroborated by techjuice.pk and thepakistanconnect.com. A proposal, not an approved/funded project; no formal PAA statement seen. Which runway end would be extended is NOT stated - the game chooses one (simulated)."
+    },
+    "revival.proposalDate": {
+      "value": "4 October 2026 (The News)",
+      "source_url": "https://www.thenews.pk/print/1440954-hyderabad-airport-set-for-revival-after-13-years",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Date taken from the search summary of the article; page itself not opened."
+    },
+    "revival.uses": {
+      "value": "Developed as an alternate airport for Karachi, Sukkur and Nawabshah in case of emergencies or adverse weather (diversions); stakeholders likely to be consulted on regional flights (proposed, per press reports)",
+      "source_url": "https://www.thenews.pk/print/1440954-hyderabad-airport-set-for-revival-after-13-years",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Per sources in PAA quoted by The News."
+    },
+    "revival.stakeholderMeeting": {
+      "value": "Sindh Chief Minister and a PAA delegation reviewed Sukkur, Karachi and Hyderabad airport projects (Sept 2026); CM assured full cooperation",
+      "source_url": "https://radio.gov.pk/19-09-2026/cm-murad-assures-paa-of-full-cooperation-for-aviation-projects",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Radio Pakistan; page date shows 19/20 Sept 2026 - verify before quoting a day."
+    },
+    "constraints.encroachment": {
+      "value": "Land encroachment around the airport is reported as a constraint",
+      "source_url": "https://gulfnews.com/world/asia/pakistan/pakistan-federal-sindh-governments-join-hands-to-make-3-airports-fully-functional-1.88852571",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Gulf News: federal aviation minister was told encroachments were the main reason Hyderabad airport was not functional; Sindh minister said they could be sorted out soon. Report is from a 2022 meeting (date inferred ~25 June 2022 from a Tribune report of the same meeting). Not confirmed in the retrieved snippets of The News 2026 article."
+    },
+    "constraints.landOwnership": {
+      "value": "Disputes over land ownership between aviation and provincial authorities have been reported for Sindh airport land",
+      "source_url": "https://gulfnews.com/world/asia/pakistan/pakistan-federal-sindh-governments-join-hands-to-make-3-airports-fully-functional-1.88852571",
+      "retrieved": "2026-11-06",
+      "confidence": "low",
+      "note": "Gulf News reports a CAA land-ownership claim only for ~80 acres near Karachi airport. A Hyderabad-specific ownership dispute was NOT confirmed in retrieved snippets; a '1,473 acres' figure surfaced in one search summary and could not be corroborated - not used."
+    },
+    "governance.federalSindhAgreement": {
+      "value": "Federal and Sindh governments agreed to work to make three Sindh airports (Sehwan Sharif, Hyderabad, Thar) fully functional; a technical committee was to survey them",
+      "source_url": "https://gulfnews.com/world/asia/pakistan/pakistan-federal-sindh-governments-join-hands-to-make-3-airports-fully-functional-1.88852571",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Gulf News; meeting c. June 2022 (date inferred, not shown in snippet)."
+    },
+    "org.operator": {
+      "value": "Pakistan Airports Authority (PAA)",
+      "source_url": "https://en.wikipedia.org/wiki/Hyderabad_Airport_(Sindh)",
+      "retrieved": "2026-11-06",
+      "confidence": "high",
+      "note": "Also named as the body reviving the airport in The News (Oct 2026)."
+    },
+    "org.regulator": {
+      "value": "Pakistan Civil Aviation Authority (PCAA)",
+      "source_url": "https://profit.pakistantoday.com.pk/2024/08/13/civil-aviation-authority-reorganised-into-three-separate-entities/",
+      "retrieved": "2026-11-06",
+      "confidence": "high",
+      "note": "From 2024 the PCAA keeps regulatory functions."
+    },
+    "org.split2024": {
+      "value": "PAA Act 2023; from 9 August 2024 the former CAA was reorganised into the PCAA (regulator), the Pakistan Airports Authority (airport operator) and a Bureau of Aircraft Safety Investigation",
+      "source_url": "https://profit.pakistantoday.com.pk/2024/08/13/civil-aviation-authority-reorganised-into-three-separate-entities/",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Profit / ProPakistani reports; the 9 Aug 2024 effective date is from one aggregated summary."
+    },
+    "city.population2023": {
+      "value": "Hyderabad city: 1,921,275 (2023 census); district 2,432,540; second-largest city in Sindh",
+      "source_url": "https://en.wikipedia.org/wiki/List_of_cities_in_Sindh_by_population",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Boundary-dependent: citypopulation.de lists the 'Hyderabad City' taluka at 778,132. PBS tables: https://www.pbs.gov.pk/sites/default/files/population/2023/tables/table_2_sindh_districts.pdf. Say 'about 1.9 million (2023 census, urban agglomeration)'."
+    },
+    "city.distanceKarachi": {
+      "value": "≈ 136 km by the M-9 Karachi-Hyderabad Motorway (older Super Highway ≈ 160 km)",
+      "source_url": "https://en.wikipedia.org/wiki/M-9_motorway_(Pakistan)",
+      "retrieved": "2026-11-06",
+      "confidence": "high",
+      "note": "Wikipedia and AARoads give 136 km for the M-9; the 160 km figure is the older Super Highway."
+    },
+    "city.mehran": {
+      "value": "'Mehran' is a local Sindhi name for the Indus River, and a poetic name for Sindh",
+      "source_url": "https://en.wikipedia.org/wiki/Mehran",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Wikipedia 'Mehran' / Indus River pages. Burnes (1835) said the name was little used by natives, so the AI assistant's name 'Mehran' is a cultural allusion, not an official term."
+    },
+    "climate.recordHighMayJun": {
+      "value": "Record highs: 49.5 °C (May) and 48.5 °C (June)",
+      "source_url": "https://en.wikipedia.org/wiki/Climate_of_Hyderabad,_Sindh",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Wikipedia climate table (read via a mirror snippet); station/period not confirmed."
+    },
+    "climate.typicalSummerHigh": {
+      "value": "Mean daily maximum in the hottest months (May-June) is roughly 40-41 °C",
+      "source_url": "https://www.climate-zone.com/climate/pakistan/celsius/hyderabad-airport.htm",
+      "retrieved": "2026-11-06",
+      "confidence": "low",
+      "note": "Third-party sources disagree (June ≈ 40 °C WorldClim; May 41.3 °C elsewhere). PMD normals not retrieved."
+    },
+    "climate.monsoon": {
+      "value": "Monsoon rain mainly July-September; traditional onset around mid-July, recently sometimes a month earlier",
+      "source_url": "https://tribune.com.pk/story/2305579/wet-spell-expected",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Express Tribune. Monsoon is the main rainy season; remainder of year is very dry."
+    },
+    "climate.monsoonRainfall": {
+      "value": "Average monsoon rainfall ≈ 205 mm",
+      "source_url": "https://en.wikipedia.org/wiki/Climate_of_Hyderabad,_Sindh",
+      "retrieved": "2026-11-06",
+      "confidence": "low",
+      "note": "From Wikipedia snippet; period not stated."
+    },
+    "climate.dust": {
+      "value": "Dust and thunderstorms can occur in the pre-monsoon period; e.g. a July 2025 storm hit Hyderabad with ~42 knot winds",
+      "source_url": "https://www.dawn.com/news/1924210",
+      "retrieved": "2026-11-06",
+      "confidence": "low",
+      "note": "Seasonality not established: Wikipedia says dust storms are rare in May-June; Dawn reports one preceding monsoon rain in 2025."
+    },
+    "aviation.codeE": {
+      "value": "ICAO Aerodrome Reference Code letter E = aeroplane wingspan from 52 m up to but not including 65 m (Boeing 777 is code E)",
+      "source_url": "https://skybrary.aero/articles/icao-aerodrome-reference-code",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Wingspan alone defines the letter since Annex 14 Amendment 14 (outer main gear wheel span handled separately). Boeing 777 = code E: general knowledge, not confirmed in the retrieved snippets."
+    },
+    "aviation.runwayWidthE": {
+      "value": "Minimum runway width for code 4E is 45 m",
+      "source_url": "https://www.icao.int/",
+      "retrieved": "2026-11-06",
+      "confidence": "low",
+      "note": "Annex 14 Vol I Table 3-1 (4E = 45 m) is from training knowledge; NOT confirmed in retrieved snippets - verify against the current Annex 14. Current runway width 30 m (code 4C/D range is 30/45 m)."
+    },
+    "aviation.resa": {
+      "value": "Runway End Safety Area (RESA): at least 90 m, recommended 240 m for code 3/4 runways",
+      "source_url": "https://www.icao.int:443/NACC/Documents/Meetings/2016/ACI/D1-05-RESA.pdf",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "ICAO NACC paper."
+    },
+    "aviation.strip": {
+      "value": "Runway strip extends at least 60 m beyond each runway end (instrument runways)",
+      "source_url": "https://www.icao.int/",
+      "retrieved": "2026-11-06",
+      "confidence": "low",
+      "note": "From an FAA/ICAO presentation snippet; check Annex 14 §3.4."
+    },
+    "aviation.papi": {
+      "value": "PAPI (Precision Approach Path Indicator): lights showing red/white to indicate position relative to the approach slope; typical slope 3°",
+      "source_url": "https://www.icao.int/",
+      "retrieved": "2026-11-06",
+      "confidence": "low",
+      "note": "General aviation knowledge; not source-verified this pass."
+    },
+    "aviation.ils": {
+      "value": "ILS (Instrument Landing System): localiser gives lateral guidance, glide slope gives vertical guidance (typically 3°); categories I-III differ by decision height and RVR",
+      "source_url": "https://www.icao.int/",
+      "retrieved": "2026-11-06",
+      "confidence": "low",
+      "note": "General aviation knowledge (ICAO Annex 10); not source-verified this pass."
+    },
+    "pm.pmbok8.edition": {
+      "value": "PMBOK Guide, Eighth Edition (PMI), published November 2025",
+      "source_url": "https://www.pmi.org/pmbok-guide-standards/foundational/PMBOK",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "PMI page plus Learning Tree / PM Study Circle summaries."
+    },
+    "pm.pmbok8.principles": {
+      "value": "Six principles: holistic view; value focus; embedded quality; accountable leadership; sustainability integration; empowered teams",
+      "source_url": "https://www.pmi.org/pmbok-guide-standards/foundational/PMBOK",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "From PMI (Spanish page) snippet; 7th edition had 12 principles."
+    },
+    "pm.pmbok8.domains": {
+      "value": "Seven performance domains: Governance, Scope, Schedule, Finance, Stakeholders, Resources, Risk",
+      "source_url": "https://www.pmi.org/pmbok-guide-standards/foundational/PMBOK",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Per third-party summaries (Learning Tree, 4PMTI, PM Study Circle); 7th edition had eight different domains (Stakeholder, Team, Development Approach & Life Cycle, Planning, Project Work, Delivery, Measurement, Uncertainty). Check the book before quoting."
+    },
+    "pm.pmbok8.processes": {
+      "value": "40 processes organised in five focus areas",
+      "source_url": "https://www.pmi.org/pmbok-guide-standards/foundational/PMBOK",
+      "retrieved": "2026-11-06",
+      "confidence": "medium",
+      "note": "Focus-area names not retrieved - do not display them."
+    },
+    "pm.iso21502": {
+      "value": "ISO 21502: Project, programme and portfolio management - Guidance on project management (2020)",
+      "source_url": "https://www.iso.org/",
+      "retrieved": "2026-11-06",
+      "confidence": "low",
+      "note": "From training knowledge; not source-verified this pass."
+    },
+    "pm.prince2": {
+      "value": "PRINCE2 (7th edition, 2023): principles, people, practices, processes; stage-gated, 'management by exception'",
+      "source_url": "https://www.axelos.com/",
+      "retrieved": "2026-11-06",
+      "confidence": "low",
+      "note": "From training knowledge; not source-verified this pass."
+    },
+    "pm.apmbok": {
+      "value": "APM Body of Knowledge, 7th edition (2019)",
+      "source_url": "https://www.apm.org.uk/",
+      "retrieved": "2026-11-06",
+      "confidence": "low",
+      "note": "From training knowledge; not source-verified this pass."
+    },
+    "pm.ipmaICB": {
+      "value": "IPMA Individual Competence Baseline (ICB4): people, practice and perspective competence areas",
+      "source_url": "https://www.ipma.world/",
+      "retrieved": "2026-11-06",
+      "confidence": "low",
+      "note": "From training knowledge; not source-verified this pass."
+    }
   }
 } };
 /* ===== src/core/facts.js ===== */
@@ -85645,201 +86004,8 @@ function confirmModal(title, text, { okLabel = 'OK', cancelLabel = 'Cancel', dan
 
 return { get el() { return el; }, get svg() { return svg; }, get clear() { return clear; }, get fmtPKR() { return fmtPKR; }, get fmtNum() { return fmtNum; }, get fmtDays() { return fmtDays; }, get fmtPct() { return fmtPct; }, get fmtIndex() { return fmtIndex; }, get indexClass() { return indexClass; }, get humanize() { return humanize; }, get I18N() { return I18N; }, get setLanguage() { return setLanguage; }, get getLanguage() { return getLanguage; }, get t() { return t; }, get tl() { return tl; }, get relabel() { return relabel; }, get icon() { return icon; }, get hasIcon() { return hasIcon; }, get kpi() { return kpi; }, get kpiGrid() { return kpiGrid; }, get pill() { return pill; }, get bar() { return bar; }, get table() { return table; }, get tabs() { return tabs; }, get button() { return button; }, get field() { return field; }, get toggle() { return toggle; }, get select() { return select; }, get slider() { return slider; }, get openModal() { return openModal; }, get modalCount() { return modalCount; }, get closeTopModal() { return closeTopModal; }, get closeAllModals() { return closeAllModals; }, get confirmModal() { return confirmModal; } };
 })();
-/* ===== src/ui/panels/course.js ===== */
-const __m58 = (function () {
-'use strict';
-const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
-
-/**
- * course — live summary panel (the shell's minimal module; the full panel is owned by A6c).
- * Shows the CLO/domain chips, a one-paragraph framing and live KPIs from project.snapshot().
- */
-
-const NOTE = "The course runs fifteen weeks in four movements — foundations, planning, delivery and control, closing — and every week maps to a panel, a mission and a quiz set in this simulator. The project clock below is the shared case that ties them together.";
-const ITEMS = [["Project day","day","int"],["Phase","phase","phase"],["Complete","progress","pct"],["Open changes","openChanges","int"]];
-
-function value(dash, s, key, kind) {
-  const p = dash.project || {};
-  const g = dash.sim.game || {};
-  let v;
-  if (key === '@tasks') v = (p.tasks || []).length;
-  else if (key === '@resources') v = (p.resources || []).length;
-  else if (key === '@stakeholders') v = (p.stakeholders || []).length;
-  else if (key === '@procurement') v = (p.procurement || []).length;
-  else if (key === '@missions') v = (g.missions || []).length;
-  else if (key === '@approach') v = humanize(p.approach || 'hybrid');
-  else if (key === '@difficulty') v = humanize(p.difficulty || 'professional');
-  else if (key === '@level') v = g.levelName ? `${g.level || 1} · ${g.levelName}` : String(g.level || 1);
-  else if (key === '@xp') v = g.xp || 0;
-  else v = s[key];
-  let text = '—';
-  let cls = '';
-  if (kind === 'pkr') text = fmtPKR(v);
-  else if (kind === 'pct') text = fmtPct(v, 1);
-  else if (kind === 'q') text = Number.isFinite(v) ? fmtPct(v > 1.5 ? v / 100 : v, 0) : '—';
-  else if (kind === 'idx') { text = fmtIndex(v); cls = indexClass(v); }
-  else if (kind === 'days') text = fmtDays(v);
-  else if (kind === 'sdays') { text = Number.isFinite(v) ? `${v > 0 ? '+' : ''}${Math.round(v)} d` : '—'; cls = Number.isFinite(v) ? (v > 10 ? 'bad' : v > 0 ? 'warn' : 'good') : ''; }
-  else if (kind === 'dayn') text = Number.isFinite(v) ? (p.dateLabel ? p.dateLabel(Math.round(v)) : `Day ${Math.round(v)}`) : '—';
-  else if (kind === 'phase') text = v ? humanize(v) : '—';
-  else if (kind === 'num1') text = Number.isFinite(v) ? v.toFixed(1) : '—';
-  else if (kind === 'int') text = Number.isFinite(v) ? Math.round(v).toLocaleString('en-US') : '—';
-  else text = v === undefined || v === null ? '—' : String(v);
-  return { text, cls };
-}
-
-const PANEL_COURSE = {
-  id: 'course',
-  render(dash, body) {
-    let s = {};
-    try { s = dash.project && dash.project.snapshot ? dash.project.snapshot() || {} : {}; } catch { s = {}; }
-    body.appendChild(dash.tag());
-    body.appendChild(el('p', { class: 'lede', text: NOTE }));
-    body.appendChild(el('div', { class: 'grid c4' }, ITEMS.map(([label, key, kind]) => {
-      const v = value(dash, s, key, kind);
-      return kpi(label, v.text, null, v.cls);
-    })));
-    const actions = [
-      button("Open PM Foundations", () => { dash.open('foundations'); }, { icon: 'book' }),
-      button("Open the charter", () => { dash.open('charter'); }, { icon: 'scroll' }),
-    ];
-    if (actions.length) body.appendChild(el('div', { class: 'row actions-row' }, actions));
-    body.appendChild(el('div', { class: 'panel-foot' }, [dash.simBadge(), el('span', { class: 'muted small', text: s.dateLabel ? `As of ${s.dateLabel}` : '' })]));
-  },
-};
-
-return { get PANEL_COURSE() { return PANEL_COURSE; } };
-})();
-/* ===== src/ui/panels/foundations.js ===== */
-const __m59 = (function () {
-'use strict';
-const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
-
-/**
- * foundations — live summary panel (the shell's minimal module; the full panel is owned by A6c).
- * Shows the CLO/domain chips, a one-paragraph framing and live KPIs from project.snapshot().
- */
-
-const NOTE = "A project is a temporary endeavour that creates a unique result. The Hyderabad Airport revival is one programme of related projects — runway, terminal, tower, landside — managed to deliver one benefit: a working regional gateway.";
-const ITEMS = [["Budget at completion","bac","pkr"],["Baseline duration","baselineDuration","days"],["Phase","phase","phase"],["Stakeholder satisfaction","stakeholderSatisfaction","pct"]];
-
-function value(dash, s, key, kind) {
-  const p = dash.project || {};
-  const g = dash.sim.game || {};
-  let v;
-  if (key === '@tasks') v = (p.tasks || []).length;
-  else if (key === '@resources') v = (p.resources || []).length;
-  else if (key === '@stakeholders') v = (p.stakeholders || []).length;
-  else if (key === '@procurement') v = (p.procurement || []).length;
-  else if (key === '@missions') v = (g.missions || []).length;
-  else if (key === '@approach') v = humanize(p.approach || 'hybrid');
-  else if (key === '@difficulty') v = humanize(p.difficulty || 'professional');
-  else if (key === '@level') v = g.levelName ? `${g.level || 1} · ${g.levelName}` : String(g.level || 1);
-  else if (key === '@xp') v = g.xp || 0;
-  else v = s[key];
-  let text = '—';
-  let cls = '';
-  if (kind === 'pkr') text = fmtPKR(v);
-  else if (kind === 'pct') text = fmtPct(v, 1);
-  else if (kind === 'q') text = Number.isFinite(v) ? fmtPct(v > 1.5 ? v / 100 : v, 0) : '—';
-  else if (kind === 'idx') { text = fmtIndex(v); cls = indexClass(v); }
-  else if (kind === 'days') text = fmtDays(v);
-  else if (kind === 'sdays') { text = Number.isFinite(v) ? `${v > 0 ? '+' : ''}${Math.round(v)} d` : '—'; cls = Number.isFinite(v) ? (v > 10 ? 'bad' : v > 0 ? 'warn' : 'good') : ''; }
-  else if (kind === 'dayn') text = Number.isFinite(v) ? (p.dateLabel ? p.dateLabel(Math.round(v)) : `Day ${Math.round(v)}`) : '—';
-  else if (kind === 'phase') text = v ? humanize(v) : '—';
-  else if (kind === 'num1') text = Number.isFinite(v) ? v.toFixed(1) : '—';
-  else if (kind === 'int') text = Number.isFinite(v) ? Math.round(v).toLocaleString('en-US') : '—';
-  else text = v === undefined || v === null ? '—' : String(v);
-  return { text, cls };
-}
-
-const PANEL_FOUNDATIONS = {
-  id: 'foundations',
-  render(dash, body) {
-    let s = {};
-    try { s = dash.project && dash.project.snapshot ? dash.project.snapshot() || {} : {}; } catch { s = {}; }
-    body.appendChild(dash.tag());
-    body.appendChild(el('p', { class: 'lede', text: NOTE }));
-    body.appendChild(el('div', { class: 'grid c4' }, ITEMS.map(([label, key, kind]) => {
-      const v = value(dash, s, key, kind);
-      return kpi(label, v.text, null, v.cls);
-    })));
-    const actions = [
-      button("See the life cycle", () => { dash.open('lifecycle'); }, { icon: 'cycle' }),
-    ];
-    if (actions.length) body.appendChild(el('div', { class: 'row actions-row' }, actions));
-    body.appendChild(el('div', { class: 'panel-foot' }, [dash.simBadge(), el('span', { class: 'muted small', text: s.dateLabel ? `As of ${s.dateLabel}` : '' })]));
-  },
-};
-
-return { get PANEL_FOUNDATIONS() { return PANEL_FOUNDATIONS; } };
-})();
-/* ===== src/ui/panels/lifecycle.js ===== */
-const __m60 = (function () {
-'use strict';
-const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
-
-/**
- * lifecycle — live summary panel (the shell's minimal module; the full panel is owned by A6c).
- * Shows the CLO/domain chips, a one-paragraph framing and live KPIs from project.snapshot().
- */
-
-const NOTE = "The programme moves through initiating, planning, executing, monitoring and closing focus areas, with stage gates where the sponsor decides whether to continue. The current phase and schedule position are live below.";
-const ITEMS = [["Phase","phase","phase"],["Complete","progress","pct"],["Schedule variance","scheduleVarianceDays","sdays"],["Forecast finish","forecastFinish","dayn"]];
-
-function value(dash, s, key, kind) {
-  const p = dash.project || {};
-  const g = dash.sim.game || {};
-  let v;
-  if (key === '@tasks') v = (p.tasks || []).length;
-  else if (key === '@resources') v = (p.resources || []).length;
-  else if (key === '@stakeholders') v = (p.stakeholders || []).length;
-  else if (key === '@procurement') v = (p.procurement || []).length;
-  else if (key === '@missions') v = (g.missions || []).length;
-  else if (key === '@approach') v = humanize(p.approach || 'hybrid');
-  else if (key === '@difficulty') v = humanize(p.difficulty || 'professional');
-  else if (key === '@level') v = g.levelName ? `${g.level || 1} · ${g.levelName}` : String(g.level || 1);
-  else if (key === '@xp') v = g.xp || 0;
-  else v = s[key];
-  let text = '—';
-  let cls = '';
-  if (kind === 'pkr') text = fmtPKR(v);
-  else if (kind === 'pct') text = fmtPct(v, 1);
-  else if (kind === 'q') text = Number.isFinite(v) ? fmtPct(v > 1.5 ? v / 100 : v, 0) : '—';
-  else if (kind === 'idx') { text = fmtIndex(v); cls = indexClass(v); }
-  else if (kind === 'days') text = fmtDays(v);
-  else if (kind === 'sdays') { text = Number.isFinite(v) ? `${v > 0 ? '+' : ''}${Math.round(v)} d` : '—'; cls = Number.isFinite(v) ? (v > 10 ? 'bad' : v > 0 ? 'warn' : 'good') : ''; }
-  else if (kind === 'dayn') text = Number.isFinite(v) ? (p.dateLabel ? p.dateLabel(Math.round(v)) : `Day ${Math.round(v)}`) : '—';
-  else if (kind === 'phase') text = v ? humanize(v) : '—';
-  else if (kind === 'num1') text = Number.isFinite(v) ? v.toFixed(1) : '—';
-  else if (kind === 'int') text = Number.isFinite(v) ? Math.round(v).toLocaleString('en-US') : '—';
-  else text = v === undefined || v === null ? '—' : String(v);
-  return { text, cls };
-}
-
-const PANEL_LIFECYCLE = {
-  id: 'lifecycle',
-  render(dash, body) {
-    let s = {};
-    try { s = dash.project && dash.project.snapshot ? dash.project.snapshot() || {} : {}; } catch { s = {}; }
-    body.appendChild(dash.tag());
-    body.appendChild(el('p', { class: 'lede', text: NOTE }));
-    body.appendChild(el('div', { class: 'grid c4' }, ITEMS.map(([label, key, kind]) => {
-      const v = value(dash, s, key, kind);
-      return kpi(label, v.text, null, v.cls);
-    })));
-    const actions = [
-      button("Open change control & gates", () => { dash.open('control'); }, { icon: 'shuffle' }),
-    ];
-    if (actions.length) body.appendChild(el('div', { class: 'row actions-row' }, actions));
-    body.appendChild(el('div', { class: 'panel-foot' }, [dash.simBadge(), el('span', { class: 'muted small', text: s.dateLabel ? `As of ${s.dateLabel}` : '' })]));
-  },
-};
-
-return { get PANEL_LIFECYCLE() { return PANEL_LIFECYCLE; } };
-})();
 /* ===== src/ui/charts.js ===== */
-const __m62 = (function () {
+const __m59 = (function () {
 'use strict';
 const { el, svg } = __m57;
 
@@ -86870,16 +87036,849 @@ function animOnce(dash, key) {
 
 /** Labelled definition list: [[term, value], …]. */
 function dl(rows, cls = '') {
-  return el('dl', { class: `pm-dl ${cls}`.trim() }, rows.filter(Boolean).flatMap(([k, v]) => [el('dt', { text: k }), el('dd', {}, [v instanceof Node ? v : String(v)])]));
+  return el('dl', { class: `pm-dl ${cls}`.trim() }, rows.filter(Boolean).flatMap(([k, v]) => [el('dt', { text: k }), el('dd', {}, [isNode(v) ? v : String(v)])]));
 }
 
-return { get C() { return C; }, get SERIES() { return SERIES; }, get frame() { return frame; }, get chartBox() { return chartBox; }, get legend() { return legend; }, get niceScale() { return niceScale; }, get dayTicks() { return dayTicks; }, get shortDate() { return shortDate; }, get money() { return money; }, get lineChart() { return lineChart; }, get barChart() { return barChart; }, get hbarChart() { return hbarChart; }, get histogramChart() { return histogramChart; }, get ganttChart() { return ganttChart; }, get networkChart() { return networkChart; }, get networkKey() { return networkKey; }, get heatMap() { return heatMap; }, get tornadoChart() { return tornadoChart; }, get controlChart() { return controlChart; }, get paretoChart() { return paretoChart; }, get fishboneChart() { return fishboneChart; }, get decisionTreeChart() { return decisionTreeChart; }, get scatterChart() { return scatterChart; }, get waterfallChart() { return waterfallChart; }, get bellCurve() { return bellCurve; }, get meter() { return meter; }, get section() { return section; }, get card() { return card; }, get hookCard() { return hookCard; }, get animOnce() { return animOnce; }, get dl() { return dl; } };
+const isNode = (v) => !!v && typeof v === 'object' && typeof v.nodeType === 'number';
+
+/**
+ * Data table with the same API as dom.js `table()`, but recognising DOM cells by
+ * `nodeType` (the bundle contains a vendored `function Node` that shadows the
+ * global, which breaks `instanceof Node`).
+ */
+function table(cols, rows, opts = {}) {
+  const spec = cols.map((c, i) => (typeof c === 'string' ? { key: i, label: c } : { key: c.key === undefined ? i : c.key, ...c }));
+  const state = { sortKey: null, dir: 1 };
+  const tbody = el('tbody');
+  const cell = (row, c, idx) => (Array.isArray(row) ? row[typeof c.key === 'number' ? c.key : idx] : row[c.key]);
+  const fill = () => {
+    tbody.replaceChildren();
+    let list = [...(rows || [])];
+    if (state.sortKey !== null) {
+      const c = spec.find((s) => s.key === state.sortKey);
+      const idx = spec.indexOf(c);
+      list.sort((a, b) => {
+        const va = cell(a, c, idx);
+        const vb = cell(b, c, idx);
+        if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * state.dir;
+        return String(isNode(va) ? va.textContent : va ?? '').localeCompare(String(isNode(vb) ? vb.textContent : vb ?? ''), undefined, { numeric: true }) * state.dir;
+      });
+    }
+    if (opts.maxRows) list = list.slice(0, opts.maxRows);
+    if (!list.length) { tbody.appendChild(el('tr', { class: 'empty' }, [el('td', { colspan: spec.length, text: opts.empty || 'Nothing to show yet.' })])); return; }
+    list.forEach((row, ri) => {
+      const tr = el('tr', { class: [opts.rowClass ? opts.rowClass(row, ri) : '', opts.selected && opts.selected(row) ? 'selected' : ''].join(' ').trim() || null });
+      if (opts.onRow) {
+        tr.tabIndex = 0;
+        tr.classList.add('clickable');
+        tr.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('button,a,input,select')) return; opts.onRow(row, ri); });
+        tr.addEventListener('keydown', (e) => { if (e.target === tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); opts.onRow(row, ri); } });
+      }
+      spec.forEach((c, ci) => {
+        const v = cell(row, c, ci);
+        const content = c.format ? c.format(v, row) : v;
+        const cls = [c.num ? 'num' : '', typeof c.cls === 'function' ? c.cls(v, row) : c.cls || ''].join(' ').trim();
+        const td = el('td', { class: cls || null });
+        if (isNode(content)) td.appendChild(content);
+        else td.textContent = content === undefined || content === null ? '—' : String(content);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  };
+  const headRow = el('tr', {}, spec.map((c) => {
+    const th = el('th', { class: c.num ? 'num' : null, title: c.title || null, scope: 'col', style: c.width ? { width: c.width } : null }, [String(c.label ?? '')]);
+    if (opts.sortable) {
+      th.tabIndex = 0;
+      th.classList.add('sortable');
+      const sort = () => {
+        state.dir = state.sortKey === c.key ? -state.dir : 1;
+        state.sortKey = c.key;
+        for (const h of headRow.children) h.removeAttribute('aria-sort');
+        th.setAttribute('aria-sort', state.dir > 0 ? 'ascending' : 'descending');
+        fill();
+      };
+      th.addEventListener('click', sort);
+      th.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sort(); } });
+    }
+    return th;
+  }));
+  fill();
+  return el('div', { class: 'table-wrap' }, [el('table', { class: `data ${opts.dense ? 'dense' : ''} ${opts.class || ''}`.trim() }, [opts.caption ? el('caption', { text: opts.caption }) : null, el('thead', {}, [headRow]), tbody])]);
+}
+
+return { get C() { return C; }, get SERIES() { return SERIES; }, get frame() { return frame; }, get chartBox() { return chartBox; }, get legend() { return legend; }, get niceScale() { return niceScale; }, get dayTicks() { return dayTicks; }, get shortDate() { return shortDate; }, get money() { return money; }, get lineChart() { return lineChart; }, get barChart() { return barChart; }, get hbarChart() { return hbarChart; }, get histogramChart() { return histogramChart; }, get ganttChart() { return ganttChart; }, get networkChart() { return networkChart; }, get networkKey() { return networkKey; }, get heatMap() { return heatMap; }, get tornadoChart() { return tornadoChart; }, get controlChart() { return controlChart; }, get paretoChart() { return paretoChart; }, get fishboneChart() { return fishboneChart; }, get decisionTreeChart() { return decisionTreeChart; }, get scatterChart() { return scatterChart; }, get waterfallChart() { return waterfallChart; }, get bellCurve() { return bellCurve; }, get meter() { return meter; }, get section() { return section; }, get card() { return card; }, get hookCard() { return hookCard; }, get animOnce() { return animOnce; }, get dl() { return dl; }, get table() { return table; } };
 })();
-/* ===== src/ui/panels/charter.js ===== */
+/* ===== src/data/course.json ===== */
+const __m60 = { default: {
+ "version": 1,
+ "title": "Project Management — 15-week course map (SKY GATEWAY HYDERABAD)",
+ "textbook": "PMBOK® Guide — 8th Edition",
+ "derivedFrom": "mission brief §5.2/§6 — replace with the official outline",
+ "clos": [
+  {
+   "id": "CLO1",
+   "text": "Understand and apply project-management concepts, life cycles, delivery approaches and frameworks (PMBOK 8 principles, performance domains and focus areas) to a real-world-scale project.",
+   "features": [
+    "missions:M01,M03,M06,M15",
+    "panels:foundations,lifecycle,approach,charter",
+    "tour:dawn-gateway,business-case,scrum-war-room,lessons",
+    "quiz:W01–W04,W15",
+    "scorecard:gates & missions"
+   ]
+  },
+  {
+   "id": "CLO2",
+   "text": "Apply quantitative tools and techniques — CPM/PERT, EVM, Monte Carlo, EMV, control charts — to plan, monitor and control scope, schedule, cost, quality and risk.",
+   "features": [
+    "missions:M05,M07,M08,M10,M11",
+    "panels:schedule,cost,risk,forecast,quality,control",
+    "decisions:D02,D03,D16,D17,D35,D36",
+    "quiz:W05–W10,W13",
+    "scorecard:SPI, CPI, quality, risk trend"
+   ]
+  },
+  {
+   "id": "CLO3",
+   "text": "Manage people, stakeholders, communication and procurement ethically and effectively in a multi-stakeholder public infrastructure context.",
+   "features": [
+    "missions:M02,M04,M09,M14,M16",
+    "panels:team,stakeholders,procurement,present",
+    "decisions:D01,D04,D11,D12,D13,D31",
+    "quiz:W11,W12,W14",
+    "scorecard:satisfaction, safety, welfare, ethics"
+   ]
+  }
+ ],
+ "objectives": [
+  {
+   "id": "O1",
+   "text": "Explain what makes work a project and how projects, programmes, portfolios and operations relate within an organisation.",
+   "clo": [
+    "CLO1"
+   ],
+   "features": [
+    "foundations panel",
+    "mission M01",
+    "tour beat dawn-gateway",
+    "quiz W01"
+   ]
+  },
+  {
+   "id": "O2",
+   "text": "Select and tailor a life cycle and delivery approach (predictive, Agile, hybrid) for a complex infrastructure programme.",
+   "clo": [
+    "CLO1"
+   ],
+   "features": [
+    "lifecycle and approach panels",
+    "agile board and mission M06",
+    "tour beat hybrid-approach",
+    "quiz W02–W03"
+   ]
+  },
+  {
+   "id": "O3",
+   "text": "Build and baseline integrated scope, schedule and cost plans, and analyse them quantitatively.",
+   "clo": [
+    "CLO2"
+   ],
+   "features": [
+    "scope, schedule and cost panels",
+    "missions M03 and M05",
+    "MS Project export (W13)",
+    "quiz W04, W05, W09"
+   ]
+  },
+  {
+   "id": "O4",
+   "text": "Monitor and control performance, quality, change and risk using data, and forecast outcomes.",
+   "clo": [
+    "CLO2"
+   ],
+   "features": [
+    "control, quality, risk and forecast panels",
+    "missions M07, M08, M10",
+    "decision cards D16, D17, D35",
+    "quiz W06, W07, W10"
+   ]
+  },
+  {
+   "id": "O5",
+   "text": "Lead teams, engage stakeholders, communicate and procure ethically through to handover and closure.",
+   "clo": [
+    "CLO3"
+   ],
+   "features": [
+    "team, stakeholders, procurement and closing panels",
+    "missions M04, M09, M14, M15",
+    "decision cards D01, D12, D13",
+    "quiz W11, W12, W15"
+   ]
+  }
+ ],
+ "weeks": [
+  {
+   "week": 1,
+   "topic": "Project management foundations: project vs operations, programme, portfolio, PMO, EEFs and OPAs, frameworks",
+   "panels": [
+    "course",
+    "foundations",
+    "charter"
+   ],
+   "mechanic": "Site walk (mode 1) of the closed terminal and runway; classify findings as EEFs or OPAs; read the charter",
+   "missions": [
+    "M01"
+   ],
+   "quizSet": "W01",
+   "tourBeat": "dawn-gateway",
+   "clo": [
+    "CLO1"
+   ],
+   "domain": "Governance / Foundations"
+  },
+  {
+   "week": 2,
+   "topic": "Project life cycle, process groups and PMBOK 8 focus areas, principles and performance domains",
+   "panels": [
+    "lifecycle",
+    "charter",
+    "course"
+   ],
+   "mechanic": "Approve stage gates G0/G1 and watch the phase indicator move through the focus areas",
+   "missions": [
+    "M01",
+    "M03"
+   ],
+   "quizSet": "W02",
+   "tourBeat": "business-case",
+   "clo": [
+    "CLO1"
+   ],
+   "domain": "Governance / Lifecycle"
+  },
+  {
+   "week": 3,
+   "topic": "Delivery approaches: predictive, Agile, hybrid; Scrum and Kanban; AI in project management",
+   "panels": [
+    "approach",
+    "agile",
+    "aipm"
+   ],
+   "mechanic": "Run Scrum sprints for terminal IT (WBS 10) on the board (B); ask MEHRAN to draft backlog items and review them",
+   "missions": [
+    "M06"
+   ],
+   "quizSet": "W03",
+   "tourBeat": "scrum-war-room",
+   "clo": [
+    "CLO1",
+    "CLO2"
+   ],
+   "domain": "Delivery approach / Agile"
+  },
+  {
+   "week": 4,
+   "topic": "Scope management: requirements, scope statement, WBS and WBS dictionary, validate and control scope",
+   "panels": [
+    "scope",
+    "charter",
+    "control"
+   ],
+   "mechanic": "Explore the 12-package WBS in 3D (click to select), trace requirements, resist scope-creep cards",
+   "missions": [
+    "M03",
+    "M07"
+   ],
+   "quizSet": "W04",
+   "tourBeat": "wbs-scope",
+   "clo": [
+    "CLO1",
+    "CLO2"
+   ],
+   "domain": "Scope"
+  },
+  {
+   "week": 5,
+   "topic": "Schedule management: CPM, PERT, crashing and fast-tracking (British Columbia Transportation case)",
+   "panels": [
+    "schedule",
+    "forecast",
+    "cases"
+   ],
+   "mechanic": "Find the critical path, crash by cost slope, and keep SPI ≥ 0.95 through the earthworks",
+   "missions": [
+    "M03",
+    "M05"
+   ],
+   "quizSet": "W05",
+   "tourBeat": "critical-path",
+   "clo": [
+    "CLO2"
+   ],
+   "domain": "Schedule"
+  },
+  {
+   "week": 6,
+   "topic": "Monitoring and controlling, integrated change control, closing a phase",
+   "panels": [
+    "control",
+    "cost",
+    "closing"
+   ],
+   "mechanic": "Raise and decide change requests at the CCB (C); review variance thresholds and phase-gate closure",
+   "missions": [
+    "M07"
+   ],
+   "quizSet": "W06",
+   "tourBeat": "change-control",
+   "clo": [
+    "CLO2"
+   ],
+   "domain": "Monitoring & Controlling / Change"
+  },
+  {
+   "week": 7,
+   "topic": "Quality management: cost of quality, control charts, Pareto, root cause, NCRs",
+   "panels": [
+    "quality",
+    "control",
+    "operations"
+   ],
+   "mechanic": "Pass the pavement quality gate with zero open NCRs; react to dust-storm and cube-failure cards",
+   "missions": [
+    "M08",
+    "M12",
+    "M13"
+   ],
+   "quizSet": "W07",
+   "tourBeat": "quality-control",
+   "clo": [
+    "CLO2"
+   ],
+   "domain": "Quality"
+  },
+  {
+   "week": 8,
+   "topic": "Mid-term review and assessment (weeks 1–7)",
+   "panels": [
+    "assess",
+    "course",
+    "missions"
+   ],
+   "mechanic": "Mid-term practice quiz drawn from weeks 1–7; mission review and scorecard snapshot",
+   "missions": [
+    "M01",
+    "M03",
+    "M05",
+    "M06",
+    "M07",
+    "M08"
+   ],
+   "quizSet": "W08",
+   "tourBeat": "control-view",
+   "clo": [
+    "CLO1",
+    "CLO2"
+   ],
+   "domain": "Assessment"
+  },
+  {
+   "week": 9,
+   "topic": "Cost management: estimating, budgeting, reserves, earned value and forecasting",
+   "panels": [
+    "cost",
+    "forecast",
+    "control"
+   ],
+   "mechanic": "Track PV/EV/AC, EAC and TCPI; absorb a PKR devaluation through reserves or hedging",
+   "missions": [
+    "M11"
+   ],
+   "quizSet": "W09",
+   "tourBeat": "earthworks",
+   "clo": [
+    "CLO2"
+   ],
+   "domain": "Finance / Cost"
+  },
+  {
+   "week": 10,
+   "topic": "Risk management: identification, qualitative and quantitative analysis, responses (AstraZeneca pandemic case)",
+   "panels": [
+    "risk",
+    "forecast",
+    "cases"
+   ],
+   "mechanic": "Size reserves with EMV and Monte Carlo; survive the monsoon flash flood with the drainage complete",
+   "missions": [
+    "M10"
+   ],
+   "quizSet": "W10",
+   "tourBeat": "monsoon",
+   "clo": [
+    "CLO2"
+   ],
+   "domain": "Risk"
+  },
+  {
+   "week": 11,
+   "topic": "Procurement management: make-or-buy, contract types, weighted bid evaluation, claims and ethics",
+   "panels": [
+    "procurement",
+    "cost",
+    "team"
+   ],
+   "mechanic": "Evaluate bids with weighted scoring, award packages, handle a vendor bribe attempt and a cash-flow crisis",
+   "missions": [
+    "M09",
+    "M11"
+   ],
+   "quizSet": "W11",
+   "tourBeat": "terminal-steel",
+   "clo": [
+    "CLO3"
+   ],
+   "domain": "Procurement"
+  },
+  {
+   "week": 12,
+   "topic": "Resources, team, stakeholders and communications",
+   "panels": [
+    "team",
+    "stakeholders",
+    "present"
+   ],
+   "mechanic": "Clear the encroachment without losing the community; heat-wave and union cards; tailor the communications plan",
+   "missions": [
+    "M02",
+    "M04",
+    "M16"
+   ],
+   "quizSet": "W12",
+   "tourBeat": "encroachment",
+   "clo": [
+    "CLO3"
+   ],
+   "domain": "Stakeholders / Resources"
+  },
+  {
+   "week": 13,
+   "topic": "MS Project workshop: tasks, links, lags, resources, baselines and tracking",
+   "panels": [
+    "msproject",
+    "schedule",
+    "session"
+   ],
+   "mechanic": "Export the schedule as MSPDI XML / CSV, rebuild it in MS Project and compare the critical path",
+   "missions": [
+    "M03",
+    "M12"
+   ],
+   "quizSet": "W13",
+   "tourBeat": "night-agl",
+   "clo": [
+    "CLO2"
+   ],
+   "domain": "Schedule tools"
+  },
+  {
+   "week": 14,
+   "topic": "Project presentations (I): status reporting and storytelling with data",
+   "panels": [
+    "present",
+    "missions",
+    "stakeholders"
+   ],
+   "mechanic": "Presentation mode (R): build a status report from live data and present a tour segment",
+   "missions": [
+    "M13",
+    "M14"
+   ],
+   "quizSet": "W14",
+   "tourBeat": "certification",
+   "clo": [
+    "CLO3",
+    "CLO1"
+   ],
+   "domain": "Communications"
+  },
+  {
+   "week": 15,
+   "topic": "Project presentations (II), closing the project and final review",
+   "panels": [
+    "closing",
+    "operations",
+    "assess"
+   ],
+   "mechanic": "Hand over to operations, log lessons learned, print the scorecard certificate; final review quiz",
+   "missions": [
+    "M14",
+    "M15"
+   ],
+   "quizSet": "W15",
+   "tourBeat": "lessons",
+   "clo": [
+    "CLO1",
+    "CLO2",
+    "CLO3"
+   ],
+   "domain": "Closing / Benefits"
+  }
+ ]
+} };
+/* ===== src/ui/panels/course.js ===== */
+const __m58 = (function () {
+'use strict';
+const { el, kpi, button, tabs, pill, bar, icon } = __m57;
+const { section, card } = __m59;
+const COURSE = __m60.default;
+
+/**
+ * course — Course Map (all weeks). The 15-week matrix from course.json: every week
+ * links to its panels, 3D mechanic, missions, quiz set and tour beat; CLO1–3 and the
+ * five course objectives list the simulator features that serve them; the outline is
+ * instructor-editable (kept in localStorage) and flagged as derived.
+ */
+
+const OUTLINE_KEY = 'hdd.course.outline.v1';
+const TABS = [
+  { id: 'matrix', label: 'Weekly matrix', icon: 'table' },
+  { id: 'outcomes', label: 'CLOs & objectives', icon: 'target' },
+  { id: 'outline', label: 'Outline (editable)', icon: 'scroll' },
+];
+const TITLES = {
+  course: 'Course Map', foundations: 'PM Foundations', lifecycle: 'Life Cycle & Gates', charter: 'Project Charter', approach: 'Development Approach',
+  scope: 'Scope & WBS', schedule: 'Schedule & CPM', cost: 'Cost & EVM', quality: 'Quality', risk: 'Risk Register', procurement: 'Procurement',
+  team: 'Team & Resources', stakeholders: 'Stakeholders', msproject: 'MS Project', control: 'Change Control', forecast: 'Monte Carlo',
+  agile: 'Agile Delivery', aipm: 'AI in PM', operations: 'Operations', missions: 'Missions', closing: 'Closing', cases: 'Case Studies',
+  assess: 'Quiz', present: 'Present', session: 'Session',
+};
+
+const num = (s) => parseInt(String(s).replace(/\D+/g, ''), 10);
+
+function readOutline() {
+  try { return window.localStorage.getItem(OUTLINE_KEY); } catch { return null; }
+}
+function writeOutline(text) {
+  try {
+    if (text === null) window.localStorage.removeItem(OUTLINE_KEY);
+    else window.localStorage.setItem(OUTLINE_KEY, text);
+    return true;
+  } catch { return false; }
+}
+function derivedOutline() {
+  return COURSE.weeks.map((w) => `Week ${w.week} — ${w.topic}`).join('\n');
+}
+
+/** Per-week progress from missions, quiz sets and panels opened. */
+function weekProgress(dash, w) {
+  const game = dash.sim.game || {};
+  const missions = game.missions || [];
+  const track = game.track || {};
+  const parts = [];
+  const mine = (w.missions || []).map((id) => missions.find((m) => m.id === id)).filter(Boolean);
+  const mDone = mine.filter((m) => m.status === 'completed').length;
+  if (mine.length) parts.push(mDone / mine.length);
+  const quiz = track.quiz || {};
+  const key = Object.keys(quiz).find((k) => num(k) === num(w.quizSet));
+  const q = key ? quiz[key] : null;
+  parts.push(q && q.total ? Math.min(1, q.best / q.total) : 0);
+  const seen = new Set(track.panels || []);
+  const pans = w.panels || [];
+  const pSeen = pans.filter((p) => seen.has(p) || p === dash.openId).length;
+  if (pans.length) parts.push(pSeen / pans.length);
+  const value = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 0;
+  return { value, mDone, mTotal: mine.length, quiz: q, pSeen, pTotal: pans.length, seen };
+}
+
+function startTour(dash, beatId) {
+  const sim = dash.sim;
+  const idx = sim.tour && sim.tour.beats ? sim.tour.beats.findIndex((b) => b.id === beatId) : -1;
+  if (idx < 0) { sim.toast && sim.toast('That tour beat is not available.', 'warn'); return; }
+  dash.close();
+  sim.setMode('tour');
+  sim.tour.goTo(idx);
+}
+
+function panelChip(dash, id, seen) {
+  return el('button', {
+    type: 'button', class: `cp-chip ${seen ? 'seen' : ''}`.trim(), title: `Open ${TITLES[id] || id}${seen ? ' (visited)' : ''}`,
+    onclick: () => dash.open(id),
+  }, [seen ? icon('check', 11) : null, el('span', { text: TITLES[id] || id })]);
+}
+
+function matrix(dash, pane) {
+  const sim = dash.sim;
+  const beats = (sim.tour && sim.tour.beats) || [];
+  const proj = dash.project;
+  const currentWeek = Math.min(15, Math.max(1, Math.floor((proj ? proj.day : 0) / 365 * 15) + 1));
+  const head = el('div', { class: 'cp-week cp-week-head', role: 'row' }, ['Wk', 'Topic & 3D mechanic', 'Panels', 'Missions · quiz', 'Tour beat', 'CLO · PMBOK 8 domain', 'Progress'].map((h) => el('div', { role: 'columnheader', text: h })));
+  const list = el('div', { class: 'cp-weeks', role: 'table', 'aria-label': 'Fifteen-week course matrix' }, [head]);
+  const open = dash.state.openWeek;
+  for (const w of COURSE.weeks) {
+    const pr = weekProgress(dash, w);
+    const beat = beats.find((b) => b.id === w.tourBeat);
+    const row = el('div', { class: `cp-week ${open === w.week ? 'open' : ''} ${w.week === dash.state.focusWeek ? 'focus' : ''}`.trim(), role: 'row' }, [
+      el('div', { class: 'cp-wk', role: 'cell' }, [el('b', { text: String(w.week) }), w.week === currentWeek ? el('small', { text: 'now' }) : null]),
+      el('div', { class: 'cp-topic', role: 'cell' }, [
+        el('div', { class: 'cp-topic-t', text: w.topic }),
+        el('div', { class: 'cp-mech' }, [icon('cube', 12), el('span', { text: w.mechanic })]),
+      ]),
+      el('div', { class: 'cp-chips', role: 'cell' }, w.panels.map((p) => panelChip(dash, p, pr.seen.has(p)))),
+      el('div', { class: 'cp-mq', role: 'cell' }, [
+        el('button', { type: 'button', class: 'cp-link', onclick: () => dash.open('missions'), title: 'Open Missions' }, [`${(w.missions || []).join(' · ') || '—'}`]),
+        el('button', { type: 'button', class: 'cp-link', onclick: () => dash.open('assess'), title: 'Open the quiz' }, [`Quiz ${w.quizSet}${pr.quiz && pr.quiz.total ? ` · ${pr.quiz.best}/${pr.quiz.total}` : ''}`]),
+      ]),
+      el('div', { role: 'cell' }, [
+        el('button', { type: 'button', class: 'action ghost small', onclick: () => startTour(dash, w.tourBeat), title: beat ? `Start the tour at “${beat.title}”` : 'Start tour' }, [icon('play', 12), el('span', { text: beat ? beat.title : w.tourBeat })]),
+      ]),
+      el('div', { class: 'cp-tags', role: 'cell' }, [...w.clo.map((c) => pill(c, 'clo')), el('small', { text: w.domain })]),
+      el('div', { class: 'cp-prog', role: 'cell' }, [
+        bar(pr.value, pr.value >= 0.99 ? 'ok' : '', `Week ${w.week} progress`),
+        el('small', { text: `${Math.round(pr.value * 100)}% · ${pr.mDone}/${pr.mTotal} missions · ${pr.pSeen}/${pr.pTotal} panels` }),
+      ]),
+    ]);
+    list.appendChild(row);
+  }
+  pane.appendChild(list);
+  pane.appendChild(el('p', { class: 'pm-note', text: 'Progress per week = average of missions completed, best quiz score for the week’s set, and panels opened. “Now” marks the week that matches the project clock (one course week per 24 project days).' }));
+}
+
+function featureChips(dash, feats) {
+  const out = [];
+  for (const f of feats) {
+    const [kind, rest] = f.includes(':') ? [f.slice(0, f.indexOf(':')), f.slice(f.indexOf(':') + 1)] : ['', f];
+    if (kind === 'panels') out.push(...rest.split(',').map((p) => panelChip(dash, p.trim(), false)));
+    else if (kind === 'missions') out.push(el('button', { type: 'button', class: 'cp-chip', onclick: () => dash.open('missions'), title: 'Open Missions' }, [`Missions ${rest.split(',').join(' ')}`]));
+    else if (kind === 'quiz') out.push(el('button', { type: 'button', class: 'cp-chip', onclick: () => dash.open('assess'), title: 'Open the quiz' }, [`Quiz ${rest}`]));
+    else if (kind === 'tour') out.push(...rest.split(',').map((b) => el('button', { type: 'button', class: 'cp-chip tour', onclick: () => startTour(dash, b.trim()), title: 'Start the tour here' }, [icon('play', 10), `${b.trim()}`])));
+    else out.push(el('span', { class: 'cp-chip plain', text: kind ? `${kind}: ${rest}` : rest }));
+  }
+  return el('div', { class: 'cp-chips' }, out);
+}
+
+function outcomes(dash, pane) {
+  const game = dash.sim.game || {};
+  const done = new Set((game.missions || []).filter((m) => m.status === 'completed').map((m) => m.id));
+  pane.appendChild(section('Course learning outcomes', COURSE.textbook));
+  const grid = el('div', { class: 'pm-grid c3' });
+  for (const c of COURSE.clos) {
+    const ms = (c.features.find((f) => f.startsWith('missions:')) || '').replace('missions:', '').split(',').filter(Boolean);
+    const frac = ms.length ? ms.filter((m) => done.has(m)).length / ms.length : 0;
+    grid.appendChild(card(c.id, [
+      el('p', { text: c.text }),
+      el('div', { class: 'cp-prog' }, [bar(frac, frac >= 0.99 ? 'ok' : '', `${c.id} mission progress`), el('small', { text: `${ms.filter((m) => done.has(m)).length}/${ms.length} linked missions complete` })]),
+      featureChips(dash, c.features),
+    ], { cls: 'accent' }));
+  }
+  pane.appendChild(grid);
+  pane.appendChild(section('Course objectives', 'five objectives, each served by named features'));
+  const objs = el('div', { class: 'pm-grid c2' });
+  for (const o of COURSE.objectives) {
+    objs.appendChild(card(`${o.id} · ${o.clo.join(', ')}`, [
+      el('p', { text: o.text }),
+      el('ul', { class: 'cp-feat' }, o.features.map((f) => el('li', { text: f }))),
+    ]));
+  }
+  pane.appendChild(objs);
+}
+
+function outline(dash, pane) {
+  const s = dash.state;
+  const saved = readOutline();
+  const isRole = dash.sim.settings && dash.sim.settings.get && dash.sim.settings.get('role') === 'instructor';
+  pane.appendChild(el('div', { class: 'callout warn' }, [icon('warning', 16), el('div', {}, [
+    el('b', { text: 'Derived — replace with official outline.' }),
+    el('p', { text: `${COURSE.derivedFrom}. Edit the text below to match the university’s approved outline; it is stored only in this browser (localStorage) and never leaves the device.` }),
+  ])]));
+  const ta = el('textarea', { class: 'cp-outline', rows: 16, spellcheck: 'false', 'aria-label': 'Course outline text', readonly: !isRole && s.locked !== false ? true : null });
+  ta.value = s.draft !== undefined ? s.draft : saved !== null ? saved : derivedOutline();
+  ta.addEventListener('input', () => { s.draft = ta.value; });
+  const status = el('span', { class: 'muted small', role: 'status', text: saved !== null ? 'Showing your saved outline.' : 'Showing the outline derived from the course map.' });
+  const edit = el('div', { class: 'row actions-row' });
+  const unlock = button(s.locked === false || isRole ? 'Editing enabled' : 'Enable editing (instructor)', () => { s.locked = false; dash.rerender(); }, { icon: 'pencil', kind: 'ghost', disabled: s.locked === false || isRole });
+  edit.append(
+    unlock,
+    button('Save outline', () => {
+      const ok = writeOutline(ta.value);
+      s.draft = undefined;
+      status.textContent = ok ? `Saved ${ta.value.split('\n').filter(Boolean).length} lines to this browser.` : 'Browser storage is blocked — the outline was not saved.';
+      dash.sim.toast && dash.sim.toast(ok ? 'Course outline saved' : 'Could not save outline', ok ? 'good' : 'warn');
+    }, { kind: 'primary', icon: 'check' }),
+    button('Reset to derived', () => { writeOutline(null); s.draft = undefined; dash.rerender(); }, { icon: 'cycle', kind: 'ghost' }),
+    status,
+  );
+  pane.append(ta, edit);
+  pane.appendChild(section('Preview'));
+  const lines = ta.value.split('\n').map((l) => l.trim()).filter(Boolean);
+  pane.appendChild(el('ol', { class: 'cp-preview' }, lines.slice(0, 40).map((l) => el('li', { text: l.replace(/^Week\s*\d+\s*[—:-]\s*/i, '') }))));
+}
+
+const PANEL_COURSE = {
+  id: 'course',
+  render(dash, body, head) {
+    const s = dash.state;
+    if (!s.tab) s.tab = 'matrix';
+    const game = dash.sim.game || {};
+    const missions = game.missions || [];
+    const track = game.track || {};
+    const weeks = COURSE.weeks.map((w) => weekProgress(dash, w));
+    const overall = weeks.reduce((a, b) => a + b.value, 0) / weeks.length;
+    head.appendChild(dash.simBadge());
+    body.appendChild(dash.tag());
+    body.appendChild(el('p', { class: 'lede', text: `${COURSE.title}. Fifteen weeks follow ${COURSE.textbook}: every week maps to simulator panels, a 3D mechanic, missions, a weekly quiz set and a guided-tour beat. Click any chip to jump straight there.` }));
+    body.appendChild(el('div', { class: 'grid c4 pm-kpis' }, [
+      kpi({ label: 'Course progress', value: `${Math.round(overall * 100)}%`, foot: 'missions · quizzes · panels', cls: overall > 0.5 ? 'good' : '' }),
+      kpi({ label: 'Missions complete', value: `${missions.filter((m) => m.status === 'completed').length} / ${missions.length}`, foot: `${missions.filter((m) => m.status === 'active').length} active` }),
+      kpi({ label: 'Quiz sets taken', value: `${Object.keys(track.quiz || {}).length} / ${COURSE.weeks.length}`, foot: 'best score counts' }),
+      kpi({ label: 'Panels visited', value: `${new Set(track.panels || []).size} / 25`, foot: `Project day ${dash.project ? dash.project.day : 0}` }),
+    ]));
+    body.appendChild(el('div', { class: 'pm-toolbar' }, [tabs(TABS, s.tab, (id) => { s.tab = id; dash.rerender(); })]));
+    const pane = el('div', { class: 'tab-pane' });
+    body.appendChild(pane);
+    if (s.tab === 'matrix') matrix(dash, pane);
+    else if (s.tab === 'outcomes') outcomes(dash, pane);
+    else outline(dash, pane);
+    body.appendChild(el('div', { class: 'panel-foot' }, [dash.simBadge(), el('span', { class: 'muted small', text: `Textbook: ${COURSE.textbook}` })]));
+  },
+};
+
+return { get PANEL_COURSE() { return PANEL_COURSE; } };
+})();
+/* ===== src/ui/panels/foundations.js ===== */
 const __m61 = (function () {
 'use strict';
-const { el, kpi, button, table, pill, slider, select, fmtPKR, fmtPct, fmtIndex, confirmModal } = __m57;
-const { C, chartBox, legend, barChart, hbarChart, shortDate, money, section, card, animOnce, dl } = __m62;
+const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
+
+/**
+ * foundations — live summary panel (the shell's minimal module; the full panel is owned by A6c).
+ * Shows the CLO/domain chips, a one-paragraph framing and live KPIs from project.snapshot().
+ */
+
+const NOTE = "A project is a temporary endeavour that creates a unique result. The Hyderabad Airport revival is one programme of related projects — runway, terminal, tower, landside — managed to deliver one benefit: a working regional gateway.";
+const ITEMS = [["Budget at completion","bac","pkr"],["Baseline duration","baselineDuration","days"],["Phase","phase","phase"],["Stakeholder satisfaction","stakeholderSatisfaction","pct"]];
+
+function value(dash, s, key, kind) {
+  const p = dash.project || {};
+  const g = dash.sim.game || {};
+  let v;
+  if (key === '@tasks') v = (p.tasks || []).length;
+  else if (key === '@resources') v = (p.resources || []).length;
+  else if (key === '@stakeholders') v = (p.stakeholders || []).length;
+  else if (key === '@procurement') v = (p.procurement || []).length;
+  else if (key === '@missions') v = (g.missions || []).length;
+  else if (key === '@approach') v = humanize(p.approach || 'hybrid');
+  else if (key === '@difficulty') v = humanize(p.difficulty || 'professional');
+  else if (key === '@level') v = g.levelName ? `${g.level || 1} · ${g.levelName}` : String(g.level || 1);
+  else if (key === '@xp') v = g.xp || 0;
+  else v = s[key];
+  let text = '—';
+  let cls = '';
+  if (kind === 'pkr') text = fmtPKR(v);
+  else if (kind === 'pct') text = fmtPct(v, 1);
+  else if (kind === 'q') text = Number.isFinite(v) ? fmtPct(v > 1.5 ? v / 100 : v, 0) : '—';
+  else if (kind === 'idx') { text = fmtIndex(v); cls = indexClass(v); }
+  else if (kind === 'days') text = fmtDays(v);
+  else if (kind === 'sdays') { text = Number.isFinite(v) ? `${v > 0 ? '+' : ''}${Math.round(v)} d` : '—'; cls = Number.isFinite(v) ? (v > 10 ? 'bad' : v > 0 ? 'warn' : 'good') : ''; }
+  else if (kind === 'dayn') text = Number.isFinite(v) ? (p.dateLabel ? p.dateLabel(Math.round(v)) : `Day ${Math.round(v)}`) : '—';
+  else if (kind === 'phase') text = v ? humanize(v) : '—';
+  else if (kind === 'num1') text = Number.isFinite(v) ? v.toFixed(1) : '—';
+  else if (kind === 'int') text = Number.isFinite(v) ? Math.round(v).toLocaleString('en-US') : '—';
+  else text = v === undefined || v === null ? '—' : String(v);
+  return { text, cls };
+}
+
+const PANEL_FOUNDATIONS = {
+  id: 'foundations',
+  render(dash, body) {
+    let s = {};
+    try { s = dash.project && dash.project.snapshot ? dash.project.snapshot() || {} : {}; } catch { s = {}; }
+    body.appendChild(dash.tag());
+    body.appendChild(el('p', { class: 'lede', text: NOTE }));
+    body.appendChild(el('div', { class: 'grid c4' }, ITEMS.map(([label, key, kind]) => {
+      const v = value(dash, s, key, kind);
+      return kpi(label, v.text, null, v.cls);
+    })));
+    const actions = [
+      button("See the life cycle", () => { dash.open('lifecycle'); }, { icon: 'cycle' }),
+    ];
+    if (actions.length) body.appendChild(el('div', { class: 'row actions-row' }, actions));
+    body.appendChild(el('div', { class: 'panel-foot' }, [dash.simBadge(), el('span', { class: 'muted small', text: s.dateLabel ? `As of ${s.dateLabel}` : '' })]));
+  },
+};
+
+return { get PANEL_FOUNDATIONS() { return PANEL_FOUNDATIONS; } };
+})();
+/* ===== src/ui/panels/lifecycle.js ===== */
+const __m62 = (function () {
+'use strict';
+const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
+
+/**
+ * lifecycle — live summary panel (the shell's minimal module; the full panel is owned by A6c).
+ * Shows the CLO/domain chips, a one-paragraph framing and live KPIs from project.snapshot().
+ */
+
+const NOTE = "The programme moves through initiating, planning, executing, monitoring and closing focus areas, with stage gates where the sponsor decides whether to continue. The current phase and schedule position are live below.";
+const ITEMS = [["Phase","phase","phase"],["Complete","progress","pct"],["Schedule variance","scheduleVarianceDays","sdays"],["Forecast finish","forecastFinish","dayn"]];
+
+function value(dash, s, key, kind) {
+  const p = dash.project || {};
+  const g = dash.sim.game || {};
+  let v;
+  if (key === '@tasks') v = (p.tasks || []).length;
+  else if (key === '@resources') v = (p.resources || []).length;
+  else if (key === '@stakeholders') v = (p.stakeholders || []).length;
+  else if (key === '@procurement') v = (p.procurement || []).length;
+  else if (key === '@missions') v = (g.missions || []).length;
+  else if (key === '@approach') v = humanize(p.approach || 'hybrid');
+  else if (key === '@difficulty') v = humanize(p.difficulty || 'professional');
+  else if (key === '@level') v = g.levelName ? `${g.level || 1} · ${g.levelName}` : String(g.level || 1);
+  else if (key === '@xp') v = g.xp || 0;
+  else v = s[key];
+  let text = '—';
+  let cls = '';
+  if (kind === 'pkr') text = fmtPKR(v);
+  else if (kind === 'pct') text = fmtPct(v, 1);
+  else if (kind === 'q') text = Number.isFinite(v) ? fmtPct(v > 1.5 ? v / 100 : v, 0) : '—';
+  else if (kind === 'idx') { text = fmtIndex(v); cls = indexClass(v); }
+  else if (kind === 'days') text = fmtDays(v);
+  else if (kind === 'sdays') { text = Number.isFinite(v) ? `${v > 0 ? '+' : ''}${Math.round(v)} d` : '—'; cls = Number.isFinite(v) ? (v > 10 ? 'bad' : v > 0 ? 'warn' : 'good') : ''; }
+  else if (kind === 'dayn') text = Number.isFinite(v) ? (p.dateLabel ? p.dateLabel(Math.round(v)) : `Day ${Math.round(v)}`) : '—';
+  else if (kind === 'phase') text = v ? humanize(v) : '—';
+  else if (kind === 'num1') text = Number.isFinite(v) ? v.toFixed(1) : '—';
+  else if (kind === 'int') text = Number.isFinite(v) ? Math.round(v).toLocaleString('en-US') : '—';
+  else text = v === undefined || v === null ? '—' : String(v);
+  return { text, cls };
+}
+
+const PANEL_LIFECYCLE = {
+  id: 'lifecycle',
+  render(dash, body) {
+    let s = {};
+    try { s = dash.project && dash.project.snapshot ? dash.project.snapshot() || {} : {}; } catch { s = {}; }
+    body.appendChild(dash.tag());
+    body.appendChild(el('p', { class: 'lede', text: NOTE }));
+    body.appendChild(el('div', { class: 'grid c4' }, ITEMS.map(([label, key, kind]) => {
+      const v = value(dash, s, key, kind);
+      return kpi(label, v.text, null, v.cls);
+    })));
+    const actions = [
+      button("Open change control & gates", () => { dash.open('control'); }, { icon: 'shuffle' }),
+    ];
+    if (actions.length) body.appendChild(el('div', { class: 'row actions-row' }, actions));
+    body.appendChild(el('div', { class: 'panel-foot' }, [dash.simBadge(), el('span', { class: 'muted small', text: s.dateLabel ? `As of ${s.dateLabel}` : '' })]));
+  },
+};
+
+return { get PANEL_LIFECYCLE() { return PANEL_LIFECYCLE; } };
+})();
+/* ===== src/ui/panels/charter.js ===== */
+const __m63 = (function () {
+'use strict';
+const { el, kpi, button, pill, slider, select, fmtPKR, fmtPct, fmtIndex, confirmModal } = __m57;
+const { C, chartBox, legend, barChart, hbarChart, shortDate, money, section, card, animOnce, dl, table } = __m59;
 const { fact, hasFact, factSource } = __m52;
 
 /**
@@ -87174,7 +88173,7 @@ function signoff(dash, p, g0) {
 return { get PANEL_CHARTER() { return PANEL_CHARTER; } };
 })();
 /* ===== src/ui/panels/approach.js ===== */
-const __m63 = (function () {
+const __m64 = (function () {
 'use strict';
 const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
 
@@ -87239,10 +88238,10 @@ const PANEL_APPROACH = {
 return { get PANEL_APPROACH() { return PANEL_APPROACH; } };
 })();
 /* ===== src/ui/panels/scope.js ===== */
-const __m64 = (function () {
+const __m65 = (function () {
 'use strict';
-const { el, kpi, button, table, tabs, pill, bar, fmtPKR, fmtPct, confirmModal } = __m57;
-const { shortDate, section, card, dl } = __m62;
+const { el, kpi, button, tabs, pill, bar, fmtPKR, fmtPct, confirmModal } = __m57;
+const { shortDate, section, card, dl, table } = __m59;
 const { fact } = __m52;
 
 /**
@@ -87495,12 +88494,10 @@ function validate(dash, pane, p) {
 return { get PANEL_SCOPE() { return PANEL_SCOPE; } };
 })();
 /* ===== src/ui/panels/schedule.js ===== */
-const __m65 = (function () {
+const __m66 = (function () {
 'use strict';
-const { el, kpi, button, table, tabs, pill, select, slider, fmtPKR, fmtIndex, indexClass, confirmModal } = __m57;
-const { C, chartBox, legend, ganttChart, networkChart, networkKey, bellCurve, barChart, lineChart, dayTicks, shortDate, section, card, hookCard, animOnce, dl } = __m62;
-
-
+const { el, kpi, button, tabs, pill, select, slider, fmtPKR, fmtIndex, indexClass, confirmModal } = __m57;
+const { C, chartBox, legend, ganttChart, networkChart, networkKey, bellCurve, barChart, lineChart, dayTicks, shortDate, section, card, hookCard, animOnce, dl, table } = __m59;
 
 const { normalCdf, inverseNormal, pertDuration, pertSigma } = __m32;
 
@@ -87983,12 +88980,10 @@ function level(dash, pane, p) {
 return { get PANEL_SCHEDULE() { return PANEL_SCHEDULE; } };
 })();
 /* ===== src/ui/panels/cost.js ===== */
-const __m66 = (function () {
+const __m67 = (function () {
 'use strict';
-const { el, kpi, button, table, tabs, pill, select, fmtPKR, fmtIndex, fmtPct, indexClass } = __m57;
-const { C, chartBox, legend, lineChart, barChart, hbarChart, waterfallChart, dayTicks, shortDate, money, section, card, animOnce, dl } = __m62;
-
-
+const { el, kpi, button, tabs, pill, select, fmtPKR, fmtIndex, fmtPct, indexClass } = __m57;
+const { C, chartBox, legend, lineChart, barChart, hbarChart, waterfallChart, dayTicks, shortDate, money, section, card, animOnce, dl, table } = __m59;
 
 /**
  * Cost & Earned Value (Week 6/9): estimating methods with worked numbers,
@@ -88329,12 +89324,10 @@ function breakdown(dash, pane, p) {
 return { get PANEL_COST() { return PANEL_COST; } };
 })();
 /* ===== src/ui/panels/quality.js ===== */
-const __m67 = (function () {
+const __m68 = (function () {
 'use strict';
-const { el, kpi, button, table, tabs, pill, select, slider, fmtPKR, fmtPct, confirmModal } = __m57;
-const { C, chartBox, legend, controlChart, histogramChart, scatterChart, paretoChart, fishboneChart, hbarChart, barChart, shortDate, section, card, animOnce, dl } = __m62;
-
-
+const { el, kpi, button, tabs, pill, select, slider, fmtPKR, fmtPct, confirmModal } = __m57;
+const { C, chartBox, legend, controlChart, histogramChart, scatterChart, paretoChart, fishboneChart, hbarChart, barChart, shortDate, section, card, animOnce, dl, table } = __m59;
 const { imr, westernElectric, capability, pareto } = __m35;
 const { fact } = __m52;
 
@@ -88627,12 +89620,10 @@ function ncr(dash, pane, p) {
 return { get PANEL_QUALITY() { return PANEL_QUALITY; } };
 })();
 /* ===== src/ui/panels/risk.js ===== */
-const __m68 = (function () {
+const __m69 = (function () {
 'use strict';
-const { el, kpi, button, table, tabs, pill, select, fmtPKR, fmtPct, confirmModal } = __m57;
-const { C, chartBox, legend, heatMap, lineChart, decisionTreeChart, dayTicks, shortDate, section, card, hookCard, animOnce, dl } = __m62;
-
-
+const { el, kpi, button, tabs, pill, select, fmtPKR, fmtPct, confirmModal } = __m57;
+const { C, chartBox, legend, heatMap, lineChart, decisionTreeChart, dayTicks, shortDate, section, card, hookCard, animOnce, dl, table } = __m59;
 const { decisionTree, ratingBand, THREAT_STRATEGIES, OPPORTUNITY_STRATEGIES } = __m34;
 
 /**
@@ -89007,7 +89998,7 @@ function monitor(dash, pane, p) {
 return { get PANEL_RISK() { return PANEL_RISK; } };
 })();
 /* ===== src/ui/panels/procurement.js ===== */
-const __m69 = (function () {
+const __m70 = (function () {
 'use strict';
 const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
 
@@ -89071,7 +90062,7 @@ const PANEL_PROCUREMENT = {
 return { get PANEL_PROCUREMENT() { return PANEL_PROCUREMENT; } };
 })();
 /* ===== src/ui/panels/team.js ===== */
-const __m70 = (function () {
+const __m71 = (function () {
 'use strict';
 const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
 
@@ -89135,7 +90126,7 @@ const PANEL_TEAM = {
 return { get PANEL_TEAM() { return PANEL_TEAM; } };
 })();
 /* ===== src/ui/panels/stakeholders.js ===== */
-const __m71 = (function () {
+const __m72 = (function () {
 'use strict';
 const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
 
@@ -89199,7 +90190,7 @@ const PANEL_STAKEHOLDERS = {
 return { get PANEL_STAKEHOLDERS() { return PANEL_STAKEHOLDERS; } };
 })();
 /* ===== src/ui/panels/msproject.js ===== */
-const __m72 = (function () {
+const __m73 = (function () {
 'use strict';
 const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
 const { toMSPDI, toCSV } = __m41;
@@ -89265,10 +90256,10 @@ const PANEL_MSPROJECT = {
 return { get PANEL_MSPROJECT() { return PANEL_MSPROJECT; } };
 })();
 /* ===== src/ui/panels/control.js ===== */
-const __m73 = (function () {
+const __m74 = (function () {
 'use strict';
-const { el, kpi, button, table, tabs, pill, select, field, fmtPKR, fmtPct, fmtIndex, indexClass, confirmModal } = __m57;
-const { C, chartBox, legend, barChart, shortDate, money, section, card, animOnce, dl } = __m62;
+const { el, kpi, button, tabs, pill, select, field, fmtPKR, fmtPct, fmtIndex, indexClass, confirmModal } = __m57;
+const { C, chartBox, legend, barChart, shortDate, money, section, card, animOnce, dl, table } = __m59;
 const { CCB_MEMBERS, tallyVotes } = __m38;
 
 /**
@@ -89500,10 +90491,10 @@ function close(dash, pane, p) {
 return { get PANEL_CONTROL() { return PANEL_CONTROL; } };
 })();
 /* ===== src/ui/panels/forecast.js ===== */
-const __m74 = (function () {
+const __m75 = (function () {
 'use strict';
-const { el, kpi, button, table, select, toggle, bar, fmtPKR, fmtPct } = __m57;
-const { C, chartBox, legend, histogramChart, lineChart, tornadoChart, dayTicks, shortDate, money, section, card, animOnce, dl } = __m62;
+const { el, kpi, button, select, toggle, bar, fmtPKR, fmtPct } = __m57;
+const { C, chartBox, legend, histogramChart, lineChart, tornadoChart, dayTicks, shortDate, money, section, card, animOnce, dl, table } = __m59;
 const { createMonteCarloWorker, createMonteCarlo } = __m40;
 const { inverseNormal } = __m32;
 
@@ -89705,7 +90696,7 @@ const PANEL_FORECAST = {
 return { get PANEL_FORECAST() { return PANEL_FORECAST; } };
 })();
 /* ===== src/ui/panels/agile.js ===== */
-const __m75 = (function () {
+const __m76 = (function () {
 'use strict';
 const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
 
@@ -89769,7 +90760,7 @@ const PANEL_AGILE = {
 return { get PANEL_AGILE() { return PANEL_AGILE; } };
 })();
 /* ===== src/ui/panels/aipm.js ===== */
-const __m76 = (function () {
+const __m77 = (function () {
 'use strict';
 const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
 
@@ -89833,7 +90824,7 @@ const PANEL_AIPM = {
 return { get PANEL_AIPM() { return PANEL_AIPM; } };
 })();
 /* ===== src/ui/panels/operations.js ===== */
-const __m77 = (function () {
+const __m78 = (function () {
 'use strict';
 const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
 
@@ -89897,7 +90888,7 @@ const PANEL_OPERATIONS = {
 return { get PANEL_OPERATIONS() { return PANEL_OPERATIONS; } };
 })();
 /* ===== src/ui/panels/missions.js ===== */
-const __m78 = (function () {
+const __m79 = (function () {
 'use strict';
 const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
 
@@ -89961,7 +90952,7 @@ const PANEL_MISSIONS = {
 return { get PANEL_MISSIONS() { return PANEL_MISSIONS; } };
 })();
 /* ===== src/ui/panels/closing.js ===== */
-const __m79 = (function () {
+const __m80 = (function () {
 'use strict';
 const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
 
@@ -90025,7 +91016,7 @@ const PANEL_CLOSING = {
 return { get PANEL_CLOSING() { return PANEL_CLOSING; } };
 })();
 /* ===== src/ui/panels/cases.js ===== */
-const __m80 = (function () {
+const __m81 = (function () {
 'use strict';
 const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
 
@@ -90089,7 +91080,7 @@ const PANEL_CASES = {
 return { get PANEL_CASES() { return PANEL_CASES; } };
 })();
 /* ===== src/ui/panels/assess.js ===== */
-const __m81 = (function () {
+const __m82 = (function () {
 'use strict';
 const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
 
@@ -90153,7 +91144,7 @@ const PANEL_ASSESS = {
 return { get PANEL_ASSESS() { return PANEL_ASSESS; } };
 })();
 /* ===== src/ui/panels/present.js ===== */
-const __m82 = (function () {
+const __m83 = (function () {
 'use strict';
 const { el, kpi, button, fmtPKR, fmtPct, fmtIndex, fmtDays, indexClass, humanize } = __m57;
 
@@ -90217,7 +91208,7 @@ const PANEL_PRESENT = {
 return { get PANEL_PRESENT() { return PANEL_PRESENT; } };
 })();
 /* ===== src/ui/storage.js ===== */
-const __m84 = (function () {
+const __m85 = (function () {
 'use strict';
 /**
  * Session persistence for SKY GATEWAY HYDERABAD.
@@ -90320,12 +91311,12 @@ function describeSlot(slotOrData) {
 return { get SLOTS() { return SLOTS; }, get SLOT_LABELS() { return SLOT_LABELS; }, get storageAvailable() { return storageAvailable; }, get writeSlot() { return writeSlot; }, get readSlot() { return readSlot; }, get clearSlot() { return clearSlot; }, get describeSlot() { return describeSlot; } };
 })();
 /* ===== src/ui/panels/session.js ===== */
-const __m83 = (function () {
+const __m84 = (function () {
 'use strict';
 const { el, clear, icon, button, tabs, toggle, select, slider, field, pill, kpi, table, humanize, confirmModal, openModal, fmtPct } = __m57;
 
 
-const { SLOTS, SLOT_LABELS, storageAvailable, writeSlot, readSlot, clearSlot, describeSlot } = __m84;
+const { SLOTS, SLOT_LABELS, storageAvailable, writeSlot, readSlot, clearSlot, describeSlot } = __m85;
 
 /**
  * Session & Settings: three save slots plus the autosave, JSON export/import,
@@ -90739,30 +91730,30 @@ const __m56 = (function () {
 'use strict';
 const { el, clear, icon, t, tl, relabel, setLanguage } = __m57;
 const { PANEL_COURSE } = __m58;
-const { PANEL_FOUNDATIONS } = __m59;
-const { PANEL_LIFECYCLE } = __m60;
-const { PANEL_CHARTER } = __m61;
-const { PANEL_APPROACH } = __m63;
-const { PANEL_SCOPE } = __m64;
-const { PANEL_SCHEDULE } = __m65;
-const { PANEL_COST } = __m66;
-const { PANEL_QUALITY } = __m67;
-const { PANEL_RISK } = __m68;
-const { PANEL_PROCUREMENT } = __m69;
-const { PANEL_TEAM } = __m70;
-const { PANEL_STAKEHOLDERS } = __m71;
-const { PANEL_MSPROJECT } = __m72;
-const { PANEL_CONTROL } = __m73;
-const { PANEL_FORECAST } = __m74;
-const { PANEL_AGILE } = __m75;
-const { PANEL_AIPM } = __m76;
-const { PANEL_OPERATIONS } = __m77;
-const { PANEL_MISSIONS } = __m78;
-const { PANEL_CLOSING } = __m79;
-const { PANEL_CASES } = __m80;
-const { PANEL_ASSESS } = __m81;
-const { PANEL_PRESENT } = __m82;
-const { PANEL_SESSION } = __m83;
+const { PANEL_FOUNDATIONS } = __m61;
+const { PANEL_LIFECYCLE } = __m62;
+const { PANEL_CHARTER } = __m63;
+const { PANEL_APPROACH } = __m64;
+const { PANEL_SCOPE } = __m65;
+const { PANEL_SCHEDULE } = __m66;
+const { PANEL_COST } = __m67;
+const { PANEL_QUALITY } = __m68;
+const { PANEL_RISK } = __m69;
+const { PANEL_PROCUREMENT } = __m70;
+const { PANEL_TEAM } = __m71;
+const { PANEL_STAKEHOLDERS } = __m72;
+const { PANEL_MSPROJECT } = __m73;
+const { PANEL_CONTROL } = __m74;
+const { PANEL_FORECAST } = __m75;
+const { PANEL_AGILE } = __m76;
+const { PANEL_AIPM } = __m77;
+const { PANEL_OPERATIONS } = __m78;
+const { PANEL_MISSIONS } = __m79;
+const { PANEL_CLOSING } = __m80;
+const { PANEL_CASES } = __m81;
+const { PANEL_ASSESS } = __m82;
+const { PANEL_PRESENT } = __m83;
+const { PANEL_SESSION } = __m84;
 
 /**
  * The dashboard shell: a left rail grouped by course flow, and one panel
@@ -91183,13 +92174,13 @@ function buildTags(clos, domain, week) {
 return { get buildTags() { return buildTags; }, get GROUPS() { return GROUPS; }, get PANELS() { return PANELS; }, get Dashboard() { return Dashboard; } };
 })();
 /* ===== src/ui/hud.js ===== */
-const __m85 = (function () {
+const __m86 = (function () {
 'use strict';
 const { el, svg, clear, icon, t, tl, relabel, setLanguage, fmtPct, fmtIndex, fmtPKR, indexClass, humanize, pill, bar, button, openModal, modalCount, closeTopModal, field, select } = __m57;
 
 
 
-const { KEY_BINDINGS } = __m83;
+const { KEY_BINDINGS } = __m84;
 const { RUNWAY } = __m15;
 
 /**
@@ -92408,7 +93399,7 @@ class HUD {
 return { get SPEEDS() { return SPEEDS; }, get MODES() { return MODES; }, get HUD() { return HUD; } };
 })();
 /* ===== src/ui/tour.js ===== */
-const __m86 = (function () {
+const __m87 = (function () {
 'use strict';
 const { MASTERPLAN, RUNWAY } = __m15;
 const { fact, hasFact } = __m52;
@@ -92833,7 +93824,7 @@ class TourDirector {
 return { get TOUR_BEATS() { return TOUR_BEATS; }, get TourDirector() { return TourDirector; } };
 })();
 /* ===== src/ui/touch.js ===== */
-const __m87 = (function () {
+const __m88 = (function () {
 'use strict';
 const { el, icon } = __m57;
 
@@ -93041,7 +94032,7 @@ class TouchControls {
 return { get TouchControls() { return TouchControls; } };
 })();
 /* ===== src/ui/chat.js ===== */
-const __m88 = (function () {
+const __m89 = (function () {
 'use strict';
 const { el, svg, clear } = __m57;
 const { MODELS, hasKey, setKey, clearKey } = __m54;
@@ -93712,7 +94703,7 @@ class ChatPanel {
 return { get markdownToHtml() { return markdownToHtml; }, get avatar() { return avatar; }, get ChatPanel() { return ChatPanel; } };
 })();
 /* ===== src/ui/onboarding.js ===== */
-const __m89 = (function () {
+const __m90 = (function () {
 'use strict';
 const { el, clear, icon, t, button, field } = __m57;
 
@@ -94025,12 +95016,12 @@ const { runMonteCarlo } = __m40;
 const { GameDirector } = __m42;
 const { Mehran } = __m46;
 const { Dashboard } = __m56;
-const { HUD } = __m85;
-const { TourDirector } = __m86;
-const { TouchControls } = __m87;
-const { ChatPanel } = __m88;
-const { Onboarding } = __m89;
-const { writeSlot, readSlot } = __m84;
+const { HUD } = __m86;
+const { TourDirector } = __m87;
+const { TouchControls } = __m88;
+const { ChatPanel } = __m89;
+const { Onboarding } = __m90;
+const { writeSlot, readSlot } = __m85;
 
 /**
  * SKY GATEWAY HYDERABAD — Project Management Simulator.

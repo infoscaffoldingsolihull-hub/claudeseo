@@ -29,7 +29,7 @@ const THREE_PATH = resolve(ROOT, 'assets/vendor/three.module.js');
 const args = process.argv.slice(2);
 const outIdx = args.indexOf('--out');
 const OUT = outIdx !== -1 ? resolve(args[outIdx + 1]) : resolve(ROOT, 'dist/Hyderabad_Airport_PM_Simulator.html');
-const CSS_FILES = ['src/styles/main.css', 'src/styles/panels.css', 'src/styles/hud.css', 'src/styles/chat.css'];
+const CSS_FILES = ['src/styles/main.css', 'src/styles/panels.css', 'src/styles/panels2.css', 'src/styles/hud.css', 'src/styles/chat.css'];
 
 const IMPORT_RE = /^import\s+(\*\s+as\s+\w+|\{[\s\S]*?\}|\w+)\s+from\s+['"]([^'"]+)['"](\s+(?:with|assert)\s*\{[^}]*\})?\s*;?[ \t]*$/gm;
 const EXPORT_DECL_RE = /^export\s+(const|let|var|function\*?|async\s+function|class)\s+([A-Za-z_$][\w$]*)/gm;
